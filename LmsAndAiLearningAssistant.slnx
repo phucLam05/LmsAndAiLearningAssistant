@@ -1,1 +1,6 @@
-<Solution />
+<Solution>
+  <Project Path="BAL/BAL.csproj" />
+  <Project Path="Core/Core.csproj" />
+  <Project Path="DAL/DAL.csproj" />
+  <Project Path="PL/PL.csproj" />
+</Solution>
