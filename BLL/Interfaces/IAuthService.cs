@@ -15,13 +15,13 @@ namespace BLL.Interfaces
         /// </summary>
         /// <param name="registerDto">The registration data.</param>
         /// <returns>A tuple containing a boolean success flag and an error message if any.</returns>
-        Task<(bool Success, string ErrorMessage)> RegisterAsync(RegisterDTO registerDto);
+        Task<(bool Success, string ErrorMessage)> RegisterAsync(RegisterDto registerDto);
 
         /// <summary>
         /// Authenticates a user based on login credentials.
         /// </summary>
         /// <param name="loginDto">The login data.</param>
         /// <returns>The authenticated user if successful, otherwise null.</returns>
-        Task<User?> LoginAsync(LoginDTO loginDto);
+        Task<User?> LoginAsync(LoginDto loginDto);
     }
 }

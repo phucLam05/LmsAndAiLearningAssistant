@@ -18,6 +18,11 @@ namespace DAL.Data
         /// Represents the Users table in the database.
         /// </summary>
         public DbSet<User> Users { get; set; }
+        public DbSet<Folder> Folders { get; set; }
+        public DbSet<Document> Documents { get; set; }
+        public DbSet<DocumentTag> DocumentTags { get; set; }
+        public DbSet<DocumentTagMapping> DocumentTagMappings { get; set; }
+        public DbSet<DocumentChunk> DocumentChunks { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -48,6 +53,130 @@ namespace DAL.Data
 
                 entity.Property(e => e.CreatedAt)
                     .HasDefaultValueSql("NOW()"); // PostgreSQL specific current timestamp
+            });
+
+            modelBuilder.Entity<Folder>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+
+                entity.Property(e => e.Name)
+                    .IsRequired()
+                    .HasMaxLength(200);
+
+                entity.Property(e => e.Icon)
+                    .HasMaxLength(100);
+
+                entity.Property(e => e.Color)
+                    .HasMaxLength(50);
+
+                entity.Property(e => e.CreatedAt)
+                    .HasDefaultValueSql("NOW()");
+
+                entity.Property(e => e.UpdatedAt)
+                    .HasDefaultValueSql("NOW()");
+
+                entity.HasOne(e => e.User)
+                    .WithMany()
+                    .HasForeignKey(e => e.UserId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(e => e.ParentFolder)
+                    .WithMany(e => e.SubFolders)
+                    .HasForeignKey(e => e.ParentFolderId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            modelBuilder.Entity<Document>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+
+                entity.Property(e => e.Title)
+                    .IsRequired()
+                    .HasMaxLength(255);
+
+                entity.Property(e => e.OriginalFileName)
+                    .IsRequired()
+                    .HasMaxLength(255);
+
+                entity.Property(e => e.StorageUrl)
+                    .IsRequired();
+
+                entity.Property(e => e.MimeType)
+                    .IsRequired()
+                    .HasMaxLength(100);
+
+                entity.Property(e => e.ProcessingStatus)
+                    .HasConversion<int>();
+
+                entity.Property(e => e.UploadedAt)
+                    .HasDefaultValueSql("NOW()");
+
+                entity.Property(e => e.UpdatedAt)
+                    .HasDefaultValueSql("NOW()");
+
+                entity.HasOne(e => e.User)
+                    .WithMany()
+                    .HasForeignKey(e => e.UserId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(e => e.Folder)
+                    .WithMany(e => e.Documents)
+                    .HasForeignKey(e => e.FolderId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<DocumentTag>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+
+                entity.Property(e => e.Name)
+                    .IsRequired()
+                    .HasMaxLength(100);
+
+                entity.Property(e => e.Color)
+                    .HasMaxLength(50);
+
+                entity.Property(e => e.CreatedAt)
+                    .HasDefaultValueSql("NOW()");
+
+                entity.HasOne(e => e.User)
+                    .WithMany()
+                    .HasForeignKey(e => e.UserId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<DocumentTagMapping>(entity =>
+            {
+                entity.HasKey(e => new { e.DocumentId, e.TagId });
+
+                entity.HasOne(e => e.Document)
+                    .WithMany(e => e.TagMappings)
+                    .HasForeignKey(e => e.DocumentId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(e => e.Tag)
+                    .WithMany(e => e.TagMappings)
+                    .HasForeignKey(e => e.TagId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<DocumentChunk>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+
+                entity.Property(e => e.Content)
+                    .IsRequired();
+
+                entity.Property(e => e.Embedding)
+                    .HasColumnType("real[]");
+
+                entity.Property(e => e.CreatedAt)
+                    .HasDefaultValueSql("NOW()");
+
+                entity.HasOne(e => e.Document)
+                    .WithMany(e => e.Chunks)
+                    .HasForeignKey(e => e.DocumentId)
+                    .OnDelete(DeleteBehavior.Cascade);
             });
         }
     }

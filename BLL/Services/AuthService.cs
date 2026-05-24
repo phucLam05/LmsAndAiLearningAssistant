@@ -30,7 +30,7 @@ namespace BLL.Services
             }
         }
 
-        public async Task<(bool Success, string ErrorMessage)> RegisterAsync(RegisterDTO registerDto)
+        public async Task<(bool Success, string ErrorMessage)> RegisterAsync(RegisterDto registerDto)
         {
             // 1. Normalize email
             var normalizedEmail = registerDto.Email.Trim().ToLowerInvariant();
@@ -85,7 +85,7 @@ namespace BLL.Services
             return (true, string.Empty);
         }
 
-        public async Task<User?> LoginAsync(LoginDTO loginDto)
+        public async Task<User?> LoginAsync(LoginDto loginDto)
         {
             var normalizedEmail = loginDto.Email.Trim().ToLowerInvariant();
             var emailHash = HashEmail(normalizedEmail);

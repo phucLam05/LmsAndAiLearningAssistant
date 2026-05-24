@@ -6,7 +6,7 @@ namespace Core.DTOs.Auth
     /// Data Transfer Object for user registration.
     /// Carries user input from the Presentation Layer to the Business Access Layer.
     /// </summary>
-    public class RegisterDTO
+    public class RegisterDto
     {
         /// <summary>
         /// User's email address.

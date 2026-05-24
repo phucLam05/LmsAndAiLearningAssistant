@@ -41,7 +41,7 @@ namespace PL.Controllers
                 return View(model);
             }
 
-            var registerDto = new RegisterDTO
+            var registerDto = new RegisterDto
             {
                 Email = model.Email,
                 Password = model.Password,
@@ -83,7 +83,7 @@ namespace PL.Controllers
                 return View(model);
             }
 
-            var loginDto = new LoginDTO
+            var loginDto = new LoginDto
             {
                 Email = model.Email,
                 Password = model.Password
