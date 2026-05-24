@@ -6,7 +6,7 @@ This solution is organized as a three-layer MVC architecture:
 - **BLL** (Business Logic Layer): Class library (`net10.0`) for services (Authentication, Business Logic, Encryption).
 - **DAL** (Data Access Layer): Class library (`net10.0`) for repositories and database context (`Entity Framework Core`).
 - **Core**: Shared models/contracts and Data Transfer Objects (`net10.0`).
-- 
+
 ## Project References
 - **PL** references **BLL** and **Core**.
 - **BLL** references **DAL** and **Core**.

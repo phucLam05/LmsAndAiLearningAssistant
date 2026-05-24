@@ -363,3 +363,6 @@ MigrationBackup/
 FodyWeavers.xsd
 /PL/appsettings.json
 /PL/appsettings.Development.json
+
+# Entity Framework Migrations
+/DAL/Miggrations/

@@ -1,3 +1,11 @@
+using BLL.Interfaces;
+using BLL.Services;
+using DAL.Data;
+using DAL.Interfaces;
+using DAL.Repositories;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.EntityFrameworkCore;
+
 namespace PL
 {
     public class Program
@@ -8,6 +16,17 @@ namespace PL
 
             // Add services to the container.
             builder.Services.AddControllersWithViews();
+            builder.Services.AddDbContext<DAL.Data.ApplicationDbContext>(options =>
+                options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+            builder.Services.AddScoped<DAL.Interfaces.IUserRepository, DAL.Repositories.UserRepository>();
+            builder.Services.AddScoped<BLL.Interfaces.IAuthService, BLL.Services.AuthService>();
+            builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+                .AddCookie(options =>
+                {
+                    options.LoginPath = "/Auth/Login";
+                    options.LogoutPath = "/Auth/Logout";
+                    options.AccessDeniedPath = "/Auth/Login";
+                });
 
             var app = builder.Build();
 
@@ -22,6 +41,7 @@ namespace PL
             app.UseHttpsRedirection();
             app.UseRouting();
 
+            app.UseAuthentication();
             app.UseAuthorization();
 
             app.MapStaticAssets();

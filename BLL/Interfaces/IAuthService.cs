@@ -2,7 +2,7 @@ using Core.DTOs.Auth;
 using Core.Entities;
 using System.Threading.Tasks;
 
-namespace BAL.Interfaces
+namespace BLL.Interfaces
 {
     /// <summary>
     /// Service interface for authentication operations.

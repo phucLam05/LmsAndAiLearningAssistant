@@ -1,4 +1,4 @@
-using BAL.Interfaces;
+using BLL.Interfaces;
 using Core.DTOs.Auth;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;

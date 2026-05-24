@@ -1,4 +1,4 @@
-using BAL.Interfaces;
+using BLL.Interfaces;
 using Core.DTOs.Auth;
 using Core.Entities;
 using DAL.Interfaces;
@@ -8,7 +8,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace BAL.Services
+namespace BLL.Services
 {
     /// <summary>
     /// Implementation of authentication operations.
