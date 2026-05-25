@@ -17,7 +17,7 @@ namespace PL
             // Add services to the container.
             builder.Services.AddControllersWithViews();
             builder.Services.AddDbContext<DAL.Data.ApplicationDbContext>(options =>
-                options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+                options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"), o => o.UseVector()));
             builder.Services.AddScoped<DAL.Interfaces.IUserRepository, DAL.Repositories.UserRepository>();
             builder.Services.AddScoped<BLL.Interfaces.IAuthService, BLL.Services.AuthService>();
             builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)

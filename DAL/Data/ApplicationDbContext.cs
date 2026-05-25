@@ -28,6 +28,8 @@ namespace DAL.Data
         {
             base.OnModelCreating(modelBuilder);
 
+            modelBuilder.HasPostgresExtension("vector");
+
             // Configure User entity
             modelBuilder.Entity<User>(entity =>
             {
@@ -168,7 +170,7 @@ namespace DAL.Data
                     .IsRequired();
 
                 entity.Property(e => e.Embedding)
-                    .HasColumnType("vector(1536)");
+                    .HasColumnType("vector(768)");
 
                 entity.Property(e => e.CreatedAt)
                     .HasDefaultValueSql("NOW()");

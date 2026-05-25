@@ -1,4 +1,5 @@
 using System;
+using Pgvector;
 
 namespace Core.Entities
 {
@@ -40,7 +41,7 @@ namespace Core.Entities
         /// <summary>
         /// Embedding vector for similarity search.
         /// </summary>
-        public float[] Embedding { get; set; } = Array.Empty<float>();
+        public Vector? Embedding { get; set; }
 
         /// <summary>
         /// Date and time when the chunk was created.

@@ -1,51 +1,47 @@
 # LmsAndAiLearningAssistant
 
-## Architecture
-This solution is organized as a three-layer MVC architecture:
-- **PL** (Presentation Layer): ASP.NET Core MVC project (`net10.0`) hosting controllers and views.
-- **BLL** (Business Logic Layer): Class library (`net10.0`) for services (Authentication, Business Logic, Encryption).
-- **DAL** (Data Access Layer): Class library (`net10.0`) for repositories and database context (`Entity Framework Core`).
-- **Core**: Shared models/contracts and Data Transfer Objects (`net10.0`).
+Welcome to the **LmsAndAiLearningAssistant** project! This repository contains a full-stack solution utilizing ASP.NET Core and Entity Framework Core, integrated with AI capabilities (Gemini LLM) and PostgreSQL `pgvector`.
 
-## Project References
-- **PL** references **BLL** and **Core**.
-- **BLL** references **DAL** and **Core**.
-- **DAL** references **Core**.
+## Solution Architecture
+This solution is organized as a multi-tier architecture to separate concerns and ensure maintainability:
+- **PL (Presentation Layer)**: ASP.NET Core MVC project hosting controllers and views.
+- **BLL (Business Logic Layer)**: Class library for services (Authentication, Business Logic, Encryption).
+- **DAL (Data Access Layer)**: Class library for repositories and database context (`Entity Framework Core`).
+- **Core**: Shared models/contracts, Data Transfer Objects, and Entities.
 
-## Folder Structure
-
-### PL
-- `Controllers/` - The intermediary between Model and View.
-- `Models/` - Data and business logic layer models (view models).
-- `Views/` - Razor views for displaying data to the user.
-- `appsettings.json` - Configuration file storing database connection strings and security keys.
-
-### BLL
-- `Interfaces/` – BLL service interfaces (e.g., `IAuthService`).
-- `Services/` – BLL service implementations (e.g., `AuthService`).
-
-### DAL
-- `Data/` - Database context (e.g., `ApplicationDbContext`).
-- `Interfaces/` – DAL repository interfaces (e.g., `IUserRepository`).
-- `Repositories/` – DAL repository implementations (e.g., `UserRepository`).
-
-### Core
-- `Entities/` - Database entities (e.g., `User`).
-- `DTOs/` - Data Transfer Objects (e.g., `RegisterDTO`, `LoginDTO`).
+## Project Structure & Documentation
+Each project contains its own `README.md` file detailing its specific responsibility and structure:
+- [PL README](PL/README.md) - Learn about the frontend, controllers, and startup configurations.
+- [BLL README](BLL/README.md) - Learn about the business logic and services.
+- [DAL README](DAL/README.md) - Learn about database context, repositories, and entity mappings.
+- [Core README](Core/README.md) - Learn about shared entities and DTOs.
 
 ## Security & Keys
 - **Encryption Key**: The system uses AES-256 for encrypting sensitive data like emails. The encryption key must be exactly 32 bytes and is stored in `PL/appsettings.json` under `Security:EncryptionKey`.
-  - *Note for Production*: In a production environment, you should move this key to a secure vault like **Azure KeyVault** or environment variables.
 - **Password Hashing**: Passwords are mathematically hashed using `BCrypt.Net-Next`.
-- **Authentication**: The system uses Cookie Authentication for the Razor Pages frontend.
+
+## Environment Setup
+### Prerequisites
+- .NET 10.0 SDK
+- PostgreSQL (running locally or accessible remotely)
+
+### Configuration
+1. Open `PL/appsettings.json`.
+2. Configure your local database credentials inside `ConnectionStrings:DefaultConnection`. Example:
+   ```json
+   "ConnectionStrings": {
+     "DefaultConnection": "Host=localhost;Port=5432;Database=yourdatabase;Username=yourusername;Password=yourpassword"
+   }
+   ```
 
 ## Database Setup & Migration
-The application uses PostgreSQL. To run this project locally, ensure you have PostgreSQL installed and running.
+The application uses PostgreSQL with the `pgvector` extension for storing and querying AI embeddings.
 
-1. Configure your local database credentials in `PL/appsettings.json` inside `ConnectionStrings:DefaultConnection`.
-2. Open a terminal in the root directory and apply migrations to create the database schema:
-
+To apply migrations and update your database schema:
+1. Open a terminal in the root directory.
+2. Run the following commands:
    ```bash
-   dotnet ef migrations add InitialCreate --project DAL\DAL.csproj --startup-project PL\PL.csproj
    dotnet ef database update --project DAL\DAL.csproj --startup-project PL\PL.csproj
    ```
+
+*Note: Ensure your PostgreSQL user has the necessary privileges to install the `vector` extension, as it is required by the `DocumentChunk` table.*
