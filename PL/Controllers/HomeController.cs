@@ -1,3 +1,4 @@
+using BLL.Services;
 using Microsoft.AspNetCore.Mvc;
 using PL.Models;
 using System.Diagnostics;
@@ -21,5 +22,12 @@ namespace PL.Controllers
         {
             return View(new ErrorViewModel { RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier });
         }
+
+        // Trong một Controller nào đó ở tầng PL...
+        // Document document = ... (Tài liệu vừa tạo xong)
+        // string textNoiDung = ... (Nội dung chữ bạn đọc được từ file PDF/Word)
+
+        //await _documentProcessorService.ProcessAndEmbedDocumentAsync(document.Id, textNoiDung);
+
     }
 }

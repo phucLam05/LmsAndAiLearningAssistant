@@ -28,6 +28,12 @@ namespace PL
                     options.AccessDeniedPath = "/Auth/Login";
                 });
 
+            // 1. Đăng ký IEmbeddingService kèm HttpClient (vì service này gọi API ngoài)
+            builder.Services.AddHttpClient<IEmbeddingService, GeminiEmbeddingService>();
+
+            // 2. Đăng ký DocumentProcessorService
+            builder.Services.AddScoped<DocumentProcessorService>();
+
             var app = builder.Build();
 
             // Configure the HTTP request pipeline.
