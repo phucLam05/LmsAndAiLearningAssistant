@@ -49,9 +49,7 @@ To apply migrations and update your database schema:
 ## AI Integration & Embeddings
 This project utilizes the Gemini API to process documents and generate **Embeddings** for semantic search.
 
-"GeminiSettings": {
-  "ApiKey": "AIzaSyDfObj38SZROkkoWgjGygEBQ5MZGnchZ14"
-  
+
 ### What are Embeddings?
 **Embedding là quá trình biến đổi văn bản (chữ) thành các mảng con số (vector).** - Thay vì so sánh từng chữ cái, AI và máy tính sẽ sử dụng các vector này để hiểu "ý nghĩa ngữ nghĩa" của đoạn văn.
 - Trong dự án này, khi có một tài liệu mới, hệ thống sẽ gọi Gemini API để băm nhỏ và mã hóa văn bản thành vector.
