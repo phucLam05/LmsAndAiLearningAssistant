@@ -4,7 +4,7 @@ The `DAL` project is a class library responsible for all database interactions.
 
 ## Responsibilities
 - **Database Context**: Contains the `ApplicationDbContext` which inherits from `DbContext` (Entity Framework Core). This file defines the tables and relationships (using Fluent API).
-- **Repositories**: Implements the Repository pattern. Repositories abstract the data source so that the Business Logic Layer doesn't need to know whether the data comes from a database or an API.
+- **Repositories**: Implements the Repository pattern. Repositories abstract the data source so that the Business Logic Layer doesn't need to know whether the data comes from a database or an API. Includes `DocumentRepository` for managing documents and bulk-inserting chunks.
 - **Interfaces**: Contracts for the repositories to ensure loose coupling.
 - **Migrations**: Stores EF Core migration scripts that track changes to the database schema over time.
 

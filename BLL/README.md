@@ -9,6 +9,7 @@ The `BLL` project is a class library that contains all the core business logic o
 
 ## Key Components
 - `AuthService`: Handles user authentication, password hashing using `BCrypt.Net-Next`, and email encryption logic.
+- `ChunkingService`: Processes documents asynchronously into textual chunks for later vector embedding, designed to be executed via background jobs. Automatically parses PDF (`UglyToad.PdfPig`), DOCX, and PPTX (`DocumentFormat.OpenXml`) files downloaded from Supabase.
 
 ## Usage
 - The Presentation Layer depends on the BLL.

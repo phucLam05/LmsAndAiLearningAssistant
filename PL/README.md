@@ -10,8 +10,11 @@ The `PL` project is an ASP.NET Core 10.0 MVC application. It serves as the main 
 - **Dependency Injection**: Wires up services from the BLL and repositories from the DAL in `Program.cs`.
 
 ## Key Files
-- `Program.cs`: Application startup, DI container registration, middleware pipeline configuration.
+- `Program.cs`: Application startup, DI container registration, middleware pipeline configuration, and Hangfire setup for background jobs.
 - `appsettings.json`: Stores configuration variables such as `ConnectionStrings:DefaultConnection` and `Security:EncryptionKey`.
+
+## Background Jobs (Hangfire)
+- The Presentation Layer integrates **Hangfire** backed by PostgreSQL to process long-running tasks asynchronously (like document chunking). The Hangfire dashboard is mapped to `/hangfire`.
 
 ## Getting Started
 To run this project:
