@@ -22,7 +22,7 @@
             <label class="upload-dropzone" for="File">
                 <span class="upload-drop-icon" aria-hidden="true">+</span>
                 <span class="upload-drop-title">Choose a source file</span>
-                <span class="upload-drop-copy">Documents, slides, sheets, images, audio, video, and archives. Maximum size 50MB.</span>
+                <span class="upload-drop-copy">Documents, slides, sheets, and text files. Maximum size 50MB.</span>
                 <input asp-for="File" type="file" class="visually-hidden" accept="@acceptedFileTypes" />
             </label>
             <span asp-validation-for="File" class="text-danger"></span>
