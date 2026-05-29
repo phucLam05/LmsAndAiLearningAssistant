@@ -1,4 +1,4 @@
-# LmsAndAiLearningAssistant
+﻿# LmsAndAiLearningAssistant
 
 Welcome to the **LmsAndAiLearningAssistant** project! This repository contains a full-stack solution utilizing ASP.NET Core and Entity Framework Core, integrated with AI capabilities (Gemini LLM) and PostgreSQL `pgvector`.
 
@@ -53,7 +53,29 @@ Uploaded learning documents are stored in Supabase Storage, while only metadata 
 1. Create a Supabase Storage bucket named `documents`.
 2. Keep the bucket private. Do not make it public.
 3. Configure the bucket upload limit to 50MB.
-4. Allow these MIME types:
+4. Allow these common file families in the bucket policy when Supabase asks for MIME restrictions:
+   ```text
+   application/pdf
+   application/msword
+   application/vnd.openxmlformats-officedocument.wordprocessingml.document
+   application/vnd.ms-powerpoint
+   application/vnd.openxmlformats-officedocument.presentationml.presentation
+   application/vnd.ms-excel
+   application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+   text/plain
+   text/csv
+   image/jpeg
+   image/png
+   image/gif
+   image/webp
+   audio/mpeg
+   audio/wav
+   video/mp4
+   video/quicktime
+   application/zip
+   application/vnd.rar
+   application/x-7z-compressed
+   application/octet-stream
    ```text
    application/pdf
    application/vnd.openxmlformats-officedocument.wordprocessingml.document
@@ -65,7 +87,7 @@ Do not commit real keys. Configure these values in `PL/appsettings.json`, `PL/ap
 
 ```json
 "Supabase": {
-  "Url": "YOUR_SUPABASE_URL",
+  "Url": "https://YOUR_PROJECT_REF.supabase.co",
   "ServiceRoleKey": "YOUR_SUPABASE_SERVICE_ROLE_KEY",
   "Bucket": "documents"
 }
@@ -76,7 +98,7 @@ The service role key is used only by backend services. It must never be exposed 
 ### Upload Flow
 1. Log in to the MVC application.
 2. Open `/Document`.
-3. Choose a PDF, DOCX, or PPTX file on `/Document/Upload`.
+3. Choose a supported source file on `/Document/Upload`.
 4. Submit the form.
 5. The original file is uploaded to the private Supabase `documents` bucket using a GUID-based storage filename.
 6. Metadata is saved to the `Documents` table with initial status `uploaded`.
@@ -88,6 +110,7 @@ This project utilizes the Gemini API to process documents and generate **Embeddi
 
   
 ### What are Embeddings?
-**Embedding là quá trình biến đổi văn bản (chữ) thành các mảng con số (vector).** - Thay vì so sánh từng chữ cái, AI và máy tính sẽ sử dụng các vector này để hiểu "ý nghĩa ngữ nghĩa" của đoạn văn.
-- Trong dự án này, khi có một tài liệu mới, hệ thống sẽ gọi Gemini API để băm nhỏ và mã hóa văn bản thành vector.
-- Sau đó, chúng ta lưu trữ các vector này vào database PostgreSQL thông qua extension `pgvector` để phục vụ cho các tính năng tìm kiếm thông minh sau này.
+**Embedding lÃ  quÃ¡ trÃ¬nh biáº¿n Ä‘á»•i vÄƒn báº£n (chá»¯) thÃ nh cÃ¡c máº£ng con sá»‘ (vector).** - Thay vÃ¬ so sÃ¡nh tá»«ng chá»¯ cÃ¡i, AI vÃ  mÃ¡y tÃ­nh sáº½ sá»­ dá»¥ng cÃ¡c vector nÃ y Ä‘á»ƒ hiá»ƒu "Ã½ nghÄ©a ngá»¯ nghÄ©a" cá»§a Ä‘oáº¡n vÄƒn.
+- Trong dá»± Ã¡n nÃ y, khi cÃ³ má»™t tÃ i liá»‡u má»›i, há»‡ thá»‘ng sáº½ gá»i Gemini API Ä‘á»ƒ bÄƒm nhá» vÃ  mÃ£ hÃ³a vÄƒn báº£n thÃ nh vector.
+- Sau Ä‘Ã³, chÃºng ta lÆ°u trá»¯ cÃ¡c vector nÃ y vÃ o database PostgreSQL thÃ´ng qua extension `pgvector` Ä‘á»ƒ phá»¥c vá»¥ cho cÃ¡c tÃ­nh nÄƒng tÃ¬m kiáº¿m thÃ´ng minh sau nÃ y.
+

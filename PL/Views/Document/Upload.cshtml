@@ -1,14 +1,15 @@
 ﻿@model PL.Models.Documents.DocumentUploadViewModel
 
 @{
-    ViewData["Title"] = "Upload Document";
+    ViewData["Title"] = "Upload File";
+    const string acceptedFileTypes = ".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.csv,.md,.rtf,.json,.xml,.jpg,.jpeg,.png,.gif,.webp,.bmp,.svg,.mp3,.wav,.mp4,.mov,.avi,.mkv,.webm,.zip,.rar,.7z,.tar,.gz";
 }
 
 <section class="upload-shell">
     <div class="upload-header">
         <div>
             <div class="document-eyebrow">Add source</div>
-            <h1 class="document-title">Upload document</h1>
+            <h1 class="document-title">Upload file</h1>
         </div>
         <a class="btn btn-outline-secondary" asp-controller="Document" asp-action="Index">Back to documents</a>
     </div>
@@ -20,9 +21,9 @@
 
             <label class="upload-dropzone" for="File">
                 <span class="upload-drop-icon" aria-hidden="true">+</span>
-                <span class="upload-drop-title">Choose a learning document</span>
-                <span class="upload-drop-copy">PDF, DOCX, or PPTX. Maximum size 50MB.</span>
-                <input asp-for="File" type="file" class="visually-hidden" accept=".pdf,.docx,.pptx" />
+                <span class="upload-drop-title">Choose a source file</span>
+                <span class="upload-drop-copy">Documents, slides, sheets, images, audio, video, and archives. Maximum size 50MB.</span>
+                <input asp-for="File" type="file" class="visually-hidden" accept="@acceptedFileTypes" />
             </label>
             <span asp-validation-for="File" class="text-danger"></span>
 
@@ -41,10 +42,10 @@
             <h2>Upload checklist</h2>
             <ul>
                 <li>Stored in private Supabase bucket <strong>documents</strong>.</li>
-                <li>Original file is not stored in the database.</li>
+                <li>Original file content is not stored in the database.</li>
                 <li>Storage filename uses a GUID to avoid collisions.</li>
                 <li>Metadata starts with status <strong>uploaded</strong>.</li>
-                <li>Later steps can extract pages, chunks, embeddings, and search vectors.</li>
+                <li>Document-like files can later be extracted, chunked, embedded, and searched.</li>
             </ul>
         </aside>
     </div>

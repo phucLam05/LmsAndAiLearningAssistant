@@ -9,18 +9,26 @@ using PL.Models.Documents;
 namespace PL.Controllers
 {
     /// <summary>
-    /// Handles MVC requests for listing, uploading, and deleting the current user's documents.
+    /// Handles MVC requests for listing, uploading, and deleting the current user's files.
     /// </summary>
     [Authorize]
     public class DocumentController : Controller
     {
+        private const long MaxUploadSize = 50L * 1024L * 1024L;
+
         private readonly IDocumentService _documentService;
 
+        /// <summary>
+        /// Creates a document controller that delegates upload and metadata behavior to the BLL service.
+        /// </summary>
         public DocumentController(IDocumentService documentService)
         {
             _documentService = documentService;
         }
 
+        /// <summary>
+        /// Shows only the current user's uploaded files.
+        /// </summary>
         [HttpGet]
         public async Task<IActionResult> Index()
         {
@@ -38,16 +46,22 @@ namespace PL.Controllers
             return View(model);
         }
 
+        /// <summary>
+        /// Shows the upload form.
+        /// </summary>
         [HttpGet]
         public IActionResult Upload()
         {
             return View(new DocumentUploadViewModel());
         }
 
+        /// <summary>
+        /// Receives the uploaded file and passes its stream to the BLL service for validation and storage.
+        /// </summary>
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [RequestSizeLimit(50L * 1024L * 1024L)]
-        [RequestFormLimits(MultipartBodyLengthLimit = 50L * 1024L * 1024L)]
+        [RequestSizeLimit(MaxUploadSize)]
+        [RequestFormLimits(MultipartBodyLengthLimit = MaxUploadSize)]
         public async Task<IActionResult> Upload(DocumentUploadViewModel model)
         {
             var userId = GetCurrentUserId();
@@ -78,10 +92,13 @@ namespace PL.Controllers
                 return View(model);
             }
 
-            TempData["SuccessMessage"] = "Document uploaded successfully.";
+            TempData["SuccessMessage"] = "File uploaded successfully.";
             return RedirectToAction(nameof(Index));
         }
 
+        /// <summary>
+        /// Deletes a file only when the metadata record belongs to the current user.
+        /// </summary>
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Delete(Guid id)
@@ -94,11 +111,14 @@ namespace PL.Controllers
 
             var result = await _documentService.DeleteAsync(id, userId.Value);
             TempData[result.Success ? "SuccessMessage" : "ErrorMessage"] =
-                result.Success ? "Document deleted successfully." : result.ErrorMessage;
+                result.Success ? "File deleted successfully." : result.ErrorMessage;
 
             return RedirectToAction(nameof(Index));
         }
 
+        /// <summary>
+        /// Reads the authenticated user's Guid from the auth cookie claim.
+        /// </summary>
         private Guid? GetCurrentUserId()
         {
             var value = User.FindFirstValue(ClaimTypes.NameIdentifier);

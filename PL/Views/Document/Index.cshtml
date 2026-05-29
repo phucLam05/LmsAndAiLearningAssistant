@@ -42,8 +42,8 @@
             <a class="source-upload-tile" asp-controller="Document" asp-action="Upload">
                 <span class="source-upload-icon" aria-hidden="true">+</span>
                 <span>
-                    <strong>Add PDF, DOCX, or PPTX</strong>
-                    <small>Private Supabase storage, 50MB max</small>
+                    <strong>Add files</strong>
+                    <small>Docs, media, archives - 50MB max</small>
                 </span>
             </a>
 
@@ -80,7 +80,7 @@
                 <div class="empty-source-state">
                     <div class="empty-source-icon" aria-hidden="true">DOC</div>
                     <h3>No sources yet</h3>
-                    <p>Upload a PDF, DOCX, or PPTX file to create the first document record.</p>
+                    <p>Upload a document, media file, image, or archive to create the first source record.</p>
                     <a class="btn btn-primary" asp-controller="Document" asp-action="Upload">Upload document</a>
                 </div>
             }
@@ -112,7 +112,7 @@
                             </div>
                             <form asp-controller="Document" asp-action="Delete" asp-route-id="@document.Id" method="post" class="source-actions">
                                 @Html.AntiForgeryToken()
-                                <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Delete this document from Supabase Storage and metadata?');">Delete</button>
+                                <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Delete this file from Supabase Storage and metadata?');">Delete</button>
                             </form>
                         </article>
                     }
