@@ -46,6 +46,43 @@ To apply migrations and update your database schema:
 
 *Note: Ensure your PostgreSQL user has the necessary privileges to install the `vector` extension, as it is required by the `DocumentChunk` table.*
 
+## Document Upload With Supabase Storage
+Uploaded learning documents are stored in Supabase Storage, while only metadata is stored in the application database.
+
+### Supabase Bucket
+1. Create a Supabase Storage bucket named `documents`.
+2. Keep the bucket private. Do not make it public.
+3. Configure the bucket upload limit to 50MB.
+4. Allow these MIME types:
+   ```text
+   application/pdf
+   application/vnd.openxmlformats-officedocument.wordprocessingml.document
+   application/vnd.openxmlformats-officedocument.presentationml.presentation
+   ```
+
+### Supabase Configuration
+Do not commit real keys. Configure these values in `PL/appsettings.json`, `PL/appsettings.Development.json`, or environment variables:
+
+```json
+"Supabase": {
+  "Url": "YOUR_SUPABASE_URL",
+  "ServiceRoleKey": "YOUR_SUPABASE_SERVICE_ROLE_KEY",
+  "Bucket": "documents"
+}
+```
+
+The service role key is used only by backend services. It must never be exposed in views, JavaScript, or client-side code.
+
+### Upload Flow
+1. Log in to the MVC application.
+2. Open `/Document`.
+3. Choose a PDF, DOCX, or PPTX file on `/Document/Upload`.
+4. Submit the form.
+5. The original file is uploaded to the private Supabase `documents` bucket using a GUID-based storage filename.
+6. Metadata is saved to the `Documents` table with initial status `uploaded`.
+
+If the Supabase upload succeeds but database save fails, the backend attempts to delete the uploaded object to avoid orphan files.
+
 ## AI Integration & Embeddings
 This project utilizes the Gemini API to process documents and generate **Embeddings** for semantic search.
 

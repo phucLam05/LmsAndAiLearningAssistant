@@ -100,6 +100,14 @@ namespace DAL.Data
                     .IsRequired()
                     .HasMaxLength(255);
 
+                entity.Property(e => e.StoredFileName)
+                    .IsRequired()
+                    .HasMaxLength(255);
+
+                entity.Property(e => e.StoragePath)
+                    .IsRequired()
+                    .HasMaxLength(500);
+
                 entity.Property(e => e.StorageUrl)
                     .IsRequired();
 
@@ -107,10 +115,21 @@ namespace DAL.Data
                     .IsRequired()
                     .HasMaxLength(100);
 
+                entity.Property(e => e.FileType)
+                    .IsRequired()
+                    .HasMaxLength(20);
+
+                entity.Property(e => e.Status)
+                    .IsRequired()
+                    .HasMaxLength(32);
+
                 entity.Property(e => e.ProcessingStatus)
                     .HasConversion<int>();
 
                 entity.Property(e => e.UploadedAt)
+                    .HasDefaultValueSql("NOW()");
+
+                entity.Property(e => e.CreatedAt)
                     .HasDefaultValueSql("NOW()");
 
                 entity.Property(e => e.UpdatedAt)
@@ -180,6 +199,7 @@ namespace DAL.Data
                     .HasForeignKey(e => e.DocumentId)
                     .OnDelete(DeleteBehavior.Cascade);
             });
+
         }
     }
 }

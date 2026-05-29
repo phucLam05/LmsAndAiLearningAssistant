@@ -1,0 +1,123 @@
+﻿@model PL.Models.Documents.DocumentIndexViewModel
+
+@{
+    ViewData["Title"] = "Documents";
+    var totalFiles = Model.Documents.Count;
+    var totalSize = Model.Documents.Sum(document => document.FileSize);
+    var indexedFiles = Model.Documents.Count(document => string.Equals(document.Status, "indexed", StringComparison.OrdinalIgnoreCase));
+    var uploadedFiles = Model.Documents.Count(document => string.Equals(document.Status, "uploaded", StringComparison.OrdinalIgnoreCase));
+}
+
+@if (TempData["SuccessMessage"] is string successMessage)
+{
+    <div class="alert alert-success document-alert">@successMessage</div>
+}
+
+@if (TempData["ErrorMessage"] is string errorMessage)
+{
+    <div class="alert alert-danger document-alert">@errorMessage</div>
+}
+
+<section class="document-shell">
+    <div class="document-toolbar">
+        <div>
+            <div class="document-eyebrow">Learning sources</div>
+            <h1 class="document-title">Documents</h1>
+        </div>
+        <a class="btn btn-primary document-primary-action" asp-controller="Document" asp-action="Upload">
+            <span aria-hidden="true">+</span>
+            Upload source
+        </a>
+    </div>
+
+    <div class="document-grid">
+        <aside class="document-panel document-source-panel">
+            <div class="source-panel-header">
+                <div>
+                    <div class="source-panel-title">Sources</div>
+                    <div class="source-panel-subtitle">@totalFiles document@(totalFiles == 1 ? "" : "s") ready for the RAG pipeline</div>
+                </div>
+            </div>
+
+            <a class="source-upload-tile" asp-controller="Document" asp-action="Upload">
+                <span class="source-upload-icon" aria-hidden="true">+</span>
+                <span>
+                    <strong>Add PDF, DOCX, or PPTX</strong>
+                    <small>Private Supabase storage, 50MB max</small>
+                </span>
+            </a>
+
+            <div class="source-stats">
+                <div>
+                    <span>@totalFiles</span>
+                    <small>Total files</small>
+                </div>
+                <div>
+                    <span>@((totalSize / 1024d / 1024d).ToString("0.##")) MB</span>
+                    <small>Stored</small>
+                </div>
+                <div>
+                    <span>@uploadedFiles</span>
+                    <small>Uploaded</small>
+                </div>
+                <div>
+                    <span>@indexedFiles</span>
+                    <small>Indexed</small>
+                </div>
+            </div>
+        </aside>
+
+        <section class="document-panel document-list-panel">
+            <div class="document-list-header">
+                <div>
+                    <h2>Source library</h2>
+                    <p>Files uploaded here become the input for extraction, chunking, embedding, and chatbot answers.</p>
+                </div>
+            </div>
+
+            @if (!Model.Documents.Any())
+            {
+                <div class="empty-source-state">
+                    <div class="empty-source-icon" aria-hidden="true">DOC</div>
+                    <h3>No sources yet</h3>
+                    <p>Upload a PDF, DOCX, or PPTX file to create the first document record.</p>
+                    <a class="btn btn-primary" asp-controller="Document" asp-action="Upload">Upload document</a>
+                </div>
+            }
+            else
+            {
+                <div class="source-list">
+                    @foreach (var document in Model.Documents)
+                    {
+                        var statusClass = document.Status?.ToLowerInvariant() switch
+                        {
+                            "indexed" => "status-indexed",
+                            "processing" => "status-processing",
+                            "failed" => "status-failed",
+                            _ => "status-uploaded"
+                        };
+
+                        <article class="source-row">
+                            <div class="source-file-mark">@document.FileType.ToUpperInvariant()</div>
+                            <div class="source-row-main">
+                                <div class="source-row-top">
+                                    <h3>@document.OriginalFileName</h3>
+                                    <span class="source-status @statusClass">@document.Status</span>
+                                </div>
+                                <div class="source-meta">
+                                    <span>@((document.FileSize / 1024d / 1024d).ToString("0.##")) MB</span>
+                                    <span>@document.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</span>
+                                    <span>@document.StoragePath</span>
+                                </div>
+                            </div>
+                            <form asp-controller="Document" asp-action="Delete" asp-route-id="@document.Id" method="post" class="source-actions">
+                                @Html.AntiForgeryToken()
+                                <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Delete this document from Supabase Storage and metadata?');">Delete</button>
+                            </form>
+                        </article>
+                    }
+                </div>
+            }
+        </section>
+    </div>
+</section>

@@ -19,7 +19,11 @@ namespace PL
             builder.Services.AddDbContext<DAL.Data.ApplicationDbContext>(options =>
                 options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"), o => o.UseVector()));
             builder.Services.AddScoped<DAL.Interfaces.IUserRepository, DAL.Repositories.UserRepository>();
+            builder.Services.AddScoped<DAL.Interfaces.IDocumentRepository, DAL.Repositories.DocumentRepository>();
+            builder.Services.AddScoped<DAL.Interfaces.IFolderRepository, DAL.Repositories.FolderRepository>();
             builder.Services.AddScoped<BLL.Interfaces.IAuthService, BLL.Services.AuthService>();
+            builder.Services.AddScoped<BLL.Interfaces.IDocumentService, BLL.Services.DocumentService>();
+            builder.Services.AddHttpClient<BLL.Interfaces.ISupabaseStorageService, BLL.Services.SupabaseStorageService>();
             builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
                 .AddCookie(options =>
                 {

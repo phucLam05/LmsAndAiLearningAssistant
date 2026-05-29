@@ -1,0 +1,76 @@
+﻿@model PL.Models.Documents.DocumentUploadViewModel
+
+@{
+    ViewData["Title"] = "Upload Document";
+}
+
+<section class="upload-shell">
+    <div class="upload-header">
+        <div>
+            <div class="document-eyebrow">Add source</div>
+            <h1 class="document-title">Upload document</h1>
+        </div>
+        <a class="btn btn-outline-secondary" asp-controller="Document" asp-action="Index">Back to documents</a>
+    </div>
+
+    <div class="upload-layout">
+        <form asp-controller="Document" asp-action="Upload" method="post" enctype="multipart/form-data" class="upload-panel">
+            @Html.AntiForgeryToken()
+            <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+            <label class="upload-dropzone" for="File">
+                <span class="upload-drop-icon" aria-hidden="true">+</span>
+                <span class="upload-drop-title">Choose a learning document</span>
+                <span class="upload-drop-copy">PDF, DOCX, or PPTX. Maximum size 50MB.</span>
+                <input asp-for="File" type="file" class="visually-hidden" accept=".pdf,.docx,.pptx" />
+            </label>
+            <span asp-validation-for="File" class="text-danger"></span>
+
+            <div class="selected-file" id="selectedFile" hidden>
+                <div class="selected-file-mark" id="selectedFileType">FILE</div>
+                <div>
+                    <strong id="selectedFileName"></strong>
+                    <small id="selectedFileSize"></small>
+                </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary upload-submit">Upload to Supabase</button>
+        </form>
+
+        <aside class="upload-notes">
+            <h2>Upload checklist</h2>
+            <ul>
+                <li>Stored in private Supabase bucket <strong>documents</strong>.</li>
+                <li>Original file is not stored in the database.</li>
+                <li>Storage filename uses a GUID to avoid collisions.</li>
+                <li>Metadata starts with status <strong>uploaded</strong>.</li>
+                <li>Later steps can extract pages, chunks, embeddings, and search vectors.</li>
+            </ul>
+        </aside>
+    </div>
+</section>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        const fileInput = document.getElementById('File');
+        const selectedFile = document.getElementById('selectedFile');
+        const selectedFileName = document.getElementById('selectedFileName');
+        const selectedFileSize = document.getElementById('selectedFileSize');
+        const selectedFileType = document.getElementById('selectedFileType');
+
+        fileInput?.addEventListener('change', () => {
+            const file = fileInput.files?.[0];
+            if (!file) {
+                selectedFile.hidden = true;
+                return;
+            }
+
+            const extension = file.name.split('.').pop()?.toUpperCase() || 'FILE';
+            selectedFileName.textContent = file.name;
+            selectedFileSize.textContent = `${(file.size / 1024 / 1024).toFixed(2)} MB`;
+            selectedFileType.textContent = extension;
+            selectedFile.hidden = false;
+        });
+    </script>
+}
