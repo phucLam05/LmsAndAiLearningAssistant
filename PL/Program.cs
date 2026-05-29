@@ -56,10 +56,6 @@ namespace PL
 
             // Register Gemini API Provider (DAL)
             builder.Services.AddHttpClient<DAL.Interfaces.IGeminiEmbeddingProvider, DAL.Providers.GeminiEmbeddingProvider>();
-
-            // Register Embedding Service (BLL)
-            builder.Services.AddScoped<BLL.Interfaces.IEmbeddingService, BLL.Services.DocumentEmbeddingService>();
-
             var app = builder.Build();
 
             // Configure the HTTP request pipeline.
