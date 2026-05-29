@@ -91,14 +91,15 @@ namespace PL.Controllers
             };
 
             var result = await _documentService.UploadAsync(uploadDto);
-            if (!result.Success || result.Document == null)
+            if (!result.IsSuccess || result.Data == null)
             {
                 ModelState.AddModelError(string.Empty, result.ErrorMessage);
                 return View(model);
             }
 
-            // Enqueue the chunking job as a background Hangfire task
-            _backgroundJobs.Enqueue<IChunkingService>(x => x.ProcessFileChunkingAsync(result.Document.Id, CancellationToken.None));
+            // Enqueue the chunking job, followed by the embedding job
+            var chunkingJobId = _backgroundJobs.Enqueue<IChunkingService>(x => x.ProcessFileChunkingAsync(result.Data.Id, CancellationToken.None));
+            _backgroundJobs.ContinueJobWith<IEmbeddingService>(chunkingJobId, x => x.ProcessEmbeddingsAsync(result.Data.Id, CancellationToken.None));
 
             TempData["SuccessMessage"] = "File uploaded successfully and chunking started.";
             return RedirectToAction(nameof(Index));
@@ -118,9 +119,31 @@ namespace PL.Controllers
             }
 
             var result = await _documentService.DeleteAsync(id, userId.Value);
-            TempData[result.Success ? "SuccessMessage" : "ErrorMessage"] =
-                result.Success ? "File deleted successfully." : result.ErrorMessage;
+            TempData[result.IsSuccess ? "SuccessMessage" : "ErrorMessage"] =
+                result.IsSuccess ? "File deleted successfully." : result.ErrorMessage;
 
+            return RedirectToAction(nameof(Index));
+        }
+
+        /// <summary>
+        /// Restarts the processing pipeline (chunking and embedding) for a document.
+        /// Useful if the document ended up in a Failed state.
+        /// </summary>
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> RetryProcessing(Guid id)
+        {
+            var userId = GetCurrentUserId();
+            if (userId == null)
+            {
+                return Challenge();
+            }
+
+            // Enqueue the chunking job which will cascade to embedding
+            var chunkingJobId = _backgroundJobs.Enqueue<IChunkingService>(x => x.ProcessFileChunkingAsync(id, CancellationToken.None));
+            _backgroundJobs.ContinueJobWith<IEmbeddingService>(chunkingJobId, x => x.ProcessEmbeddingsAsync(id, CancellationToken.None));
+            
+            TempData["SuccessMessage"] = "Document processing restarted successfully.";
             return RedirectToAction(nameof(Index));
         }
 

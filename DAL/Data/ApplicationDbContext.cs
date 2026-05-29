@@ -187,7 +187,7 @@ namespace DAL.Data
                     .IsRequired();
 
                 entity.Property(e => e.Embedding)
-                    .HasColumnType("vector(768)");
+                    .HasColumnType("vector(3072)");
 
                 entity.Property(e => e.CreatedAt)
                     .HasDefaultValueSql("NOW()");

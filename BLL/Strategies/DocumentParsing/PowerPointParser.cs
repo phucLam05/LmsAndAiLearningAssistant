@@ -7,7 +7,7 @@ using BLL.Interfaces;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Drawing;
 
-namespace BLL.Services.Parsers
+namespace BLL.Strategies.DocumentParsing
 {
     /// <summary>
     /// Extracts text from PowerPoint presentations (.pptx) using OpenXml.

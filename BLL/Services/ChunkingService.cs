@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using BLL.Interfaces;
+using BLL.Strategies.DocumentParsing;
+using Core.DTOs.Common;
 using Core.Entities;
 using DAL.Interfaces;
 using Microsoft.Extensions.Logging;
@@ -17,6 +19,7 @@ namespace BLL.Services
     public class ChunkingService : IChunkingService
     {
         private readonly IDocumentRepository _documentRepository;
+        private readonly IDocumentChunkRepository _documentChunkRepository;
         private readonly ILogger<ChunkingService> _logger;
         private readonly ISupabaseStorageProvider _storageProvider;
         private readonly IEnumerable<IDocumentParser> _parsers;
@@ -25,16 +28,19 @@ namespace BLL.Services
         /// Initializes a new instance of the ChunkingService.
         /// </summary>
         /// <param name="documentRepository">The data access repository for documents.</param>
+        /// <param name="documentChunkRepository">The data access repository for chunks.</param>
         /// <param name="logger">The logger instance.</param>
         /// <param name="storageProvider">Provider for downloading files from Supabase.</param>
         /// <param name="parsers">Collection of document parsers injected via DI.</param>
         public ChunkingService(
-            IDocumentRepository documentRepository, 
+            IDocumentRepository documentRepository,
+            IDocumentChunkRepository documentChunkRepository,
             ILogger<ChunkingService> logger, 
             ISupabaseStorageProvider storageProvider,
             IEnumerable<IDocumentParser> parsers)
         {
             _documentRepository = documentRepository;
+            _documentChunkRepository = documentChunkRepository;
             _logger = logger;
             _storageProvider = storageProvider;
             _parsers = parsers;
@@ -46,35 +52,61 @@ namespace BLL.Services
         /// <param name="documentId">The unique identifier of the document.</param>
         /// <param name="cancellationToken">Token to monitor for cancellation requests.</param>
         /// <returns>A task that represents the asynchronous operation.</returns>
-        public async Task ProcessFileChunkingAsync(Guid documentId, CancellationToken cancellationToken)
+        public async Task<Result> ProcessFileChunkingAsync(Guid documentId, CancellationToken cancellationToken)
         {
             try
             {
-                _logger.LogInformation("Starting chunking process for Document ID: {DocumentId}", documentId);
-                await _documentRepository.UpdateStatusAsync(documentId, DocumentProcessingStatus.Chunking);
+                _logger.LogInformation("Starting chunking process for document {DocumentId}", documentId);
 
                 var document = await _documentRepository.GetByIdAsync(documentId);
                 if (document == null)
                 {
-                    _logger.LogWarning("Document ID: {DocumentId} not found.", documentId);
-                    return;
+                    _logger.LogWarning("Document {DocumentId} not found. Skipping chunking.", documentId);
+                    return Result.Failure($"Document {documentId} not found.");
                 }
 
-                string fileContent = await ReadFileContentAsync(document, cancellationToken);
-                
-                var chunks = ChunkText(fileContent, chunkSize: 500, overlap: 50, documentId);
+                // Resumption logic: If already chunked, skip to return Success so Hangfire continues to Embedding.
+                if (document.ProcessingStatus >= DocumentProcessingStatus.Chunked)
+                {
+                    _logger.LogInformation("Document {DocumentId} is already at status {Status}. Skipping chunking.", documentId, document.ProcessingStatus);
+                    return Result.Success();
+                }
 
-                await _documentRepository.BulkInsertChunksAsync(chunks);
+                // Update status to Chunking
+                await _documentRepository.UpdateStatusAsync(documentId, DocumentProcessingStatus.Chunking);
+
+                // Download and extract text
+                string content = await ReadFileContentAsync(document, cancellationToken);
                 
+                // Clear old chunks in case of retry
+                await _documentChunkRepository.DeleteChunksByDocumentIdAsync(documentId);
+                
+                if (string.IsNullOrWhiteSpace(content))
+                {
+                    _logger.LogWarning("No content extracted from document {DocumentId}. Skipping chunk creation.", documentId);
+                    await _documentRepository.UpdateStatusAsync(documentId, DocumentProcessingStatus.Chunked);
+                    return Result.Success();
+                }
+
+                // Chunk the text
+                var chunks = ChunkText(content, chunkSize: 500, overlap: 50, documentId).ToList();
+
+                if (chunks.Any())
+                {
+                    await _documentChunkRepository.BulkInsertChunksAsync(chunks);
+                    _logger.LogInformation("Successfully inserted {ChunkCount} chunks for document {DocumentId}", chunks.Count, documentId);
+                }
+
+                // Update status to Chunked
                 await _documentRepository.UpdateStatusAsync(documentId, DocumentProcessingStatus.Chunked);
-
-                _logger.LogInformation("Successfully completed chunking process for Document ID: {DocumentId}", documentId);
+                
+                return Result.Success();
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error occurred while chunking Document ID: {DocumentId}", documentId);
+                _logger.LogError(ex, "An error occurred while chunking document {DocumentId}", documentId);
                 await _documentRepository.UpdateStatusAsync(documentId, DocumentProcessingStatus.Failed);
-                throw;
+                return Result.Failure($"Chunking error: {ex.Message}");
             }
         }
 

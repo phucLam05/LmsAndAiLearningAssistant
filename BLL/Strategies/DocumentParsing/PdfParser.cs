@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 using BLL.Interfaces;
 using UglyToad.PdfPig;
 
-namespace BLL.Services.Parsers
+namespace BLL.Strategies.DocumentParsing
 {
     /// <summary>
     /// Extracts text from PDF documents using PdfPig.

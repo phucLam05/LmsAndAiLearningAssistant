@@ -4,7 +4,7 @@ using System.Threading.Tasks;
 using BLL.Interfaces;
 using Microsoft.Extensions.Logging;
 
-namespace BLL.Services.Parsers
+namespace BLL.Strategies.DocumentParsing
 {
     /// <summary>
     /// Fallback parser that reads any document as plain text. 

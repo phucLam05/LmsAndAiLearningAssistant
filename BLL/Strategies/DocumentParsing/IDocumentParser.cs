@@ -2,7 +2,7 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace BLL.Interfaces
+namespace BLL.Strategies.DocumentParsing
 {
     /// <summary>
     /// Defines a strategy for parsing text from a specific document format.

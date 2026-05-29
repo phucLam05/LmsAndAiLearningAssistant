@@ -80,16 +80,5 @@ namespace DAL.Repositories
                 await _context.SaveChangesAsync();
             }
         }
-
-        /// <summary>
-        /// Performs a bulk insert of document chunks into the database.
-        /// </summary>
-        /// <param name="chunks">The collection of document chunks to insert.</param>
-        /// <returns>A task that represents the asynchronous operation.</returns>
-        public async Task BulkInsertChunksAsync(IEnumerable<DocumentChunk> chunks)
-        {
-            await _context.DocumentChunks.AddRangeAsync(chunks);
-            await _context.SaveChangesAsync();
-        }
     }
 }

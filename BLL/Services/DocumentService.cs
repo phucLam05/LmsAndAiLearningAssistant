@@ -5,9 +5,11 @@ using System.Linq;
 using System.Threading.Tasks;
 using BLL.Interfaces;
 using Core.Configuration;
+using Core.DTOs.Common;
 using Core.DTOs.Documents;
 using Core.Entities;
 using DAL.Interfaces;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace BLL.Services
@@ -21,40 +23,34 @@ namespace BLL.Services
         private readonly IFolderRepository _folderRepository;
         private readonly ISupabaseStorageProvider _storageService;
         private readonly UploadOptions _uploadOptions;
+        private readonly ILogger<DocumentService> _logger;
 
-        /// <summary>
-        /// Creates a document service with repositories for metadata/folders, storage for file objects, and upload configurations.
-        /// </summary>
         public DocumentService(
             IDocumentRepository documentRepository,
             IFolderRepository folderRepository,
             ISupabaseStorageProvider storageService,
-            IOptions<UploadOptions> uploadOptions)
+            IOptions<UploadOptions> uploadOptions,
+            ILogger<DocumentService> logger)
         {
             _documentRepository = documentRepository;
             _folderRepository = folderRepository;
             _storageService = storageService;
             _uploadOptions = uploadOptions.Value;
+            _logger = logger;
         }
 
-        /// <summary>
-        /// Returns only documents owned by the current user.
-        /// </summary>
         public async Task<IReadOnlyList<DocumentDto>> GetDocumentsForUserAsync(Guid userId)
         {
             var documents = await _documentRepository.GetByUserIdAsync(userId);
             return documents.Select(MapDocument).ToList();
         }
 
-        /// <summary>
-        /// Validates, uploads a file to Supabase Storage, and saves metadata for the current user.
-        /// </summary>
-        public async Task<(bool Success, DocumentDto? Document, string ErrorMessage)> UploadAsync(DocumentUploadDto uploadDto)
+        public async Task<Result<DocumentDto>> UploadAsync(DocumentUploadDto uploadDto)
         {
             var validationError = ValidateUpload(uploadDto);
             if (!string.IsNullOrEmpty(validationError))
             {
-                return (false, null, validationError);
+                return Result<DocumentDto>.Failure(validationError);
             }
 
             var extension = Path.GetExtension(uploadDto.OriginalFileName).ToLowerInvariant();
@@ -68,7 +64,8 @@ namespace BLL.Services
             }
             catch (Exception ex)
             {
-                return (false, null, $"Supabase upload error: {ex.Message}");
+                _logger.LogError(ex, "Failed to upload file to storage for user {UserId}", uploadDto.UserId);
+                return Result<DocumentDto>.Failure($"Supabase upload error: {ex.Message}");
             }
 
             try
@@ -94,73 +91,58 @@ namespace BLL.Services
                 };
 
                 await _documentRepository.AddAsync(document);
-                return (true, MapDocument(document), string.Empty);
+                return Result<DocumentDto>.Success(MapDocument(document));
             }
             catch (Exception ex)
             {
-                // If metadata cannot be saved after storage upload, remove the object to avoid orphan files.
+                _logger.LogError(ex, "Failed to save document metadata for user {UserId}", uploadDto.UserId);
                 try
                 {
                     await _storageService.DeleteAsync(storagePath);
                 }
-                catch
+                catch (Exception cleanupEx)
                 {
-                    // Keep the original database error visible to the UI; storage cleanup can be retried manually.
+                    _logger.LogError(cleanupEx, "Failed to cleanup storage after DB save error.");
                 }
-
-                return (false, null, $"Database save error: {ex.Message}");
+                return Result<DocumentDto>.Failure($"Database save error: {ex.Message}");
             }
         }
 
-        /// <summary>
-        /// Deletes a user's document from Supabase Storage and then removes its metadata row.
-        /// </summary>
-        public async Task<(bool Success, string ErrorMessage)> DeleteAsync(Guid documentId, Guid userId)
+        public async Task<Result> DeleteAsync(Guid documentId, Guid userId)
         {
-            var document = await _documentRepository.GetByIdForUserAsync(documentId, userId);
-            if (document == null)
-            {
-                return (false, "Document not found or access denied.");
-            }
-
             try
             {
-                await _storageService.DeleteAsync(document.StoragePath);
+                var document = await _documentRepository.GetByIdForUserAsync(documentId, userId);
+                if (document == null)
+                {
+                    return Result.Failure("Document not found or access denied.");
+                }
+
+                try
+                {
+                    await _storageService.DeleteAsync(document.StoragePath);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to delete file from Supabase storage. Path: {StoragePath}", document.StoragePath);
+                }
+
                 await _documentRepository.DeleteAsync(document);
-                return (true, string.Empty);
+                return Result.Success();
             }
             catch (Exception ex)
             {
-                return (false, $"Delete error: {ex.Message}");
+                _logger.LogError(ex, "Failed to delete document {DocumentId}", documentId);
+                return Result.Failure($"Delete error: {ex.Message}");
             }
         }
 
-        /// <summary>
-        /// Checks ownership input, file size, extension, and browser-provided MIME type before upload
-        /// against values loaded from application configuration.
-        /// </summary>
         private string ValidateUpload(DocumentUploadDto uploadDto)
         {
-            if (uploadDto.UserId == Guid.Empty)
-            {
-                return "User is not authenticated.";
-            }
-
-            if (uploadDto.Content == Stream.Null)
-            {
-                return "Please choose a file.";
-            }
-
-            if (uploadDto.FileSize <= 0)
-            {
-                return "File is empty.";
-            }
-
-            if (uploadDto.FileSize > _uploadOptions.MaxFileSize)
-            {
-                var maxSizeMb = _uploadOptions.MaxFileSize / (1024 * 1024);
-                return $"File exceeds the {maxSizeMb}MB limit.";
-            }
+            if (uploadDto.UserId == Guid.Empty) return "User is not authenticated.";
+            if (uploadDto.Content == Stream.Null) return "Please choose a file.";
+            if (uploadDto.FileSize <= 0) return "File is empty.";
+            if (uploadDto.FileSize > _uploadOptions.MaxFileSize) return $"File exceeds the limit of {_uploadOptions.MaxFileSize / (1024 * 1024)}MB.";
 
             var extension = Path.GetExtension(uploadDto.OriginalFileName);
             if (string.IsNullOrWhiteSpace(extension) || !_uploadOptions.AllowedMimeTypes.TryGetValue(extension, out var expectedMimeTypes))
@@ -169,12 +151,7 @@ namespace BLL.Services
             }
 
             var contentType = NormalizeContentType(uploadDto.ContentType);
-            if (contentType == "application/octet-stream")
-            {
-                return string.Empty;
-            }
-
-            if (!expectedMimeTypes.Any(expected => string.Equals(expected, contentType, StringComparison.OrdinalIgnoreCase)))
+            if (contentType != "application/octet-stream" && !expectedMimeTypes.Any(expected => string.Equals(expected, contentType, StringComparison.OrdinalIgnoreCase)))
             {
                 return "File MIME type does not match the selected file extension.";
             }
@@ -182,25 +159,16 @@ namespace BLL.Services
             return string.Empty;
         }
 
-        /// <summary>
-        /// Builds a stable private object path grouped by user and month for Supabase Storage.
-        /// </summary>
         private static string BuildStoragePath(Guid userId, string storedFileName)
         {
             return $"{userId:N}/{DateTime.UtcNow:yyyy/MM}/{storedFileName}";
         }
 
-        /// <summary>
-        /// Falls back to application/octet-stream when a browser does not provide a usable MIME type.
-        /// </summary>
         private static string NormalizeContentType(string contentType)
         {
             return string.IsNullOrWhiteSpace(contentType) ? "application/octet-stream" : contentType.Trim();
         }
 
-        /// <summary>
-        /// Converts the entity stored in DAL into the DTO used by MVC views.
-        /// </summary>
         private static DocumentDto MapDocument(Document document)
         {
             return new DocumentDto

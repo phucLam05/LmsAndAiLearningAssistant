@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 using BLL.Interfaces;
 using DocumentFormat.OpenXml.Packaging;
 
-namespace BLL.Services.Parsers
+namespace BLL.Strategies.DocumentParsing
 {
     /// <summary>
     /// Extracts text from Word documents (.docx) using OpenXml.

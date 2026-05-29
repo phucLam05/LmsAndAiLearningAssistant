@@ -1,4 +1,8 @@
+using Core.DTOs.Common;
 using Core.DTOs.Documents;
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace BLL.Interfaces
 {
@@ -9,8 +13,8 @@ namespace BLL.Interfaces
     {
         Task<IReadOnlyList<DocumentDto>> GetDocumentsForUserAsync(Guid userId);
 
-        Task<(bool Success, DocumentDto? Document, string ErrorMessage)> UploadAsync(DocumentUploadDto uploadDto);
+        Task<Result<DocumentDto>> UploadAsync(DocumentUploadDto uploadDto);
 
-        Task<(bool Success, string ErrorMessage)> DeleteAsync(Guid documentId, Guid userId);
+        Task<Result> DeleteAsync(Guid documentId, Guid userId);
     }
 }

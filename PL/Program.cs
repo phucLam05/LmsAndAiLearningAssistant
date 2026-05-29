@@ -24,18 +24,20 @@ namespace PL
             builder.Services.AddScoped<DAL.Interfaces.IUserRepository, DAL.Repositories.UserRepository>();
             builder.Services.AddScoped<DAL.Interfaces.IDocumentRepository, DAL.Repositories.DocumentRepository>();
             builder.Services.AddScoped<DAL.Interfaces.IFolderRepository, DAL.Repositories.FolderRepository>();
+            builder.Services.AddScoped<DAL.Interfaces.IDocumentChunkRepository, DAL.Repositories.DocumentChunkRepository>();
             builder.Services.AddScoped<BLL.Interfaces.IAuthService, BLL.Services.AuthService>();
-            builder.Services.AddScoped<BLL.Interfaces.IChunkingService, BLL.Services.ChunkingService>();
-            builder.Services.AddScoped<BLL.Interfaces.IDocumentService, BLL.Services.DocumentService>();
+            builder.Services.AddScoped<IChunkingService, ChunkingService>();
+            builder.Services.AddScoped<IDocumentService, DocumentService>();
+            builder.Services.AddScoped<IEmbeddingService, DocumentEmbeddingService>();
             builder.Services.AddHttpClient<DAL.Interfaces.ISupabaseStorageProvider, DAL.Providers.SupabaseStorageProvider>();
             
             // Register document parsers (FallbackTextParser must be registered last or used carefully; 
             // since we use FirstOrDefault in ChunkingService based on CanParse, order doesn't strictly matter for explicit extensions, 
             // but FallbackTextParser returns true for everything so it should be registered last)
-            builder.Services.AddScoped<BLL.Interfaces.IDocumentParser, BLL.Services.Parsers.PdfParser>();
-            builder.Services.AddScoped<BLL.Interfaces.IDocumentParser, BLL.Services.Parsers.WordParser>();
-            builder.Services.AddScoped<BLL.Interfaces.IDocumentParser, BLL.Services.Parsers.PowerPointParser>();
-            builder.Services.AddScoped<BLL.Interfaces.IDocumentParser, BLL.Services.Parsers.FallbackTextParser>();
+            builder.Services.AddScoped<BLL.Strategies.DocumentParsing.IDocumentParser, BLL.Strategies.DocumentParsing.PdfParser>();
+            builder.Services.AddScoped<BLL.Strategies.DocumentParsing.IDocumentParser, BLL.Strategies.DocumentParsing.WordParser>();
+            builder.Services.AddScoped<BLL.Strategies.DocumentParsing.IDocumentParser, BLL.Strategies.DocumentParsing.PowerPointParser>();
+            builder.Services.AddScoped<BLL.Strategies.DocumentParsing.IDocumentParser, BLL.Strategies.DocumentParsing.FallbackTextParser>();
             builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
                 .AddCookie(options =>
                 {
@@ -51,6 +53,12 @@ namespace PL
                 .UsePostgreSqlStorage(o => o.UseNpgsqlConnection(builder.Configuration.GetConnectionString("DefaultConnection"))));
 
             builder.Services.AddHangfireServer();
+
+            // Register Gemini API Provider (DAL)
+            builder.Services.AddHttpClient<DAL.Interfaces.IGeminiEmbeddingProvider, DAL.Providers.GeminiEmbeddingProvider>();
+
+            // Register Embedding Service (BLL)
+            builder.Services.AddScoped<BLL.Interfaces.IEmbeddingService, BLL.Services.DocumentEmbeddingService>();
 
             var app = builder.Build();
 

@@ -112,10 +112,19 @@
                                     <span>@document.StoragePath</span>
                                 </div>
                             </div>
-                            <form asp-controller="Document" asp-action="Delete" asp-route-id="@document.Id" method="post" class="source-actions">
-                                @Html.AntiForgeryToken()
-                                <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Delete this file from Supabase Storage and metadata?');">Delete</button>
-                            </form>
+                            <div class="source-actions">
+                                @if (document.ProcessingStatus == Core.DTOs.Documents.DocumentProcessingStatusDto.Failed)
+                                {
+                                    <form asp-controller="Document" asp-action="RetryProcessing" asp-route-id="@document.Id" method="post" style="display:inline;">
+                                        @Html.AntiForgeryToken()
+                                        <button type="submit" class="btn btn-sm btn-outline-warning">Retry</button>
+                                    </form>
+                                }
+                                <form asp-controller="Document" asp-action="Delete" asp-route-id="@document.Id" method="post" style="display:inline;">
+                                    @Html.AntiForgeryToken()
+                                    <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Delete this file from Supabase Storage and metadata?');">Delete</button>
+                                </form>
+                            </div>
                         </article>
                     }
                 </div>
