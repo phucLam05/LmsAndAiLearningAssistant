@@ -72,8 +72,10 @@ namespace PL
             app.UseAuthentication();
             app.UseAuthorization();
 
-            app.UseHangfireDashboard("/hangfire");
-
+            if (app.Environment.IsDevelopment())
+            {
+                app.UseHangfireDashboard("/hangfire");
+            }
             app.MapStaticAssets();
             app.MapControllerRoute(
                 name: "default",
