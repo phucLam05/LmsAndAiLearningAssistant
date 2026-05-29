@@ -1,0 +1,532 @@
+@model PL.Models.Drive.DriveChaptersViewModel
+@{
+    ViewData["Title"] = $"Danh sách Chương - {Model.SubjectName}";
+    Layout = "~/Views/Shared/_DriveLayout.cshtml";
+}
+
+@* ========================= BREADCRUMBS ========================= *@
+<nav aria-label="Breadcrumb" class="flex text-on-surface-variant font-body-md text-body-md mb-6">
+    <ol class="inline-flex items-center space-x-1">
+        <li class="inline-flex items-center">
+            <a asp-action="Index" asp-controller="Drive" class="inline-flex items-center hover:text-primary transition-colors">
+                Môn học
+            </a>
+        </li>
+        <li>
+            <div class="flex items-center">
+                <span class="material-symbols-outlined text-sm mx-1" style="font-size:16px">chevron_right</span>
+                <span class="text-on-surface font-medium">@Model.SubjectName</span>
+            </div>
+        </li>
+    </ol>
+</nav>
+
+@* ========================= ALERTS ========================= *@
+@if (TempData["SuccessMessage"] != null)
+{
+    <div class="success-alert fixed bottom-6 right-6 bg-surface-container-high border border-tertiary/30 text-tertiary px-5 py-4 rounded-xl flex items-center gap-3 shadow-2xl z-[9999] max-w-sm transition-all duration-500 ease-in-out cursor-pointer hover:scale-[1.02]">
+        <span class="material-symbols-outlined text-tertiary filled" style="font-size:24px">check_circle</span>
+        <div class="flex-1">
+            <p class="font-label-md text-label-md font-bold text-on-surface">Thành công</p>
+            <p class="font-body-md text-body-md text-on-surface-variant">@TempData["SuccessMessage"]</p>
+        </div>
+        <button onclick="event.stopPropagation(); this.closest('.success-alert').remove()" class="text-outline hover:text-on-surface p-1 rounded-md transition-colors">
+            <span class="material-symbols-outlined" style="font-size:16px">close</span>
+        </button>
+    </div>
+}
+@if (TempData["ErrorMessage"] != null)
+{
+    <div class="error-alert fixed bottom-6 right-6 bg-surface-container-high border border-error/30 text-error px-5 py-4 rounded-xl flex items-center gap-3 shadow-2xl z-[9999] max-w-sm transition-all duration-500 ease-in-out cursor-pointer hover:scale-[1.02]">
+        <span class="material-symbols-outlined text-error filled" style="font-size:24px">error</span>
+        <div class="flex-1">
+            <p class="font-label-md text-label-md font-bold text-on-surface">Lỗi</p>
+            <p class="font-body-md text-body-md text-on-surface-variant">@TempData["ErrorMessage"]</p>
+        </div>
+        <button onclick="event.stopPropagation(); this.closest('.error-alert').remove()" class="text-outline hover:text-on-surface p-1 rounded-md transition-colors">
+            <span class="material-symbols-outlined" style="font-size:16px">close</span>
+        </button>
+    </div>
+}
+
+@* ========================= PAGE HEADER ========================= *@
+<div class="w-full flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+    <div>
+        <h1 class="font-headline-lg text-headline-lg font-bold text-on-surface">Danh sách Chương</h1>
+        <p class="font-body-md text-body-md text-on-surface-variant mt-1">@Model.SubjectName</p>
+    </div>
+    <div class="flex items-center gap-3">
+        <div class="hidden md:block">
+            @await Html.PartialAsync("~/Views/Shared/Components/_SearchBar.cshtml", new PL.Models.Drive.SearchBarViewModel 
+            { 
+                InputId = "searchChapterInput", 
+                Placeholder = "Tìm kiếm...", 
+                OnInput = "filterChapters(this.value)",
+                ExtraClasses = "w-56"
+            })
+        </div>
+        <button onclick="openModal('createChapterModal')"
+                class="bg-surface-container-high border border-outline-variant text-on-surface px-5 py-2.5 rounded-lg font-label-md text-label-md font-bold hover:bg-surface-container-highest transition-colors flex items-center gap-2 shadow-sm">
+            <span class="material-symbols-outlined" style="font-size:18px">create_new_folder</span>
+            Chương mới
+        </button>
+
+    </div>
+</div>
+
+@* ========================= CHAPTER LIST TABLE ========================= *@
+<div class="bg-surface-container-low rounded-xl border border-outline-variant overflow-hidden shadow-sm">
+    @* Table Header *@
+    <div class="grid grid-cols-12 gap-4 px-6 py-4 border-b border-outline-variant bg-surface-container-highest/50">
+        <div class="col-span-6 md:col-span-5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Tên chương</div>
+        <div class="col-span-3 md:col-span-2 hidden md:block text-right font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Tài liệu</div>
+        <div class="col-span-4 md:col-span-3 text-right font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Ngày tạo</div>
+        <div class="col-span-2 md:col-span-2 text-right font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Thao tác</div>
+    </div>
+
+    @* Table Body *@
+    <div class="flex flex-col" id="chapterList">
+        @if (!Model.Chapters.Any())
+        {
+            <div class="px-6 py-16 text-center">
+                <span class="material-symbols-outlined text-[48px] text-on-surface-variant/40 mb-3 block">menu_book</span>
+                <p class="font-body-md text-body-md text-on-surface-variant mb-4">Chưa có chương nào trong môn học này.</p>
+                <button onclick="openModal('createChapterModal')"
+                        class="bg-primary-container text-on-primary-container px-5 py-2.5 rounded-lg font-label-md text-label-md font-bold hover:opacity-90 transition-opacity inline-flex items-center gap-2">
+                    <span class="material-symbols-outlined" style="font-size:18px">add</span>
+                    Thêm chương đầu tiên
+                </button>
+            </div>
+        }
+        else
+        {
+            @for (int i = 0; i < Model.Chapters.Count; i++)
+            {
+                var chapter = Model.Chapters[i];
+                var docCount = Model.DocumentCounts.TryGetValue(chapter.Id, out var cnt) ? cnt : 0;
+                var isLast = i == Model.Chapters.Count - 1;
+                var rowBorder = isLast ? "" : "border-b border-outline-variant/50";
+
+                <div class="grid grid-cols-12 gap-4 px-6 py-4 @rowBorder hover:bg-surface-container-highest transition-colors group items-center chapter-row cursor-pointer"
+                     data-name="@chapter.Name.ToLower()"
+                     data-id="@chapter.Id"
+                     ondblclick="window.location.href='@Url.Action("Index", "Drive", new { folderId = chapter.Id })'"
+                     onclick="selectChapterRow(event, '@chapter.Id')"
+                     oncontextmenu="openChapterCtxMenu(event, '@chapter.Id', '@chapter.Name.Replace("'", "\\'")')">
+
+                    @* Chapter Name — clickable → go into folder (Drive/Index) *@
+                    <div class="col-span-8 md:col-span-5 flex items-center gap-3">
+                        <span class="material-symbols-outlined text-primary" style="font-size:20px">menu_book</span>
+                        <a asp-action="Index" asp-controller="Drive" asp-route-folderId="@chapter.Id"
+                           class="font-body-md text-body-md text-on-surface font-medium truncate hover:text-primary transition-colors"
+                           onclick="event.stopPropagation()">
+                            @chapter.Name
+                        </a>
+                    </div>
+
+                    @* Document Count Badge *@
+                    <div class="col-span-0 md:col-span-2 hidden md:flex items-center justify-end">
+                        <span class="bg-surface-bright text-on-surface px-2.5 py-0.5 rounded-full font-label-md border border-outline-variant/50" style="font-size:11px">
+                            @docCount file@(docCount != 1 ? "s" : "")
+                        </span>
+                    </div>
+
+                    @* Created Date *@
+                    <div class="col-span-4 md:col-span-3 text-right font-body-md text-body-md text-on-surface-variant">
+                        @chapter.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy")
+                    </div>
+
+                    @* Actions (shown on row hover) *@
+                    <div class="col-span-0 md:col-span-2 hidden md:flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button onclick="openEditModal('@chapter.Id', '@chapter.Name.Replace("'", "\\'")')"
+                                class="p-1.5 text-on-surface-variant hover:text-primary hover:bg-surface-bright rounded-md transition-colors"
+                                title="Sửa tên chương">
+                            <span class="material-symbols-outlined" style="font-size:16px">edit</span>
+                        </button>
+                        <button onclick="openDeleteModal('@chapter.Id', '@chapter.Name.Replace("'", "\\'")')"
+                                class="p-1.5 text-on-surface-variant hover:text-error hover:bg-error-container/20 rounded-md transition-colors"
+                                title="Xóa chương">
+                            <span class="material-symbols-outlined" style="font-size:16px">delete</span>
+                        </button>
+                    </div>
+                </div>
+            }
+        }
+    </div>
+</div>
+
+@* ========================= DIRECT DOCUMENTS SECTION ========================= *@
+<div class="mt-12">
+    <div class="flex justify-between items-center mb-6">
+        <div class="flex gap-2">
+            <span class="font-headline-sm text-headline-sm font-bold text-on-surface">Tài liệu trực tiếp của môn học</span>
+        </div>
+        <div class="flex gap-4 items-center">
+            <span class="font-body-md text-body-md text-on-surface-variant">@Model.Documents.Count Tài liệu</span>
+        </div>
+    </div>
+
+    <!-- File List -->
+    <div class="bg-surface-container-low border border-outline-variant rounded-xl overflow-hidden shadow-sm">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-surface-container-lowest border-b border-outline-variant">
+                        <th class="p-4 font-label-md text-label-md font-semibold text-on-surface-variant uppercase tracking-wider">Tên tài liệu</th>
+                        <th class="p-4 font-label-md text-label-md font-semibold text-on-surface-variant uppercase tracking-wider">Trạng thái</th>
+                        <th class="p-4 font-label-md text-label-md font-semibold text-on-surface-variant uppercase tracking-wider hidden lg:table-cell">Kích thước</th>
+                        <th class="p-4 font-label-md text-label-md font-semibold text-on-surface-variant uppercase tracking-wider hidden md:table-cell">Ngày tải lên</th>
+                        <th class="p-4 font-label-md text-label-md font-semibold text-on-surface-variant w-16"></th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-outline-variant">
+                    @foreach (var doc in Model.Documents)
+                    {
+                        <tr class="hover:bg-surface-container-highest transition-colors group cursor-pointer document-row"
+                            data-name="@doc.Title.ToLower()"
+                            ondblclick="window.open('@doc.StorageUrl', '_blank')">
+                            <td class="p-4">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-8 h-8 rounded bg-primary-container/20 flex items-center justify-center flex-shrink-0 text-primary">
+                                        <span class="material-symbols-outlined text-[18px]">description</span>
+                                    </div>
+                                    <div>
+                                        <p class="font-body-md text-body-md font-medium text-on-surface truncate max-w-[200px] sm:max-w-xs">
+                                            <a href="@doc.StorageUrl" target="_blank" class="hover:underline hover:text-primary transition-all">@doc.Title</a>
+                                        </p>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="p-4">
+                                @if (doc.ProcessingStatus == Core.Entities.DocumentProcessingStatus.Indexed)
+                                {
+                                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-tertiary-container/20 border border-tertiary/20 text-tertiary font-label-md text-label-md">
+                                        <span class="w-1.5 h-1.5 rounded-full bg-tertiary"></span> Đã index
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary-container/20 border border-primary/20 text-primary font-label-md text-label-md">
+                                        <span class="material-symbols-outlined text-[12px] animate-spin">sync</span> Đang xử lý
+                                    </span>
+                                }
+                            </td>
+                            <td class="p-4 hidden lg:table-cell font-body-md text-body-md text-on-surface-variant">@(doc.FileSize / 1024) KB</td>
+                            <td class="p-4 hidden md:table-cell font-body-md text-body-md text-on-surface-variant">@doc.UploadedAt.ToLocalTime().ToString("g")</td>
+                            <td class="p-4 text-right">
+                                <button class="text-outline hover:text-on-surface opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-full hover:bg-surface-bright" onclick="confirmDeleteDocument('@doc.Id');">
+                                    <span class="material-symbols-outlined" style="font-size:16px">delete</span>
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                    @if (!Model.Documents.Any())
+                    {
+                        <tr>
+                            <td colspan="5" class="p-8 text-center text-on-surface-variant font-body-md text-body-md">Không có tệp tin nào được tải lên trực tiếp cho môn học này.</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+@* ========================= MODAL OVERLAY ========================= *@
+<div id="modalOverlay" class="fixed inset-0 bg-black/60 z-[100] hidden items-center justify-center backdrop-blur-sm transition-opacity">
+
+    @* ----- Create Chapter Modal ----- *@
+    <div id="createChapterModal" class="hidden bg-surface-container-low border border-outline-variant rounded-xl shadow-xl w-full max-w-md overflow-hidden mx-4">
+        <form asp-action="CreateFolder" asp-controller="Drive" method="post">
+            <input type="hidden" name="ParentFolderId" value="@Model.SubjectFolderId" />
+            <div class="px-6 py-4 border-b border-outline-variant/50 flex justify-between items-center">
+                <h3 class="font-headline-sm text-headline-sm font-bold text-on-surface">Thêm chương mới</h3>
+                <button type="button" onclick="closeModal()" class="text-outline hover:text-on-surface p-1 rounded transition-colors">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+            <div class="p-6 space-y-4">
+                <div>
+                    <label class="block text-on-surface-variant font-label-md text-label-md mb-2">Tên chương <span class="text-error">*</span></label>
+                    <input type="text" name="Name" required
+                           placeholder="Ví dụ: Chương 1: Tổng quan về AI"
+                           class="w-full bg-surface border border-outline-variant rounded-lg px-4 py-2.5 text-on-surface font-body-md text-body-md focus:border-primary focus:ring-1 focus:ring-primary outline-none placeholder:text-outline transition-colors" />
+                </div>
+            </div>
+            <div class="px-6 py-4 bg-surface-container-highest border-t border-outline-variant/50 flex justify-end gap-3">
+                <button type="button" onclick="closeModal()"
+                        class="px-4 py-2 rounded-lg text-on-surface-variant hover:bg-surface-variant font-label-md text-label-md transition-colors">
+                    Hủy
+                </button>
+                <button type="submit"
+                        class="px-5 py-2 bg-primary-container text-on-primary-container rounded-lg font-label-md text-label-md font-bold hover:opacity-90 transition-opacity flex items-center gap-2">
+                    <span class="material-symbols-outlined" style="font-size:16px">add</span>
+                    Tạo chương
+                </button>
+            </div>
+        </form>
+    </div>
+
+    @* ----- Edit Chapter Modal ----- *@
+    <div id="editChapterModal" class="hidden bg-surface-container-low border border-outline-variant rounded-xl shadow-xl w-full max-w-md overflow-hidden mx-4">
+        <form asp-action="UpdateFolder" asp-controller="Drive" method="post">
+            <input type="hidden" name="folderId" id="editFolderId" value="" />
+            <input type="hidden" name="returnUrl" value="@Url.Action("Chapters", "Drive", new { subjectFolderId = Model.SubjectFolderId })" />
+            <div class="px-6 py-4 border-b border-outline-variant/50 flex justify-between items-center">
+                <h3 class="font-headline-sm text-headline-sm font-bold text-on-surface">Sửa tên chương</h3>
+                <button type="button" onclick="closeModal()" class="text-outline hover:text-on-surface p-1 rounded transition-colors">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+            <div class="p-6 space-y-4">
+                <div>
+                    <label class="block text-on-surface-variant font-label-md text-label-md mb-2">Tên chương <span class="text-error">*</span></label>
+                    <input type="text" name="Name" id="editFolderName" required
+                           class="w-full bg-surface border border-outline-variant rounded-lg px-4 py-2.5 text-on-surface font-body-md text-body-md focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-colors" />
+                </div>
+            </div>
+            <div class="px-6 py-4 bg-surface-container-highest border-t border-outline-variant/50 flex justify-end gap-3">
+                <button type="button" onclick="closeModal()"
+                        class="px-4 py-2 rounded-lg text-on-surface-variant hover:bg-surface-variant font-label-md text-label-md transition-colors">
+                    Hủy
+                </button>
+                <button type="submit"
+                        class="px-5 py-2 bg-primary-container text-on-primary-container rounded-lg font-label-md text-label-md font-bold hover:opacity-90 transition-opacity flex items-center gap-2">
+                    <span class="material-symbols-outlined" style="font-size:16px">check</span>
+                    Lưu thay đổi
+                </button>
+            </div>
+        </form>
+    </div>
+
+    @* ----- Delete Chapter Modal ----- *@
+    <div id="deleteChapterModal" class="hidden bg-surface-container-low border border-error/40 rounded-xl shadow-xl w-full max-w-md overflow-hidden mx-4">
+        <form asp-action="DeleteFolder" asp-controller="Drive" method="post">
+            <input type="hidden" name="id" id="deleteChapterId" value="" />
+            <input type="hidden" name="currentFolderId" value="@Model.SubjectFolderId" />
+            <div class="px-6 py-4 border-b border-outline-variant/50 flex justify-between items-center">
+                <h3 class="font-headline-sm text-headline-sm font-bold text-error">Xóa chương</h3>
+                <button type="button" onclick="closeModal()" class="text-outline hover:text-on-surface p-1 rounded transition-colors">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+            <div class="p-6">
+                <div class="flex gap-3 items-start mb-4">
+                    <span class="material-symbols-outlined text-error mt-0.5" style="font-size:20px">warning</span>
+                    <div>
+                        <p class="font-body-md text-body-md text-on-surface mb-1">
+                            Bạn có chắc chắn muốn xóa chương
+                            <strong id="deleteChapterName" class="text-error"></strong>?
+                        </p>
+                        <p class="font-body-md text-body-md text-on-surface-variant">Tất cả tài liệu bên trong sẽ bị xóa vĩnh viễn. Thao tác này không thể hoàn tác.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="px-6 py-4 bg-surface-container-highest border-t border-outline-variant/50 flex justify-end gap-3">
+                <button type="button" onclick="closeModal()"
+                        class="px-4 py-2 rounded-lg text-on-surface-variant hover:bg-surface-variant font-label-md text-label-md transition-colors">
+                    Hủy
+                </button>
+                <button type="submit"
+                        class="px-5 py-2 bg-error text-on-error rounded-lg font-label-md text-label-md font-bold hover:bg-error-container transition-colors flex items-center gap-2">
+                    <span class="material-symbols-outlined" style="font-size:16px">delete_forever</span>
+                    Xóa vĩnh viễn
+                </button>
+            </div>
+        </form>
+    </div>
+
+
+
+    @* ----- Delete Document Modal ----- *@
+    <div id="deleteDocModal" class="hidden bg-surface-container-low border border-error/50 rounded-xl shadow-xl w-full max-w-md overflow-hidden mx-4">
+        <form asp-action="DeleteFile" asp-controller="Drive" method="post">
+            <input type="hidden" name="id" id="deleteDocId" value="" />
+            <input type="hidden" name="currentFolderId" value="@Model.SubjectFolderId" />
+            <input type="hidden" name="returnUrl" value="@Url.Action("Chapters", "Drive", new { subjectFolderId = Model.SubjectFolderId })" />
+            <div class="px-6 py-4 border-b border-outline-variant/50 flex justify-between items-center">
+                <h3 class="font-headline-sm text-headline-sm font-bold text-error">Xóa tài liệu</h3>
+                <button type="button" onclick="closeModal()" class="text-outline hover:text-on-surface p-1 rounded transition-colors">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+            <div class="p-6">
+                <p class="text-on-surface-variant font-body-md text-body-md">Bạn có chắc chắn muốn xóa tài liệu này khỏi môn học không? Thao tác này không thể hoàn tác.</p>
+            </div>
+            <div class="px-6 py-4 bg-surface-container-highest border-t border-outline-variant/50 flex justify-end gap-3">
+                <button type="button" onclick="closeModal()" class="px-4 py-2 rounded-lg text-on-surface-variant hover:bg-surface-variant font-label-md text-label-md transition-colors">Hủy</button>
+                <button type="submit" class="px-5 py-2 bg-error text-on-error rounded-lg font-label-md text-label-md font-bold hover:bg-error-container transition-colors flex items-center gap-2">
+                    <span class="material-symbols-outlined" style="font-size:16px">delete_forever</span>
+                    Xóa vĩnh viễn
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Chapter Context Menu -->
+<div id="chapterCtxMenu"
+     class="hidden fixed bg-surface-container-high border border-outline-variant rounded-xl shadow-2xl z-[500] w-48 overflow-hidden py-1">
+    <button onclick="chapterCtxOpen()"
+            class="w-full flex items-center gap-3 px-4 py-2.5 font-body-md text-body-md text-on-surface hover:bg-surface-container-highest transition-colors">
+        <span class="material-symbols-outlined text-primary" style="font-size:18px">folder_open</span>
+        <span>Mở chương</span>
+    </button>
+    <button onclick="chapterCtxRename()"
+            class="w-full flex items-center gap-3 px-4 py-2.5 font-body-md text-body-md text-on-surface hover:bg-surface-container-highest transition-colors">
+        <span class="material-symbols-outlined text-secondary" style="font-size:18px">edit</span>
+        <span>Đổi tên chương</span>
+    </button>
+    <div class="border-t border-outline-variant/50 my-1"></div>
+    <button onclick="chapterCtxDelete()"
+            class="w-full flex items-center gap-3 px-4 py-2.5 font-body-md text-body-md text-error hover:bg-error-container/20 transition-colors">
+        <span class="material-symbols-outlined text-error" style="font-size:18px">delete</span>
+        <span>Xóa chương</span>
+    </button>
+</div>
+
+@section Scripts {
+    <script>
+        // ============ Modal helpers ============
+        function openModal(modalId) {
+            const overlay = document.getElementById('modalOverlay');
+            overlay.classList.remove('hidden');
+            overlay.classList.add('flex');
+            // Hide all modals inside overlay
+            Array.from(overlay.children).forEach(child => child.classList.add('hidden'));
+            document.getElementById(modalId).classList.remove('hidden');
+        }
+
+        function closeModal() {
+            const overlay = document.getElementById('modalOverlay');
+            overlay.classList.add('hidden');
+            overlay.classList.remove('flex');
+        }
+
+        // Close overlay when clicking the backdrop (not the modal itself)
+        document.getElementById('modalOverlay').addEventListener('click', function(e) {
+            if (e.target === this) closeModal();
+        });
+
+        // ============ Edit chapter modal ============
+        function openEditModal(folderId, folderName) {
+            document.getElementById('editFolderId').value = folderId;
+            document.getElementById('editFolderName').value = folderName;
+            openModal('editChapterModal');
+        }
+
+        // ============ Delete chapter modal ============
+        function openDeleteModal(folderId, folderName) {
+            document.getElementById('deleteChapterId').value = folderId;
+            document.getElementById('deleteChapterName').textContent = '"' + folderName + '"';
+            openModal('deleteChapterModal');
+        }
+
+        // ============ Filter chapters & documents ============
+        function filterChapters(query) {
+            const q = query.toLowerCase().trim();
+            
+            // Filter chapters
+            const chapterRows = document.querySelectorAll('.chapter-row');
+            chapterRows.forEach(row => {
+                const name = row.getAttribute('data-name') || '';
+                row.style.display = !q || name.includes(q) ? '' : 'none';
+            });
+
+            // Filter direct documents
+            const docRows = document.querySelectorAll('.document-row');
+            docRows.forEach(row => {
+                const name = row.getAttribute('data-name') || '';
+                row.style.display = !q || name.includes(q) ? '' : 'none';
+            });
+        }
+
+        // ============ Keyboard shortcut — Escape closes modal ============
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') closeModal();
+        });
+
+        // ============ Page-specific Hooks for Sidebar & Workspace New Menu ============
+        window.openCreateFolderModal = function() { openModal('createChapterModal'); }
+
+        function confirmDeleteDocument(id) {
+            document.getElementById('deleteDocId').value = id;
+            openModal('deleteDocModal');
+        }
+
+        // ============ Chapter Selection & Context Menu Handling ============
+        let selectedChapterId = null;
+        let chapterCtxData = { id: null, name: '', url: '' };
+
+        function selectChapterRow(event, id) {
+            // Unselect all rows
+            document.querySelectorAll('.chapter-row').forEach(r => {
+                r.classList.remove('bg-surface-container-highest', 'ring-1', 'ring-primary/30', 'border-primary/40');
+            });
+
+            // Select clicked row
+            const row = document.querySelector(`.chapter-row[data-id="${id}"]`);
+            if (row) {
+                row.classList.add('bg-surface-container-highest', 'ring-1', 'ring-primary/30', 'border-primary/40');
+            }
+            selectedChapterId = id;
+        }
+
+        // Click outside rows → deselect
+        document.addEventListener('click', e => {
+            if (!e.target.closest('.chapter-row') && !e.target.closest('#chapterCtxMenu')) {
+                document.querySelectorAll('.chapter-row').forEach(r => {
+                    r.classList.remove('bg-surface-container-highest', 'ring-1', 'ring-primary/30', 'border-primary/40');
+                });
+                selectedChapterId = null;
+            }
+        });
+
+        function openChapterCtxMenu(event, id, name) {
+            event.preventDefault();
+            event.stopPropagation();
+
+            // Select the row
+            selectChapterRow(event, id);
+
+            chapterCtxData = { 
+                id: id, 
+                name: name, 
+                url: '@Url.Action("Index", "Drive")?folderId=' + id 
+            };
+
+            const menu = document.getElementById('chapterCtxMenu');
+            menu.classList.remove('hidden');
+
+            // Position near cursor, keep on screen
+            const x = Math.min(event.clientX, window.innerWidth - 200);
+            const y = Math.min(event.clientY, window.innerHeight - 150);
+            menu.style.left = x + 'px';
+            menu.style.top = y + 'px';
+        }
+
+        function closeChapterCtxMenu() {
+            document.getElementById('chapterCtxMenu').classList.add('hidden');
+        }
+
+        document.addEventListener('click', e => {
+            if (!e.target.closest('#chapterCtxMenu')) closeChapterCtxMenu();
+        });
+
+        // Context actions
+        function chapterCtxOpen() {
+            if (chapterCtxData.url) window.location.href = chapterCtxData.url;
+            closeChapterCtxMenu();
+        }
+
+        function chapterCtxRename() {
+            closeChapterCtxMenu();
+            openEditModal(chapterCtxData.id, chapterCtxData.name);
+        }
+
+        function chapterCtxDelete() {
+            closeChapterCtxMenu();
+            openDeleteModal(chapterCtxData.id, chapterCtxData.name);
+        }
+    </script>
+}
