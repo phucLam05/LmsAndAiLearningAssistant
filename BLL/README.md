@@ -9,7 +9,9 @@ The `BLL` project is a class library that contains all the core business logic o
 
 ## Key Components
 - `AuthService`: Handles user authentication, password hashing using `BCrypt.Net-Next`, and email encryption logic.
-- `ChunkingService`: Processes documents asynchronously into textual chunks for later vector embedding, designed to be executed via background jobs. Automatically parses PDF (`UglyToad.PdfPig`), DOCX, and PPTX (`DocumentFormat.OpenXml`) files downloaded from Supabase.
+- `DocumentService`: Handles file uploads, Supabase storage coordination, and enforces configuration-driven rules for maximum file sizes and allowed MIME types.
+- `ChunkingService`: Processes documents asynchronously into textual chunks for later vector embedding via Hangfire. It leverages the `ISupabaseStorageProvider` from DAL to download files and uses a Strategy pattern via `IDocumentParser` to dynamically select the right parser for each file format.
+- `Parsers`: Implementations of `IDocumentParser` (`PdfParser`, `WordParser`, `PowerPointParser`, `FallbackTextParser`) responsible for extracting plain text from specific file types.
 
 ## Usage
 - The Presentation Layer depends on the BLL.

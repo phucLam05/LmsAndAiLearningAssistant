@@ -1,13 +1,16 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Core.Entities;
 using DAL.Data;
 using DAL.Interfaces;
+using Microsoft.EntityFrameworkCore;
 
 namespace DAL.Repositories
 {
     /// <summary>
+    /// EF Core implementation for storing and querying uploaded document metadata.
     /// Implementation of the IDocumentRepository for PostgreSQL database interactions.
     /// </summary>
     public class DocumentRepository : IDocumentRepository
@@ -23,6 +26,21 @@ namespace DAL.Repositories
             _context = context;
         }
 
+        public async Task<IReadOnlyList<Document>> GetByUserIdAsync(Guid userId)
+        {
+            return await _context.Documents
+                .AsNoTracking()
+                .Where(document => document.UserId == userId)
+                .OrderByDescending(document => document.CreatedAt)
+                .ToListAsync();
+        }
+
+        public async Task<Document?> GetByIdForUserAsync(Guid documentId, Guid userId)
+        {
+            return await _context.Documents
+                .FirstOrDefaultAsync(document => document.Id == documentId && document.UserId == userId);
+        }
+
         /// <summary>
         /// Retrieves a document by its unique identifier.
         /// </summary>
@@ -31,6 +49,19 @@ namespace DAL.Repositories
         public async Task<Document?> GetByIdAsync(Guid id)
         {
             return await _context.Documents.FindAsync(id);
+        }
+
+        public async Task<Document> AddAsync(Document document)
+        {
+            await _context.Documents.AddAsync(document);
+            await _context.SaveChangesAsync();
+            return document;
+        }
+
+        public async Task DeleteAsync(Document document)
+        {
+            _context.Documents.Remove(document);
+            await _context.SaveChangesAsync();
         }
 
         /// <summary>

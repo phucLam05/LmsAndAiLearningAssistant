@@ -46,11 +46,76 @@ To apply migrations and update your database schema:
 
 *Note: Ensure your PostgreSQL user has the necessary privileges to install the `vector` extension, as it is required by the `DocumentChunk` table.*
 
+## Document Upload With Supabase Storage
+Uploaded learning documents are stored in Supabase Storage, while only metadata is stored in the application database.
+
+### Supabase Bucket
+1. Create a Supabase Storage bucket named `documents`.
+2. Keep the bucket private. Do not make it public.
+3. Configure the bucket upload limit to 50MB.
+4. Allow these common file families in the bucket policy when Supabase asks for MIME restrictions:
+   ```text
+   application/pdf
+   application/msword
+   application/vnd.openxmlformats-officedocument.wordprocessingml.document
+   application/vnd.ms-powerpoint
+   application/vnd.openxmlformats-officedocument.presentationml.presentation
+   application/vnd.ms-excel
+   application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+   text/plain
+   text/csv
+   image/jpeg
+   image/png
+   image/gif
+   image/webp
+   audio/mpeg
+   audio/wav
+   video/mp4
+   video/quicktime
+   application/zip
+   application/vnd.rar
+   application/x-7z-compressed
+   application/octet-stream
+   ```text
+   application/pdf
+   application/vnd.openxmlformats-officedocument.wordprocessingml.document
+   application/vnd.openxmlformats-officedocument.presentationml.presentation
+   ```
+
+### Supabase Configuration
+Do not commit real keys. Configure these values in `PL/appsettings.json`, `PL/appsettings.Development.json`, or environment variables:
+
+```json
+"Supabase": {
+  "Url": "https://YOUR_PROJECT_REF.supabase.co",
+  "ServiceRoleKey": "YOUR_SUPABASE_SERVICE_ROLE_KEY",
+  "Bucket": "documents"
+},
+"Upload": {
+  "MaxFileSize": 52428800,
+  "AllowedMimeTypes": {
+    ".pdf": [ "application/pdf" ],
+    ".docx": [ "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ]
+  }
+}
+```
+
+The service role key is used only by backend services. It must never be exposed in views, JavaScript, or client-side code.
+
+### Upload Flow
+1. Log in to the MVC application.
+2. Open `/Document`.
+3. Choose a supported source file on `/Document/Upload`.
+4. Submit the form.
+5. The original file is uploaded to the private Supabase `documents` bucket using a GUID-based storage filename.
+6. Metadata is saved to the `Documents` table with initial status `Uploaded` (0).
+7. A Hangfire background job is enqueued to parse and chunk the document (`ChunkingService`).
+8. The document status transitions sequentially: `Uploaded` -> `Chunking` -> `Chunked` -> `Embedding` -> `Indexed` -> `Failed`.
+
+If the Supabase upload succeeds but database save fails, the backend attempts to delete the uploaded object to avoid orphan files.
+
 ## AI Integration & Embeddings
 This project utilizes the Gemini API to process documents and generate **Embeddings** for semantic search.
 
   
 ### What are Embeddings?
-**Embedding là quá trình biến đổi văn bản (chữ) thành các mảng con số (vector).** - Thay vì so sánh từng chữ cái, AI và máy tính sẽ sử dụng các vector này để hiểu "ý nghĩa ngữ nghĩa" của đoạn văn.
-- Trong dự án này, khi có một tài liệu mới, hệ thống sẽ gọi Gemini API để băm nhỏ và mã hóa văn bản thành vector.
-- Sau đó, chúng ta lưu trữ các vector này vào database PostgreSQL thông qua extension `pgvector` để phục vụ cho các tính năng tìm kiếm thông minh sau này.

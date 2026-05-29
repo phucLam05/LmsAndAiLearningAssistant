@@ -7,11 +7,7 @@ using Core.Entities;
 using DAL.Interfaces;
 using Microsoft.Extensions.Logging;
 using System.IO;
-using System.Net.Http;
-using System.Text;
-using UglyToad.PdfPig;
-using DocumentFormat.OpenXml.Packaging;
-using DocumentFormat.OpenXml.Drawing;
+using System.Linq;
 
 namespace BLL.Services
 {
@@ -22,19 +18,26 @@ namespace BLL.Services
     {
         private readonly IDocumentRepository _documentRepository;
         private readonly ILogger<ChunkingService> _logger;
-        private readonly IHttpClientFactory _httpClientFactory;
+        private readonly ISupabaseStorageProvider _storageProvider;
+        private readonly IEnumerable<IDocumentParser> _parsers;
 
         /// <summary>
         /// Initializes a new instance of the ChunkingService.
         /// </summary>
         /// <param name="documentRepository">The data access repository for documents.</param>
         /// <param name="logger">The logger instance.</param>
-        /// <param name="httpClientFactory">The HTTP client factory to create clients for downloading files.</param>
-        public ChunkingService(IDocumentRepository documentRepository, ILogger<ChunkingService> logger, IHttpClientFactory httpClientFactory)
+        /// <param name="storageProvider">Provider for downloading files from Supabase.</param>
+        /// <param name="parsers">Collection of document parsers injected via DI.</param>
+        public ChunkingService(
+            IDocumentRepository documentRepository, 
+            ILogger<ChunkingService> logger, 
+            ISupabaseStorageProvider storageProvider,
+            IEnumerable<IDocumentParser> parsers)
         {
             _documentRepository = documentRepository;
             _logger = logger;
-            _httpClientFactory = httpClientFactory;
+            _storageProvider = storageProvider;
+            _parsers = parsers;
         }
 
         /// <summary>
@@ -48,7 +51,7 @@ namespace BLL.Services
             try
             {
                 _logger.LogInformation("Starting chunking process for Document ID: {DocumentId}", documentId);
-                await _documentRepository.UpdateStatusAsync(documentId, DocumentProcessingStatus.Processing);
+                await _documentRepository.UpdateStatusAsync(documentId, DocumentProcessingStatus.Chunking);
 
                 var document = await _documentRepository.GetByIdAsync(documentId);
                 if (document == null)
@@ -63,8 +66,7 @@ namespace BLL.Services
 
                 await _documentRepository.BulkInsertChunksAsync(chunks);
                 
-                // Assuming "Indexed" or a new intermediate status prior to the vector embedding phase
-                await _documentRepository.UpdateStatusAsync(documentId, DocumentProcessingStatus.Indexed);
+                await _documentRepository.UpdateStatusAsync(documentId, DocumentProcessingStatus.Chunked);
 
                 _logger.LogInformation("Successfully completed chunking process for Document ID: {DocumentId}", documentId);
             }
@@ -86,72 +88,26 @@ namespace BLL.Services
         {
             try
             {
-                var client = _httpClientFactory.CreateClient("Supabase");
-                _logger.LogInformation("Downloading file from Supabase URL: {StorageUrl}", document.StorageUrl);
+                _logger.LogInformation("Downloading file from Supabase Path: {StoragePath}", document.StoragePath);
                 
-                var response = await client.GetAsync(document.StorageUrl, cancellationToken);
-                response.EnsureSuccessStatusCode();
+                using var stream = await _storageProvider.DownloadAsync(document.StoragePath, cancellationToken);
+                string extension = Path.GetExtension(document.OriginalFileName).ToLowerInvariant();
 
-                using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
-                string extension = System.IO.Path.GetExtension(document.OriginalFileName).ToLowerInvariant();
-
-                return extension switch
+                // Select the first parser that can handle this extension (FallbackTextParser should be registered last)
+                var parser = _parsers.FirstOrDefault(p => p.CanParse(extension));
+                if (parser == null)
                 {
-                    ".pdf" => ExtractTextFromPdf(stream),
-                    ".docx" => ExtractTextFromWord(stream),
-                    ".pptx" => ExtractTextFromPowerPoint(stream),
-                    _ => await ExtractTextFromPlainText(stream, cancellationToken)
-                };
+                    throw new InvalidOperationException($"No parser found for extension: {extension}");
+                }
+
+                _logger.LogInformation("Extracting text using {ParserName}", parser.GetType().Name);
+                return await parser.ParseAsync(stream, cancellationToken);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to read file from Supabase URL: {StorageUrl}", document.StorageUrl);
-                throw new InvalidOperationException($"Could not read file from storage: {document.StorageUrl}", ex);
+                _logger.LogError(ex, "Failed to read file from Supabase Path: {StoragePath}", document.StoragePath);
+                throw new InvalidOperationException($"Could not read file from storage: {document.StoragePath}", ex);
             }
-        }
-
-        private string ExtractTextFromPdf(Stream stream)
-        {
-            using var pdf = PdfDocument.Open(stream);
-            var sb = new StringBuilder();
-            foreach (var page in pdf.GetPages())
-            {
-                sb.AppendLine(page.Text);
-            }
-            return sb.ToString();
-        }
-
-        private string ExtractTextFromWord(Stream stream)
-        {
-            using var wordDoc = WordprocessingDocument.Open(stream, false);
-            return wordDoc.MainDocumentPart?.Document?.Body?.InnerText ?? string.Empty;
-        }
-
-        private string ExtractTextFromPowerPoint(Stream stream)
-        {
-            using var pptDoc = PresentationDocument.Open(stream, false);
-            var sb = new StringBuilder();
-            var presentationPart = pptDoc.PresentationPart;
-            if (presentationPart?.SlideParts != null)
-            {
-                foreach (var slidePart in presentationPart.SlideParts)
-                {
-                    if (slidePart.Slide != null)
-                    {
-                        foreach (var textElement in slidePart.Slide.Descendants<DocumentFormat.OpenXml.Drawing.Text>())
-                        {
-                            sb.AppendLine(textElement.Text);
-                        }
-                    }
-                }
-            }
-            return sb.ToString();
-        }
-
-        private async Task<string> ExtractTextFromPlainText(Stream stream, CancellationToken cancellationToken)
-        {
-            using var reader = new StreamReader(stream);
-            return await reader.ReadToEndAsync(cancellationToken);
         }
 
         /// <summary>

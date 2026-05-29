@@ -17,25 +17,25 @@ namespace PL
             var builder = WebApplication.CreateBuilder(args);
 
             // Add services to the container.
+            builder.Services.Configure<Core.Configuration.UploadOptions>(builder.Configuration.GetSection("Upload"));
             builder.Services.AddControllersWithViews();
             builder.Services.AddDbContext<DAL.Data.ApplicationDbContext>(options =>
                 options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"), o => o.UseVector()));
             builder.Services.AddScoped<DAL.Interfaces.IUserRepository, DAL.Repositories.UserRepository>();
             builder.Services.AddScoped<DAL.Interfaces.IDocumentRepository, DAL.Repositories.DocumentRepository>();
+            builder.Services.AddScoped<DAL.Interfaces.IFolderRepository, DAL.Repositories.FolderRepository>();
             builder.Services.AddScoped<BLL.Interfaces.IAuthService, BLL.Services.AuthService>();
             builder.Services.AddScoped<BLL.Interfaces.IChunkingService, BLL.Services.ChunkingService>();
+            builder.Services.AddScoped<BLL.Interfaces.IDocumentService, BLL.Services.DocumentService>();
+            builder.Services.AddHttpClient<DAL.Interfaces.ISupabaseStorageProvider, DAL.Providers.SupabaseStorageProvider>();
             
-            // Register HttpClientFactory for BLL services (e.g. ChunkingService reading from Supabase)
-            builder.Services.AddHttpClient("Supabase", client =>
-            {
-                var supabaseKey = builder.Configuration["Supabase:Key"];
-                if (!string.IsNullOrEmpty(supabaseKey))
-                {
-                    client.DefaultRequestHeaders.Add("apikey", supabaseKey);
-                    client.DefaultRequestHeaders.Add("Authorization", $"Bearer {supabaseKey}");
-                }
-            });
-
+            // Register document parsers (FallbackTextParser must be registered last or used carefully; 
+            // since we use FirstOrDefault in ChunkingService based on CanParse, order doesn't strictly matter for explicit extensions, 
+            // but FallbackTextParser returns true for everything so it should be registered last)
+            builder.Services.AddScoped<BLL.Interfaces.IDocumentParser, BLL.Services.Parsers.PdfParser>();
+            builder.Services.AddScoped<BLL.Interfaces.IDocumentParser, BLL.Services.Parsers.WordParser>();
+            builder.Services.AddScoped<BLL.Interfaces.IDocumentParser, BLL.Services.Parsers.PowerPointParser>();
+            builder.Services.AddScoped<BLL.Interfaces.IDocumentParser, BLL.Services.Parsers.FallbackTextParser>();
             builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
                 .AddCookie(options =>
                 {

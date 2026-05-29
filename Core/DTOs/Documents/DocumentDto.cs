@@ -33,7 +33,17 @@ namespace Core.DTOs.Documents
         public string OriginalFileName { get; set; } = string.Empty;
 
         /// <summary>
-        /// Storage URL of the document content.
+        /// Unique filename used by object storage.
+        /// </summary>
+        public string StoredFileName { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Private object path inside Supabase Storage.
+        /// </summary>
+        public string StoragePath { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Storage URL or object path of the document content.
         /// </summary>
         public string StorageUrl { get; set; } = string.Empty;
 
@@ -41,6 +51,11 @@ namespace Core.DTOs.Documents
         /// MIME type of the document content.
         /// </summary>
         public string MimeType { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Normalized file extension without the leading dot.
+        /// </summary>
+        public string FileType { get; set; } = string.Empty;
 
         /// <summary>
         /// Size of the file in bytes.
@@ -58,6 +73,11 @@ namespace Core.DTOs.Documents
         public DateTime UploadedAt { get; set; }
 
         /// <summary>
+        /// Date and time when the document metadata was created.
+        /// </summary>
+        public DateTime CreatedAt { get; set; }
+
+        /// <summary>
         /// Date and time when the document was last updated.
         /// </summary>
         public DateTime UpdatedAt { get; set; }
@@ -68,9 +88,11 @@ namespace Core.DTOs.Documents
     /// </summary>
     public enum DocumentProcessingStatusDto
     {
-        Pending = 0,
-        Processing = 1,
-        Indexed = 2,
-        Failed = 3
+        Uploaded = 0,
+        Chunking = 1,
+        Chunked = 2,
+        Embedding = 3,
+        Indexed = 4,
+        Failed = 5
     }
 }
