@@ -1,0 +1,107 @@
+using System;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using BLL.Interfaces;
+using Core.DTOs.Common;
+using Core.Entities;
+using DAL.Interfaces;
+using Microsoft.Extensions.Logging;
+using Pgvector;
+
+namespace BLL.Services
+{
+    /// <summary>
+    /// Business logic service that orchestrates generating vector embeddings for document chunks
+    /// and persisting them to the database.
+    /// </summary>
+    public class DocumentEmbeddingService : IEmbeddingService
+    {
+        private readonly IDocumentRepository _documentRepository;
+        private readonly IDocumentChunkRepository _documentChunkRepository;
+        private readonly IGeminiEmbeddingProvider _geminiProvider;
+        private readonly ILogger<DocumentEmbeddingService> _logger;
+
+        public DocumentEmbeddingService(
+            IDocumentRepository documentRepository,
+            IDocumentChunkRepository documentChunkRepository,
+            IGeminiEmbeddingProvider geminiProvider,
+            ILogger<DocumentEmbeddingService> logger)
+        {
+            _documentRepository = documentRepository;
+            _documentChunkRepository = documentChunkRepository;
+            _geminiProvider = geminiProvider;
+            _logger = logger;
+        }
+
+        public async Task<Result> ProcessEmbeddingsAsync(Guid documentId, CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                _logger.LogInformation("Starting embedding process for DocumentId: {DocumentId}", documentId);
+
+                // Fetch document status first
+                var document = await _documentRepository.GetByIdAsync(documentId);
+                if (document == null)
+                {
+                    return Result.Failure("Document not found.");
+                }
+
+                // If chunking failed, or it's already indexed, we should skip embedding.
+                if (document.ProcessingStatus == DocumentProcessingStatus.Failed || 
+                    document.ProcessingStatus == DocumentProcessingStatus.Indexed ||
+                    document.ProcessingStatus < DocumentProcessingStatus.Chunked)
+                {
+                    _logger.LogWarning("Document {DocumentId} is at status {Status}. Skipping embedding.", documentId, document.ProcessingStatus);
+                    return Result.Success();
+                }
+
+                // Update status to Embedding
+                await _documentRepository.UpdateStatusAsync(documentId, DocumentProcessingStatus.Embedding);
+
+                // 2. Fetch chunks
+                var chunks = await _documentChunkRepository.GetChunksByDocumentIdAsync(documentId);
+                if (chunks == null || !chunks.Any())
+                {
+                    _logger.LogWarning("No chunks found for DocumentId: {DocumentId}. Marking as Indexed anyway.", documentId);
+                    await _documentRepository.UpdateStatusAsync(documentId, DocumentProcessingStatus.Indexed);
+                    return Result.Success();
+                }
+
+                // Resumption logic: only process chunks that don't have embeddings yet
+                var chunksToProcess = chunks.Where(c => c.Embedding == null).ToList();
+                _logger.LogInformation("Found {TotalChunks} chunks, {PendingChunks} need embeddings.", chunks.Count, chunksToProcess.Count);
+
+                // 3. Process each chunk
+                foreach (var chunk in chunksToProcess)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+
+                    // Generate embedding vector using Gemini
+                    var vectorArray = await _geminiProvider.GetEmbeddingAsync(chunk.Content, cancellationToken);
+                    chunk.Embedding = new Vector(vectorArray);
+                }
+
+                // 4. Save updated chunks back to DB if any were processed
+                if (chunksToProcess.Any())
+                {
+                    await _documentChunkRepository.UpdateChunksAsync(chunksToProcess);
+                }
+
+                // 5. Update status to Indexed
+                await _documentRepository.UpdateStatusAsync(documentId, DocumentProcessingStatus.Indexed);
+                _logger.LogInformation("Successfully completed embedding process for DocumentId: {DocumentId}", documentId);
+                
+                return Result.Success();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to process embeddings for DocumentId: {DocumentId}", documentId);
+                
+                // If it fails, update status to Failed so the user can see it
+                await _documentRepository.UpdateStatusAsync(documentId, DocumentProcessingStatus.Failed);
+                return Result.Failure($"Embedding error: {ex.Message}");
+            }
+        }
+    }
+}

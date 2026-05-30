@@ -1,10 +1,8 @@
-using BLL.Interfaces;
-using BLL.Services;
-using DAL.Data;
-using DAL.Interfaces;
-using DAL.Repositories;
+using BLL;
+using DAL;
+using Hangfire;
+using Hangfire.PostgreSql;
 using Microsoft.AspNetCore.Authentication.Cookies;
-using Microsoft.EntityFrameworkCore;
 
 namespace PL
 {
@@ -15,11 +13,10 @@ namespace PL
             var builder = WebApplication.CreateBuilder(args);
 
             // Add services to the container.
+            builder.Services.Configure<Core.Configuration.UploadOptions>(builder.Configuration.GetSection("Upload"));
             builder.Services.AddControllersWithViews();
-            builder.Services.AddDbContext<DAL.Data.ApplicationDbContext>(options =>
-                options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"), o => o.UseVector()));
-            builder.Services.AddScoped<DAL.Interfaces.IUserRepository, DAL.Repositories.UserRepository>();
-            builder.Services.AddScoped<BLL.Interfaces.IAuthService, BLL.Services.AuthService>();
+            builder.Services.AddDataAccessLayer(builder.Configuration);
+            builder.Services.AddBusinessLogicLayer();
             builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
                 .AddCookie(options =>
                 {
@@ -27,6 +24,14 @@ namespace PL
                     options.LogoutPath = "/Auth/Logout";
                     options.AccessDeniedPath = "/Auth/Login";
                 });
+
+            builder.Services.AddHangfire(configuration => configuration
+                .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
+                .UseSimpleAssemblyNameTypeSerializer()
+                .UseRecommendedSerializerSettings()
+                .UsePostgreSqlStorage(o => o.UseNpgsqlConnection(builder.Configuration.GetConnectionString("DefaultConnection"))));
+
+            builder.Services.AddHangfireServer();
 
             var app = builder.Build();
 
@@ -44,6 +49,10 @@ namespace PL
             app.UseAuthentication();
             app.UseAuthorization();
 
+            if (app.Environment.IsDevelopment())
+            {
+                app.UseHangfireDashboard("/hangfire");
+            }
             app.MapStaticAssets();
             app.MapControllerRoute(
                 name: "default",
