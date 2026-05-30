@@ -1,21 +1,18 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Threading.Tasks;
 using BLL.Interfaces;
 using Core.Configuration;
 using Core.DTOs.Common;
 using Core.DTOs.Documents;
 using Core.Entities;
 using DAL.Interfaces;
+using Hangfire;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace BLL.Services
 {
     /// <summary>
-    /// Handles document upload business rules, Supabase storage coordination, and metadata persistence.
+    /// Handles document upload business rules, Supabase storage coordination, metadata persistence, 
+    /// and enqueues background jobs for document chunking and embedding.
     /// </summary>
     public class DocumentService : IDocumentService
     {
@@ -24,19 +21,22 @@ namespace BLL.Services
         private readonly ISupabaseStorageProvider _storageService;
         private readonly UploadOptions _uploadOptions;
         private readonly ILogger<DocumentService> _logger;
+        private readonly IBackgroundJobClient _backgroundJobs;
 
         public DocumentService(
             IDocumentRepository documentRepository,
             IFolderRepository folderRepository,
             ISupabaseStorageProvider storageService,
             IOptions<UploadOptions> uploadOptions,
-            ILogger<DocumentService> logger)
+            ILogger<DocumentService> logger,
+            IBackgroundJobClient backgroundJobs)
         {
             _documentRepository = documentRepository;
             _folderRepository = folderRepository;
             _storageService = storageService;
             _uploadOptions = uploadOptions.Value;
             _logger = logger;
+            _backgroundJobs = backgroundJobs;
         }
 
         public async Task<IReadOnlyList<DocumentDto>> GetDocumentsForUserAsync(Guid userId)
@@ -91,6 +91,11 @@ namespace BLL.Services
                 };
 
                 await _documentRepository.AddAsync(document);
+
+                // Enqueue the chunking job, followed by the embedding job
+                var chunkingJobId = _backgroundJobs.Enqueue<IChunkingService>(x => x.ProcessFileChunkingAsync(document.Id, CancellationToken.None));
+                _backgroundJobs.ContinueJobWith<IEmbeddingService>(chunkingJobId, x => x.ProcessEmbeddingsAsync(document.Id, CancellationToken.None));
+
                 return Result<DocumentDto>.Success(MapDocument(document));
             }
             catch (Exception ex)
@@ -134,6 +139,36 @@ namespace BLL.Services
             {
                 _logger.LogError(ex, "Failed to delete document {DocumentId}", documentId);
                 return Result.Failure($"Delete error: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Restarts the processing pipeline (chunking and embedding) for a document.
+        /// Validates that the document belongs to the requesting user before processing.
+        /// </summary>
+        /// <param name="documentId">The ID of the document to retry.</param>
+        /// <param name="userId">The ID of the user requesting the retry.</param>
+        /// <returns>A Result indicating success or failure.</returns>
+        public async Task<Result> RetryProcessingAsync(Guid documentId, Guid userId)
+        {
+            try
+            {
+                var document = await _documentRepository.GetByIdForUserAsync(documentId, userId);
+                if (document == null)
+                {
+                    return Result.Failure("Document not found or access denied.");
+                }
+
+                // Enqueue the chunking job which will cascade to embedding
+                var chunkingJobId = _backgroundJobs.Enqueue<IChunkingService>(x => x.ProcessFileChunkingAsync(documentId, CancellationToken.None));
+                _backgroundJobs.ContinueJobWith<IEmbeddingService>(chunkingJobId, x => x.ProcessEmbeddingsAsync(documentId, CancellationToken.None));
+
+                return Result.Success();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to retry processing for document {DocumentId}", documentId);
+                return Result.Failure($"Retry processing error: {ex.Message}");
             }
         }
 

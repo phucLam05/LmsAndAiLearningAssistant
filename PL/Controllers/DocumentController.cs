@@ -1,34 +1,27 @@
-using System;
-using System.Security.Claims;
-using System.Threading;
-using System.Threading.Tasks;
 using BLL.Interfaces;
 using Core.DTOs.Documents;
-using Hangfire;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using PL.Models.Documents;
+using System.Security.Claims;
 
 namespace PL.Controllers
 {
     /// <summary>
-    /// Handles MVC requests for listing, uploading, and deleting the current user's files.
-    /// Also enqueues background jobs for document chunking.
+    /// Handles MVC requests for listing, uploading, retrying, and deleting the current user's files.
     /// </summary>
     [Authorize]
     public class DocumentController : Controller
     {
         private readonly IDocumentService _documentService;
-        private readonly IBackgroundJobClient _backgroundJobs;
 
         /// <summary>
-        /// Creates a document controller that delegates upload and metadata behavior to the BLL service,
-        /// and background chunking to Hangfire.
+        /// Creates a document controller that delegates upload and metadata behavior to the BLL service.
+        /// Background chunking is now handled within the BLL.
         /// </summary>
-        public DocumentController(IDocumentService documentService, IBackgroundJobClient backgroundJobs)
+        public DocumentController(IDocumentService documentService)
         {
             _documentService = documentService;
-            _backgroundJobs = backgroundJobs;
         }
 
         /// <summary>
@@ -96,10 +89,6 @@ namespace PL.Controllers
                 return View(model);
             }
 
-            // Enqueue the chunking job, followed by the embedding job
-            var chunkingJobId = _backgroundJobs.Enqueue<IChunkingService>(x => x.ProcessFileChunkingAsync(result.Data.Id, CancellationToken.None));
-            _backgroundJobs.ContinueJobWith<IEmbeddingService>(chunkingJobId, x => x.ProcessEmbeddingsAsync(result.Data.Id, CancellationToken.None));
-
             TempData["SuccessMessage"] = "File uploaded successfully and chunking started.";
             return RedirectToAction(nameof(Index));
         }
@@ -118,8 +107,15 @@ namespace PL.Controllers
             }
 
             var result = await _documentService.DeleteAsync(id, userId.Value);
-            TempData[result.IsSuccess ? "SuccessMessage" : "ErrorMessage"] =
-                result.IsSuccess ? "File deleted successfully." : result.ErrorMessage;
+
+            if (result.IsSuccess)
+            {
+                TempData["SuccessMessage"] = "File deleted successfully.";
+            }
+            else
+            {
+                TempData["ErrorMessage"] = result.ErrorMessage;
+            }
 
             return RedirectToAction(nameof(Index));
         }
@@ -138,11 +134,15 @@ namespace PL.Controllers
                 return Challenge();
             }
 
-            // Enqueue the chunking job which will cascade to embedding
-            var chunkingJobId = _backgroundJobs.Enqueue<IChunkingService>(x => x.ProcessFileChunkingAsync(id, CancellationToken.None));
-            _backgroundJobs.ContinueJobWith<IEmbeddingService>(chunkingJobId, x => x.ProcessEmbeddingsAsync(id, CancellationToken.None));
-            
-            TempData["SuccessMessage"] = "Document processing restarted successfully.";
+            var result = await _documentService.RetryProcessingAsync(id, userId.Value);
+            if (result.IsSuccess)
+            {
+                TempData["SuccessMessage"] = "Document processing restarted successfully.";
+            }
+            else
+            {
+                TempData["ErrorMessage"] = result.ErrorMessage;
+            }
             return RedirectToAction(nameof(Index));
         }
 

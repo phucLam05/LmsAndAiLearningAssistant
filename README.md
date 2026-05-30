@@ -94,11 +94,13 @@ The service role key is used only by backend services. It must never be exposed 
 4. Submit the form.
 5. The original file is uploaded to the private Supabase `documents` bucket using a GUID-based storage filename.
 6. Metadata is saved to the `Documents` table with initial status `Uploaded` (0).
-7. A Hangfire background job is enqueued to parse and chunk the document (`ChunkingService`).
+7. A Hangfire background job is enqueued from the Business Logic Layer (`DocumentService`) to parse and chunk the document (`ChunkingService`).
 8. After chunking, a continuation job (`EmbeddingService`) creates vector embeddings using the Gemini API.
 9. The document status transitions sequentially: `Uploaded` -> `Chunking` -> `Chunked` -> `Embedding` -> `Indexed` -> `Failed`.
 
-**Resumption Logic:** If a document fails during chunking or embedding, the user can hit "Retry" in the UI. The pipeline is smart enough to check the current status and only resume work from where it failed, avoiding redundant processing and API costs.
+**Resumption Logic:** If a document fails during chunking or embedding, the user can hit "Retry" in the UI. The request is validated by the BLL to ensure the user owns the document, and the pipeline is smart enough to check the current status and only resume work from where it failed, avoiding redundant processing and API costs.
+
+*(Note: Background job enqueuing and ownership validation are strictly handled in the BLL to maintain a clean three-tier architecture.)*
 
 If the Supabase upload succeeds but database save fails, the backend attempts to delete the uploaded object to avoid orphan files.
 
