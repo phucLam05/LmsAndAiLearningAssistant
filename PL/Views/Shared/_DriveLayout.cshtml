@@ -1,0 +1,685 @@
+@{
+    var userFullName = User.Identity?.Name ?? "Người dùng";
+    var userEmail = User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value ?? "user@domain.com";
+    var hasContextPanel = IsSectionDefined("ContextPanel");
+}
+<!DOCTYPE html>
+<html class="dark" lang="vi">
+<head>
+    <meta charset="utf-8"/>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <title>Index AI - Thư viện tài liệu</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    
+    <!-- Fonts & Icons -->
+    <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+    
+    <style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .material-symbols-outlined.filled {
+            font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        
+        body { font-family: 'Be Vietnam Pro', sans-serif; }
+        /* Custom scrollbar for webkit */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #343538; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #414754; }
+    </style>
+    
+    <script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "tertiary-fixed": "#89fa9b",
+                        "secondary-fixed-dim": "#a8c8ff",
+                        "surface": "#121316",
+                        "surface-container-high": "#292a2d",
+                        "error-container": "#93000a",
+                        "surface-dim": "#121316",
+                        "surface-container-highest": "#343538",
+                        "on-secondary-container": "#8cb6fb",
+                        "secondary-container": "#114784",
+                        "surface-container-low": "#1a1b1e",
+                        "on-surface": "#e3e2e6",
+                        "on-tertiary-fixed": "#002108",
+                        "primary": "#adc7ff",
+                        "background": "#121316",
+                        "secondary": "#a8c8ff",
+                        "inverse-surface": "#e3e2e6",
+                        "on-tertiary": "#003914",
+                        "surface-container-lowest": "#0d0e11",
+                        "surface-container": "#1e2022",
+                        "on-surface-variant": "#c1c6d6",
+                        "on-error-container": "#ffdad6",
+                        "secondary-fixed": "#d5e3ff",
+                        "on-tertiary-container": "#ffffff",
+                        "on-primary": "#002e68",
+                        "inverse-on-surface": "#2f3033",
+                        "on-error": "#690005",
+                        "on-secondary-fixed": "#001b3c",
+                        "surface-bright": "#38393c",
+                        "on-secondary": "#003061",
+                        "on-primary-container": "#ffffff",
+                        "on-tertiary-fixed-variant": "#005320",
+                        "primary-container": "#1a73e8",
+                        "surface-tint": "#adc7ff",
+                        "tertiary-container": "#008939",
+                        "on-primary-fixed": "#001a41",
+                        "error": "#ffb4ab",
+                        "inverse-primary": "#005bc0",
+                        "tertiary-fixed-dim": "#6ddd81",
+                        "on-background": "#e3e2e6",
+                        "outline": "#8b909f",
+                        "primary-fixed-dim": "#adc7ff",
+                        "on-secondary-fixed-variant": "#114784",
+                        "outline-variant": "#414754",
+                        "primary-fixed": "#d8e2ff",
+                        "surface-variant": "#343538",
+                        "tertiary": "#6ddd81",
+                        "on-primary-fixed-variant": "#004493"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "gutter": "16px",
+                        "sidebar-width": "280px",
+                        "unit": "4px",
+                        "margin-desktop": "24px",
+                        "header-height": "64px",
+                        "margin-mobile": "16px"
+                    },
+                    "fontFamily": {
+                        "headline-sm": ["Be Vietnam Pro"],
+                        "body-md": ["Be Vietnam Pro"],
+                        "label-md": ["Be Vietnam Pro"],
+                        "body-lg": ["Be Vietnam Pro"],
+                        "display-lg": ["Be Vietnam Pro"],
+                        "headline-md": ["Be Vietnam Pro"],
+                        "headline-lg": ["Be Vietnam Pro"],
+                        "headline-lg-mobile": ["Be Vietnam Pro"]
+                    },
+                    "fontSize": {
+                        "headline-sm": ["20px", { "lineHeight": "28px", "fontWeight": "500" }],
+                        "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "label-md": ["12px", { "lineHeight": "16px", "letterSpacing": "0.01em", "fontWeight": "500" }],
+                        "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "display-lg": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                        "headline-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "600" }],
+                        "headline-lg-mobile": ["28px", { "lineHeight": "36px", "fontWeight": "600" }]
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-background text-on-background min-h-screen overflow-hidden selection:bg-primary-container selection:text-on-primary-container">
+    
+    <!-- TopNavBar -->
+    <nav class="fixed top-0 left-0 w-full z-50 flex justify-between items-center px-margin-desktop bg-surface h-header-height border-b border-outline-variant transition-colors duration-200">
+        <div class="flex items-center gap-6">
+            <button class="md:hidden text-on-surface hover:bg-surface-container-high p-2 rounded-full transition-colors">
+                <span class="material-symbols-outlined">menu</span>
+            </button>
+            <a class="font-headline-md text-headline-md font-bold text-on-surface tracking-tight" href="@Url.Action("Index", "Home")">Index AI</a>
+        </div>
+        
+        <div class="flex-1 max-w-2xl mx-8 hidden md:block">
+            <div class="relative group">
+                <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                    <span class="material-symbols-outlined text-outline">search</span>
+                </div>
+                <input class="w-full bg-surface-container-high border border-outline-variant text-on-surface font-body-md text-body-md rounded-lg pl-12 pr-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all placeholder:text-outline group-hover:bg-surface-container-highest" placeholder="Tìm kiếm trong tài liệu đã index..." type="text"/>
+                <div class="absolute inset-y-0 right-0 pr-2 flex items-center">
+                    <span class="material-symbols-outlined text-outline hover:text-on-surface cursor-pointer p-1">tune</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="flex items-center gap-4">
+            <div class="flex items-center gap-2">
+                <button class="text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface p-2 rounded-full transition-colors relative">
+                    <span class="material-symbols-outlined">notifications</span>
+                    <span class="absolute top-2 right-2 w-2 h-2 bg-error rounded-full ring-2 ring-surface"></span>
+                </button>
+                <button class="text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface p-2 rounded-full transition-colors">
+                    <span class="material-symbols-outlined">settings</span>
+                </button>
+            </div>
+            
+            <div class="relative" id="userMenuWrapper">
+                <div onclick="toggleUserMenu()" class="w-8 h-8 rounded-full bg-surface-container-highest border border-outline-variant overflow-hidden cursor-pointer hover:ring-2 ring-primary transition-all flex items-center justify-center">
+                    <span class="material-symbols-outlined text-[24px] text-on-surface flex items-center justify-center">person</span>
+                </div>
+                <!-- Dropdown panel -->
+                <div id="userMenuDropdown" class="hidden absolute right-0 top-[calc(100%+8px)] w-64 bg-surface-container-low border border-outline-variant rounded-xl shadow-2xl z-[500] overflow-hidden p-4">
+                    <div class="flex flex-col items-center text-center pb-3 border-b border-outline-variant/50">
+                        <div class="w-12 h-12 rounded-full bg-primary/20 text-primary font-bold text-headline-sm flex items-center justify-center mb-2">
+                            @(string.IsNullOrEmpty(userFullName) ? "U" : userFullName.Substring(0, 1).ToUpper())
+                        </div>
+                        <h4 class="font-headline-sm text-on-surface font-semibold text-sm truncate max-w-full">@userFullName</h4>
+                        <p class="font-body-md text-outline text-xs truncate max-w-full">@userEmail</p>
+                    </div>
+                    <div class="pt-3">
+                        <form asp-action="Logout" asp-controller="Auth" method="post" id="logoutForm">
+                            <button type="submit" class="w-full flex items-center justify-center gap-2 px-4 py-2 bg-error-container/85 text-on-error-container hover:bg-error-container/100 font-label-md text-label-md rounded-lg transition-colors font-bold">
+                                <span class="material-symbols-outlined text-[18px]">logout</span>
+                                Đăng xuất
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+    
+    <div class="flex h-screen pt-header-height">
+        
+        <!-- SideNavBar -->
+        <aside class="fixed left-0 top-header-height h-[calc(100vh-64px)] w-sidebar-width flex flex-col py-4 z-40 bg-surface-container-low dark:bg-surface-container-low border-r border-outline-variant hidden md:flex transition-all duration-300">
+            <div class="px-6 mb-6">
+                <h2 class="font-headline-sm text-headline-sm font-bold text-primary tracking-tight">Thư viện</h2>
+                <p class="font-body-md text-body-md text-on-surface-variant mt-1">Quản lý tài liệu</p>
+            </div>
+            
+            <!-- "Thêm mới" Dropdown Button -->
+            <div class="px-4 mb-4 relative" id="addNewWrapper">
+                <button type="button" id="addNewBtn" onclick="toggleAddMenu()"
+                        class="w-full bg-surface-container-high border border-outline-variant text-on-surface font-label-md text-label-md py-3 rounded-lg hover:bg-surface-container-highest active:bg-surface-bright transition-colors flex items-center justify-center gap-2 font-medium shadow-sm">
+                    <span class="material-symbols-outlined text-[18px]">add</span>
+                    Thêm mới
+                </button>
+                <!-- Dropdown panel -->
+                <div id="addNewMenu"
+                     class="hidden absolute left-4 right-4 top-[calc(100%+4px)] bg-surface-container-high border border-outline-variant rounded-xl shadow-2xl z-[500] overflow-hidden py-1">
+                    <button onclick="addNewAction('folder'); closeAddMenu()"
+                            class="w-full flex items-center gap-3 px-4 py-3 font-body-md text-body-md text-on-surface hover:bg-surface-container-highest transition-colors">
+                        <span class="material-symbols-outlined text-primary" style="font-size:20px">create_new_folder</span>
+                        <span>Tạo thư mục mới</span>
+                    </button>
+
+                    <button onclick="addNewAction('uploadFile'); closeAddMenu()"
+                            id="sidebarUploadFileBtn"
+                            class="w-full flex items-center gap-3 px-4 py-3 font-body-md text-body-md text-on-surface hover:bg-surface-container-highest transition-colors">
+                        <span class="material-symbols-outlined text-secondary" style="font-size:20px">upload_file</span>
+                        <span>Tải tệp lên</span>
+                    </button>
+
+                    <button onclick="addNewAction('uploadFolder'); closeAddMenu()"
+                            class="w-full flex items-center gap-3 px-4 py-3 font-body-md text-body-md text-on-surface-variant transition-colors cursor-not-allowed opacity-50" disabled>
+                        <span class="material-symbols-outlined" style="font-size:20px">drive_folder_upload</span>
+                        <span>Tải folder lên <span class="text-outline font-label-md text-label-md">(sắp ra mắt)</span></span>
+                    </button>
+                </div>
+            </div>
+            
+            <nav class="flex-1 px-3 space-y-1 overflow-y-auto">
+                @{
+                    var currentController = ViewContext.RouteData.Values["controller"]?.ToString();
+                    var currentAction     = ViewContext.RouteData.Values["action"]?.ToString();
+                    bool isSubjects  = currentAction == "Subjects" || currentAction == "Chapters" || currentAction == "Index";
+                    bool isDocuments = currentAction == "Documents";
+                }
+                <a class="flex items-center gap-3 @(isSubjects ? "bg-secondary-container text-on-secondary-container font-bold" : "text-on-surface-variant hover:bg-surface-container-highest") rounded-lg px-4 py-2.5 font-label-md text-label-md transition-all group"
+                   href="@Url.Action("Subjects", "Drive")">
+                    <span class="material-symbols-outlined @(isSubjects ? "icon-fill" : "text-outline group-hover:text-on-surface") transition-colors" style="font-size:20px">folder</span>
+                    <span class="flex-1">Môn học</span>
+                </a>
+                <a class="flex items-center gap-3 @(isDocuments ? "bg-secondary-container text-on-secondary-container font-bold" : "text-on-surface-variant hover:bg-surface-container-highest") rounded-lg px-4 py-2.5 font-label-md text-label-md transition-all group"
+                   href="@Url.Action("Documents", "Drive")">
+                    <span class="material-symbols-outlined @(isDocuments ? "icon-fill" : "text-outline group-hover:text-on-surface") transition-colors" style="font-size:20px">description</span>
+                    <span class="flex-1">Tài liệu</span>
+                </a>
+                <a class="flex items-center gap-3 text-on-surface-variant hover:bg-surface-container-highest rounded-lg px-4 py-2.5 font-label-md text-label-md transition-all group"
+                   href="javascript:void(0)" onclick="alert('Tính năng này chưa khả dụng.')">
+                    <span class="material-symbols-outlined text-outline group-hover:text-on-surface transition-colors" style="font-size:20px">delete</span>
+                    <span class="flex-1">Thùng rác</span>
+                </a>
+            </nav>
+        </aside>
+        
+        <!-- Main Workspace -->
+        <main class="flex-1 md:ml-[280px] h-full overflow-y-auto bg-background p-margin-mobile md:p-margin-desktop scroll-smooth">
+            @RenderBody()
+            <!-- Spacer for bottom padding -->
+            <div class="h-12"></div>
+        </main>
+        
+        <!-- Right Context Panel (if provided by view) -->
+        @RenderSection("ContextPanel", required: false)
+        
+    </div>
+
+    <!-- Need to include Bootstrap JS for modals to work properly if we are mixing forms right now -->
+    <!-- Ideally we transition everything to Tailwind UI but let's keep bootstrap JS for modal behavior first -->
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+
+    <!-- Main Empty Space Context Menu -->
+    <div id="mainEmptyCtxMenu"
+         class="hidden fixed bg-surface-container-high border border-outline-variant rounded-xl shadow-2xl z-[500] w-56 overflow-hidden py-1">
+        <button onclick="mainEmptyCtxAction('folder')"
+                class="w-full flex items-center gap-3 px-4 py-3 font-body-md text-body-md text-on-surface hover:bg-surface-container-highest transition-colors">
+            <span class="material-symbols-outlined text-primary" style="font-size:20px">create_new_folder</span>
+            <span>Tạo thư mục mới</span>
+        </button>
+
+        <button onclick="mainEmptyCtxAction('uploadFile')"
+                id="ctxUploadFileBtn"
+                class="w-full flex items-center gap-3 px-4 py-3 font-body-md text-body-md text-on-surface hover:bg-surface-container-highest transition-colors">
+            <span class="material-symbols-outlined text-secondary" style="font-size:20px">upload_file</span>
+            <span>Tải tệp lên</span>
+        </button>
+
+        <button onclick="mainEmptyCtxAction('uploadFolder')"
+                class="w-full flex items-center gap-3 px-4 py-3 font-body-md text-body-md text-on-surface-variant transition-colors cursor-not-allowed opacity-50" disabled>
+            <span class="material-symbols-outlined" style="font-size:20px">drive_folder_upload</span>
+            <span>Tải folder lên <span class="text-outline font-label-md text-label-md">(sắp ra mắt)</span></span>
+        </button>
+    </div>
+
+    <script>
+        // ============================================================
+        // "Thêm mới" Dropdown — globally available
+        // ============================================================
+        function toggleAddMenu() {
+            const menu = document.getElementById('addNewMenu');
+            menu.classList.toggle('hidden');
+        }
+
+        function closeAddMenu() {
+            document.getElementById('addNewMenu')?.classList.add('hidden');
+        }
+
+        // Close when clicking outside
+        document.addEventListener('click', function(e) {
+            const wrapper = document.getElementById('addNewWrapper');
+            if (wrapper && !wrapper.contains(e.target)) closeAddMenu();
+        });
+
+        // Dispatch actions — each page overrides window.addNewAction or specific hooks
+        function addNewAction(type) {
+            if (type === 'folder') {
+                if (typeof window.openCreateSubjectModal === 'function')     { window.openCreateSubjectModal(); return; }
+                if (typeof window.openCreateFolderModal  === 'function')     { window.openCreateFolderModal();  return; }
+                alert('Tạo thư mục mới: Tính năng này chưa khả dụng trên trang hiện tại.');
+
+            } else if (type === 'uploadFile') {
+                triggerDriveFileUpload();
+            } else {
+                alert('Tính năng này đang được phát triển.');
+            }
+        }
+
+        // ============================================================
+        // User Profile Dropdown
+        // ============================================================
+        function toggleUserMenu() {
+            const menu = document.getElementById('userMenuDropdown');
+            menu.classList.toggle('hidden');
+        }
+
+        function closeUserMenu() {
+            document.getElementById('userMenuDropdown')?.classList.add('hidden');
+        }
+
+        document.addEventListener('click', function(e) {
+            const wrapper = document.getElementById('userMenuWrapper');
+            if (wrapper && !wrapper.contains(e.target)) closeUserMenu();
+        });
+
+        // ============================================================
+        // Empty Main Workspace Click/Right-click popup
+        // ============================================================
+        function handleMainEmptyClick(e, isRightClick = false) {
+            // Check if we clicked on an interactive element
+            if (e.target.closest('.subject-card') || e.target.closest('.chapter-row') || e.target.closest('#ctxMenu') || e.target.closest('button') || e.target.closest('a') || e.target.closest('input') || e.target.closest('select')) {
+                return;
+            }
+            
+            // Deselect any cards manually
+            document.querySelectorAll('.subject-card').forEach(c => {
+                c.classList.remove('border-primary', 'bg-surface-container', 'ring-2', 'ring-primary/30');
+                c.classList.add('border-outline-variant');
+            });
+            if (typeof selectedId !== 'undefined') selectedId = null;
+
+            e.preventDefault();
+            
+            // Close other menus
+            closeAddMenu();
+            closeUserMenu();
+            if (typeof closeCtxMenu === 'function') closeCtxMenu();
+            
+            const menu = document.getElementById('mainEmptyCtxMenu');
+            if (!menu) return;
+            menu.classList.remove('hidden');
+            
+            // Position near cursor
+            const x = Math.min(e.clientX, window.innerWidth - 230);
+            const y = Math.min(e.clientY, window.innerHeight - 150);
+            menu.style.left = x + 'px';
+            menu.style.top = y + 'px';
+        }
+
+        function closeMainEmptyCtxMenu() {
+            document.getElementById('mainEmptyCtxMenu')?.classList.add('hidden');
+        }
+
+        document.querySelector('main').addEventListener('contextmenu', function(e) {
+            handleMainEmptyClick(e, true);
+        });
+
+        document.querySelector('main').addEventListener('click', function(e) {
+            handleMainEmptyClick(e, false);
+        });
+
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('#mainEmptyCtxMenu')) closeMainEmptyCtxMenu();
+        });
+
+        function mainEmptyCtxAction(type) {
+            closeMainEmptyCtxMenu();
+            addNewAction(type);
+        }
+
+        // ============================================================
+        // Success Notifications Auto-dismiss & click anywhere dismiss
+        // ============================================================
+        document.addEventListener('DOMContentLoaded', function() {
+            const successAlerts = document.querySelectorAll('.success-alert');
+            if (successAlerts.length > 0) {
+                // Auto-dismiss after 3.5 seconds
+                setTimeout(() => {
+                    successAlerts.forEach(alert => dismissAlert(alert));
+                }, 3500);
+
+                // Clicking anywhere on the screen also dismisses the alerts
+                document.addEventListener('click', function() {
+                    successAlerts.forEach(alert => dismissAlert(alert));
+                });
+            }
+        });
+
+        function dismissAlert(alert) {
+            if (!alert || alert.style.display === 'none') return;
+            alert.classList.add('transition-all', 'duration-500', 'opacity-0', '-translate-y-2');
+            setTimeout(() => {
+                alert.remove();
+            }, 500);
+        }
+
+        // ============================================================
+        // AJAX File Upload and Progress Handlers
+        // ============================================================
+        function triggerDriveFileUpload() {
+            if (!window.currentUploadFolderId) {
+                alert('Không thể tải tệp lên ở đây. Vui lòng vào một môn học hoặc chương để thực hiện tải tệp lên.');
+                return;
+            }
+            document.getElementById('globalDriveFileInput').click();
+        }
+
+        function handleGlobalFileSelect(event) {
+            const files = event.target.files;
+            if (files.length === 0) return;
+            const file = files[0];
+            
+            if (window.currentUploadFolderId) {
+                uploadFileAjax(file, window.currentUploadFolderId);
+            }
+            
+            // Clear input so selecting the same file again triggers change event
+            event.target.value = '';
+        }
+
+        function dismissUploadProgressCard() {
+            const card = document.getElementById('globalUploadProgressCard');
+            if (card) {
+                card.classList.add('opacity-0', 'translate-y-12');
+                setTimeout(() => card.classList.add('hidden'), 300);
+            }
+        }
+
+        function uploadFileAjax(file, folderId) {
+            const card = document.getElementById('globalUploadProgressCard');
+            const pBar = document.getElementById('uploadProgressBar');
+            const pPercent = document.getElementById('uploadProgressPercent');
+            const pBytes = document.getElementById('uploadProgressBytes');
+            const pTitle = document.getElementById('uploadProgressTitle');
+            const spinner = document.getElementById('uploadStatusSpinner');
+            
+            document.getElementById('uploadFileName').textContent = file.name;
+            
+            // Format size
+            let sizeStr = (file.size / 1024).toFixed(1) + " KB";
+            if (file.size >= 1024 * 1024) {
+                sizeStr = (file.size / (1024 * 1024)).toFixed(1) + " MB";
+            }
+            document.getElementById('uploadFileSize').textContent = sizeStr;
+
+            // Reset UI
+            pBar.classList.remove('bg-error');
+            pBar.classList.add('bg-primary');
+            pBar.style.width = '0%';
+            pPercent.textContent = '0%';
+            pBytes.textContent = '0.0 / ' + sizeStr;
+            pBytes.classList.remove('text-error', 'font-bold');
+            pBytes.classList.add('text-outline');
+            pTitle.textContent = 'Đang tải tệp lên...';
+            spinner.classList.add('animate-spin');
+            spinner.textContent = 'sync';
+            spinner.style.color = '#adc7ff';
+
+            // Show card
+            card.classList.remove('hidden');
+            setTimeout(() => {
+                card.classList.remove('opacity-0', 'translate-y-12');
+            }, 50);
+
+            // Check size (50MB)
+            const maxSize = 50 * 1024 * 1024;
+            if (file.size > maxSize) {
+                handleError('Kích thước tệp vượt quá giới hạn 50MB.');
+                return;
+            }
+
+            // FormData
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('folderId', folderId);
+
+            // Send via XMLHttpRequest for progress monitoring
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', '/Drive/UploadFile', true);
+
+            xhr.upload.onprogress = function(e) {
+                if (e.lengthComputable) {
+                    const percent = Math.round((e.loaded / e.total) * 100);
+                    pBar.style.width = percent + '%';
+                    pPercent.textContent = percent + '%';
+                    
+                    let loadedStr = (e.loaded / 1024).toFixed(1) + " KB";
+                    if (e.loaded >= 1024 * 1024) {
+                        loadedStr = (e.loaded / (1024 * 1024)).toFixed(1) + " MB";
+                    }
+                    pBytes.textContent = loadedStr + ' / ' + sizeStr;
+                }
+            };
+
+            xhr.onload = function() {
+                if (xhr.status === 200) {
+                    try {
+                        const res = JSON.parse(xhr.responseText);
+                        if (res.success) {
+                            // Success
+                            pBar.style.width = '100%';
+                            pPercent.textContent = '100%';
+                            pTitle.textContent = 'Tải lên thành công!';
+                            spinner.classList.remove('animate-spin');
+                            spinner.textContent = 'check_circle';
+                            spinner.style.color = '#6ddd81'; // Green accent
+                            
+                            // Auto reload page after 1.2s to show new document
+                            setTimeout(() => {
+                                window.location.reload();
+                            }, 1200);
+                        } else {
+                            handleError(res.message);
+                        }
+                    } catch (err) {
+                        handleError('Phản hồi từ máy chủ không hợp lệ.');
+                    }
+                } else {
+                    handleError('Lỗi kết nối máy chủ: ' + xhr.status);
+                }
+            };
+
+            xhr.onerror = function() {
+                handleError('Lỗi kết nối mạng.');
+            };
+
+            function handleError(msg) {
+                pTitle.textContent = 'Tải lên thất bại!';
+                spinner.classList.remove('animate-spin');
+                spinner.textContent = 'error';
+                spinner.style.color = '#ffb4ab'; // Red accent
+                
+                // Change progress bar to error state
+                pBar.classList.remove('bg-primary');
+                pBar.classList.add('bg-error');
+                
+                // Show the error message inside the progress card
+                pBytes.textContent = msg;
+                pBytes.classList.remove('text-outline');
+                pBytes.classList.add('text-error', 'font-bold');
+            }
+
+            xhr.send(formData);
+        }
+
+        // ============================================================
+        // Global Drag and Drop Window Event Handlers
+        // ============================================================
+        let dragCounter = 0;
+
+        window.addEventListener('dragenter', function(e) {
+            e.preventDefault();
+            if (!window.currentUploadFolderId) return;
+            
+            // Check if dragging files
+            if (e.dataTransfer && e.dataTransfer.types.includes('Files')) {
+                dragCounter++;
+                const overlay = document.getElementById('globalDragDropOverlay');
+                if (overlay) {
+                    overlay.classList.remove('hidden');
+                    // Tiny timeout for smooth transitions
+                    setTimeout(() => {
+                        overlay.classList.remove('opacity-0');
+                        overlay.querySelector('.border-dashed').classList.remove('scale-95');
+                        overlay.querySelector('.border-dashed').classList.add('scale-100');
+                    }, 10);
+                }
+            }
+        });
+
+        window.addEventListener('dragover', function(e) {
+            e.preventDefault();
+        });
+
+        window.addEventListener('dragleave', function(e) {
+            e.preventDefault();
+            if (!window.currentUploadFolderId) return;
+            
+            if (e.dataTransfer && e.dataTransfer.types.includes('Files')) {
+                dragCounter--;
+                if (dragCounter === 0) {
+                    hideDragDropOverlay();
+                }
+            }
+        });
+
+        window.addEventListener('drop', function(e) {
+            e.preventDefault();
+            if (!window.currentUploadFolderId) return;
+            
+            dragCounter = 0;
+            hideDragDropOverlay();
+            
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                uploadFileAjax(files[0], window.currentUploadFolderId);
+            }
+        });
+
+        function hideDragDropOverlay() {
+            const overlay = document.getElementById('globalDragDropOverlay');
+            if (overlay) {
+                overlay.classList.add('opacity-0');
+                overlay.querySelector('.border-dashed').classList.remove('scale-100');
+                overlay.querySelector('.border-dashed').classList.add('scale-95');
+                setTimeout(() => {
+                    overlay.classList.add('hidden');
+                }, 300);
+            }
+        }
+    </script>
+
+    <!-- Global Hidden Upload Input & Progress Modal -->
+    <input type="file" id="globalDriveFileInput" onchange="handleGlobalFileSelect(event)" style="display:none;" />
+    
+    <div id="globalUploadProgressCard" class="fixed bottom-6 right-6 bg-surface-container-high border border-outline-variant rounded-xl shadow-2xl z-[9999] w-80 overflow-hidden hidden transition-all duration-300 transform translate-y-12 opacity-0">
+        <div class="px-4 py-3 bg-surface-container-highest border-b border-outline-variant/50 flex justify-between items-center">
+            <div class="flex items-center gap-2">
+                <span class="material-symbols-outlined text-primary text-[20px] animate-spin" id="uploadStatusSpinner" style="color:#adc7ff">sync</span>
+                <span class="font-label-md text-label-md font-bold text-on-surface" id="uploadProgressTitle">Đang tải tệp lên...</span>
+            </div>
+            <button onclick="dismissUploadProgressCard()" class="text-outline hover:text-on-surface p-1 rounded transition-colors">
+                <span class="material-symbols-outlined" style="font-size:16px">close</span>
+            </button>
+        </div>
+        <div class="p-4 space-y-3">
+            <div class="flex items-start gap-2.5">
+                <span class="material-symbols-outlined text-primary" style="font-size:22px">description</span>
+                <div class="min-w-0 flex-1">
+                    <p class="font-body-md text-body-md font-semibold text-on-surface truncate" id="uploadFileName">filename.pdf</p>
+                    <p class="font-label-md text-label-md text-outline" id="uploadFileSize">0 KB</p>
+                </div>
+            </div>
+            <div class="space-y-1">
+                <div class="w-full bg-surface-container-low rounded-full h-1.5 overflow-hidden border border-outline-variant/30">
+                    <div id="uploadProgressBar" class="bg-primary h-full w-0 transition-all duration-150 ease-out"></div>
+                </div>
+                <div class="flex justify-between font-label-md text-label-md text-outline">
+                    <span id="uploadProgressPercent">0%</span>
+                    <span id="uploadProgressBytes">0 / 0 MB</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Global Full-Screen Drag and Drop Overlay -->
+    <div id="globalDragDropOverlay" class="fixed inset-0 bg-background/80 backdrop-blur-sm z-[99999] hidden flex flex-col items-center justify-center pointer-events-none select-none transition-all duration-300 opacity-0">
+        <div class="border-4 border-dashed border-primary/60 rounded-3xl p-12 max-w-xl w-[calc(100%-48px)] flex flex-col items-center justify-center bg-surface-container-high/80 shadow-2xl transform scale-95 transition-transform duration-300">
+            <span class="material-symbols-outlined text-[72px] text-primary mb-4 animate-bounce">cloud_upload</span>
+            <h3 class="font-headline-md text-headline-md font-bold text-on-surface text-center mb-2">Thả tài liệu của bạn vào đây</h3>
+            <p class="font-body-lg text-body-lg text-on-surface-variant text-center">Tự động tải lên thư mục hiện tại</p>
+            <p class="font-label-md text-label-md text-outline mt-2 text-center">Hỗ trợ PDF, DOCX (tối đa 50MB)</p>
+        </div>
+    </div>
+</body>
+</html>
