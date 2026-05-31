@@ -70,12 +70,27 @@ namespace BLL.Services
 
             try
             {
-                var folder = await _folderRepository.GetOrCreateDefaultUploadFolderAsync(uploadDto.UserId);
+                Guid folderId;
+                if (uploadDto.FolderId.HasValue && uploadDto.FolderId.Value != Guid.Empty)
+                {
+                    var folder = await _folderRepository.GetByIdWithOwnerAsync(uploadDto.FolderId.Value, uploadDto.UserId);
+                    if (folder == null)
+                    {
+                        return Result<DocumentDto>.Failure("Thư mục không tồn tại hoặc bạn không có quyền truy cập.");
+                    }
+                    folderId = folder.Id;
+                }
+                else
+                {
+                    var folder = await _folderRepository.GetOrCreateDefaultUploadFolderAsync(uploadDto.UserId);
+                    folderId = folder.Id;
+                }
+
                 var document = new Document
                 {
                     Id = Guid.NewGuid(),
                     UserId = uploadDto.UserId,
-                    FolderId = folder.Id,
+                    FolderId = folderId,
                     Title = Path.GetFileNameWithoutExtension(uploadDto.OriginalFileName),
                     OriginalFileName = Path.GetFileName(uploadDto.OriginalFileName),
                     StoredFileName = storedFileName,

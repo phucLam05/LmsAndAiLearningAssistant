@@ -1,13 +1,12 @@
+using Core.Entities;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using Core.Entities;
 
 namespace DAL.Interfaces
 {
     /// <summary>
-    /// Provides database operations for document metadata while keeping EF Core access out of controllers and services.
-    /// Also manages Document entities and related data for chunking.
+    /// Provides database and data access operations for managing documents.
     /// </summary>
     public interface IDocumentRepository
     {
@@ -54,5 +53,20 @@ namespace DAL.Interfaces
         /// <param name="status">The new processing status.</param>
         /// <returns>A task that represents the asynchronous operation.</returns>
         Task UpdateStatusAsync(Guid id, DocumentProcessingStatus status);
+
+        /// <summary>
+        /// Retrieves a specific document by its ID and owner ID.
+        /// </summary>
+        Task<Document?> GetByIdWithOwnerAsync(Guid id, Guid userId);
+
+        /// <summary>
+        /// Retrieves all documents belonging to the specified user, including their folder and parent folder details.
+        /// </summary>
+        Task<System.Collections.Generic.List<Document>> GetAllWithOwnerAsync(Guid userId);
+        
+        /// <summary>
+        /// Updates an existing document in the database.
+        /// </summary>
+        Task UpdateAsync(Document document);
     }
 }
