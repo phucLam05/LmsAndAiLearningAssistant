@@ -18,6 +18,7 @@ namespace BLL.Services
     {
         private readonly IDocumentRepository _documentRepository;
         private readonly IFolderRepository _folderRepository;
+        private readonly IDocumentChunkRepository _documentChunkRepository;
         private readonly ISupabaseStorageProvider _storageService;
         private readonly UploadOptions _uploadOptions;
         private readonly ILogger<DocumentService> _logger;
@@ -26,6 +27,7 @@ namespace BLL.Services
         public DocumentService(
             IDocumentRepository documentRepository,
             IFolderRepository folderRepository,
+            IDocumentChunkRepository documentChunkRepository,
             ISupabaseStorageProvider storageService,
             IOptions<UploadOptions> uploadOptions,
             ILogger<DocumentService> logger,
@@ -33,6 +35,7 @@ namespace BLL.Services
         {
             _documentRepository = documentRepository;
             _folderRepository = folderRepository;
+            _documentChunkRepository = documentChunkRepository;
             _storageService = storageService;
             _uploadOptions = uploadOptions.Value;
             _logger = logger;
@@ -109,7 +112,11 @@ namespace BLL.Services
 
                 // Enqueue the chunking job, followed by the embedding job
                 var chunkingJobId = _backgroundJobs.Enqueue<IChunkingService>(x => x.ProcessFileChunkingAsync(document.Id, CancellationToken.None));
-                _backgroundJobs.ContinueJobWith<IEmbeddingService>(chunkingJobId, x => x.ProcessEmbeddingsAsync(document.Id, CancellationToken.None));
+                var embeddingJobId = _backgroundJobs.ContinueJobWith<IEmbeddingService>(chunkingJobId, x => x.ProcessEmbeddingsAsync(document.Id, CancellationToken.None));
+
+                document.ChunkingJobId = chunkingJobId;
+                document.EmbeddingJobId = embeddingJobId;
+                await _documentRepository.UpdateAsync(document);
 
                 return Result<DocumentDto>.Success(MapDocument(document));
             }
@@ -136,6 +143,16 @@ namespace BLL.Services
                 if (document == null)
                 {
                     return Result.Failure("Document not found or access denied.");
+                }
+
+                // Delete Background Jobs if they are still queued or running
+                if (!string.IsNullOrEmpty(document.ChunkingJobId))
+                {
+                    _backgroundJobs.Delete(document.ChunkingJobId);
+                }
+                if (!string.IsNullOrEmpty(document.EmbeddingJobId))
+                {
+                    _backgroundJobs.Delete(document.EmbeddingJobId);
                 }
 
                 try
@@ -174,9 +191,24 @@ namespace BLL.Services
                     return Result.Failure("Document not found or access denied.");
                 }
 
-                // Enqueue the chunking job which will cascade to embedding
-                var chunkingJobId = _backgroundJobs.Enqueue<IChunkingService>(x => x.ProcessFileChunkingAsync(documentId, CancellationToken.None));
-                _backgroundJobs.ContinueJobWith<IEmbeddingService>(chunkingJobId, x => x.ProcessEmbeddingsAsync(documentId, CancellationToken.None));
+                bool hasChunks = await _documentChunkRepository.HasChunksAsync(documentId);
+                if (hasChunks)
+                {
+                    document.ProcessingStatus = DocumentProcessingStatus.Chunked;
+                    var embeddingJobId = _backgroundJobs.Enqueue<IEmbeddingService>(x => x.ProcessEmbeddingsAsync(documentId, CancellationToken.None));
+                    document.EmbeddingJobId = embeddingJobId;
+                }
+                else
+                {
+                    document.ProcessingStatus = DocumentProcessingStatus.Uploaded;
+                    var chunkingJobId = _backgroundJobs.Enqueue<IChunkingService>(x => x.ProcessFileChunkingAsync(documentId, CancellationToken.None));
+                    var embeddingJobId = _backgroundJobs.ContinueJobWith<IEmbeddingService>(chunkingJobId, x => x.ProcessEmbeddingsAsync(documentId, CancellationToken.None));
+                    
+                    document.ChunkingJobId = chunkingJobId;
+                    document.EmbeddingJobId = embeddingJobId;
+                }
+
+                await _documentRepository.UpdateAsync(document);
 
                 return Result.Success();
             }

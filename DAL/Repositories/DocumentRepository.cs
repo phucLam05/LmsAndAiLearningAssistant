@@ -109,5 +109,10 @@ namespace DAL.Repositories
             _context.Documents.Update(document);
             await _context.SaveChangesAsync();
         }
+
+        public void ClearTracker()
+        {
+            _context.ChangeTracker.Clear();
+        }
     }
 }

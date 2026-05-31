@@ -98,6 +98,7 @@ namespace BLL.Services
             {
                 _logger.LogError(ex, "Failed to process embeddings for DocumentId: {DocumentId}", documentId);
                 
+                _documentRepository.ClearTracker();
                 // If it fails, update status to Failed so the user can see it
                 await _documentRepository.UpdateStatusAsync(documentId, DocumentProcessingStatus.Failed);
                 return Result.Failure($"Embedding error: {ex.Message}");

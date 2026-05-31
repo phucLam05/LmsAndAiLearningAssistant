@@ -68,5 +68,10 @@ namespace DAL.Interfaces
         /// Updates an existing document in the database.
         /// </summary>
         Task UpdateAsync(Document document);
+
+        /// <summary>
+        /// Clears the Entity Framework change tracker.
+        /// </summary>
+        void ClearTracker();
     }
 }

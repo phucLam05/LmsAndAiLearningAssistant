@@ -29,5 +29,10 @@ namespace DAL.Interfaces
         /// Updates multiple chunks, typically to save their generated embeddings.
         /// </summary>
         Task UpdateChunksAsync(IEnumerable<DocumentChunk> chunks);
+
+        /// <summary>
+        /// Checks if a document already has chunks.
+        /// </summary>
+        Task<bool> HasChunksAsync(Guid documentId);
     }
 }
