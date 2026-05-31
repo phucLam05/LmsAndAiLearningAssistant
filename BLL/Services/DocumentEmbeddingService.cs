@@ -80,15 +80,12 @@ namespace BLL.Services
                     // Generate embedding vector using Gemini
                     var vectorArray = await _geminiProvider.GetEmbeddingAsync(chunk.Content, cancellationToken);
                     chunk.Embedding = new Vector(vectorArray);
+                    
+                    // Save immediately to avoid losing API tokens on failure
+                    await _documentChunkRepository.UpdateChunksAsync(new[] { chunk });
                 }
 
-                // 4. Save updated chunks back to DB if any were processed
-                if (chunksToProcess.Any())
-                {
-                    await _documentChunkRepository.UpdateChunksAsync(chunksToProcess);
-                }
-
-                // 5. Update status to Indexed
+                // 4. Update status to Indexed
                 await _documentRepository.UpdateStatusAsync(documentId, DocumentProcessingStatus.Indexed);
                 _logger.LogInformation("Successfully completed embedding process for DocumentId: {DocumentId}", documentId);
                 
