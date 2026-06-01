@@ -197,17 +197,28 @@
 
                     @* Processing Status Badge *@
                     <div class="col-span-0 md:col-span-2 hidden md:flex items-center justify-end">
-                        @if (doc.ProcessingStatus == Core.Entities.DocumentProcessingStatus.Indexed)
+                        @switch (doc.ProcessingStatus)
                         {
-                            <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-tertiary-container/20 border border-tertiary/20 text-tertiary font-label-md text-label-md" style="font-size:11px">
-                                <span class="w-1.5 h-1.5 rounded-full bg-tertiary"></span> Đã index
-                            </span>
-                        }
-                        else
-                        {
-                            <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-primary-container/20 border border-primary/20 text-primary font-label-md text-label-md" style="font-size:11px">
-                                <span class="material-symbols-outlined text-[10px] animate-spin">sync</span> Đang xử lý
-                            </span>
+                            case Core.Entities.DocumentProcessingStatus.Indexed:
+                                <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-tertiary-container/20 border border-tertiary/20 text-tertiary font-label-md text-label-md" style="font-size:11px">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-tertiary"></span> Đã index
+                                </span>
+                                break;
+                            case Core.Entities.DocumentProcessingStatus.Failed:
+                                <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-error-container/20 border border-error/20 text-error font-label-md text-label-md" style="font-size:11px">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-error"></span> Lỗi xử lý
+                                </span>
+                                break;
+                            case Core.Entities.DocumentProcessingStatus.Uploaded:
+                                <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-surface-bright border border-outline-variant text-on-surface font-label-md text-label-md" style="font-size:11px">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-outline"></span> Đã tải lên
+                                </span>
+                                break;
+                            default:
+                                <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-primary-container/20 border border-primary/20 text-primary font-label-md text-label-md" style="font-size:11px">
+                                    <span class="material-symbols-outlined text-[10px] animate-spin">sync</span> Đang xử lý
+                                </span>
+                                break;
                         }
                     </div>
 
@@ -376,6 +387,11 @@
         <span class="material-symbols-outlined text-secondary" style="font-size:18px">info</span>
         <span>Xem chi tiết</span>
     </button>
+    <button onclick="documentCtxDownload()"
+            class="w-full flex items-center gap-3 px-4 py-2.5 font-body-md text-body-md text-on-surface hover:bg-surface-container-highest transition-colors">
+        <span class="material-symbols-outlined text-on-surface-variant" style="font-size:18px">download</span>
+        <span>Tải xuống</span>
+    </button>
     <div class="border-t border-outline-variant/50 my-1"></div>
     <button onclick="documentCtxDelete()"
             class="w-full flex items-center gap-3 px-4 py-2.5 font-body-md text-body-md text-error hover:bg-error-container/20 transition-colors">
@@ -467,9 +483,21 @@
             if (panel) {
                 panel.classList.remove('translate-x-full');
 
-                let statusHtml = status === 'Indexed' 
-                    ? '<span class="text-tertiary font-medium">Đã index</span>' 
-                    : '<span class="text-primary font-medium">Đang xử lý</span>';
+                let statusHtml = '';
+                switch (status) {
+                    case 'Indexed':
+                        statusHtml = '<span class="text-tertiary font-medium">Đã index</span>';
+                        break;
+                    case 'Failed':
+                        statusHtml = '<span class="text-error font-medium">Lỗi xử lý</span>';
+                        break;
+                    case 'Uploaded':
+                        statusHtml = '<span class="text-on-surface-variant font-medium">Đã tải lên</span>';
+                        break;
+                    default:
+                        statusHtml = '<span class="text-primary font-medium flex items-center gap-1"><span class="material-symbols-outlined text-[12px] animate-spin">sync</span>Đang xử lý</span>';
+                        break;
+                }
 
                 const docType = formatMimeType(mimeType);
 
@@ -662,6 +690,13 @@
             closeModal();
             const panel = document.getElementById('contextPanel');
             if (panel) panel.classList.remove('translate-x-full');
+        }
+
+        function documentCtxDownload() {
+            closeDocumentCtxMenu();
+            if (docCtxData.id) {
+                window.location.href = '@Url.Action("DownloadFile", "Drive")?id=' + docCtxData.id;
+            }
         }
 
         function documentCtxDelete() {

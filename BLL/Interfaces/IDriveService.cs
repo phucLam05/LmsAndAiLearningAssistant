@@ -62,5 +62,15 @@ namespace BLL.Interfaces
         /// Retrieves all documents belonging to the user.
         /// </summary>
         Task<List<Document>> GetAllDocumentsAsync(Guid userId);
+
+        /// <summary>
+        /// Downloads all contents of a folder (including its documents and subfolders/chapters) as a ZIP archive.
+        /// </summary>
+        Task<(byte[] ZipBytes, string FolderName)> DownloadFolderAsZipAsync(Guid folderId, Guid userId);
+
+        /// <summary>
+        /// Downloads a single document file stream, returning the stream, original file name, and MIME type.
+        /// </summary>
+        Task<(System.IO.Stream FileStream, string FileName, string MimeType)> DownloadDocumentAsync(Guid documentId, Guid userId);
     }
 }

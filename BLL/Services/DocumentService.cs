@@ -23,6 +23,8 @@ namespace BLL.Services
         private readonly UploadOptions _uploadOptions;
         private readonly ILogger<DocumentService> _logger;
         private readonly IBackgroundJobClient _backgroundJobs;
+        private readonly string _supabaseUrl;
+        private readonly string _bucket;
 
         public DocumentService(
             IDocumentRepository documentRepository,
@@ -31,7 +33,8 @@ namespace BLL.Services
             ISupabaseStorageProvider storageService,
             IOptions<UploadOptions> uploadOptions,
             ILogger<DocumentService> logger,
-            IBackgroundJobClient backgroundJobs)
+            IBackgroundJobClient backgroundJobs,
+            Microsoft.Extensions.Configuration.IConfiguration configuration)
         {
             _documentRepository = documentRepository;
             _folderRepository = folderRepository;
@@ -40,6 +43,21 @@ namespace BLL.Services
             _uploadOptions = uploadOptions.Value;
             _logger = logger;
             _backgroundJobs = backgroundJobs;
+
+            var supabaseUrl = configuration["Supabase:Url"] ?? "";
+            if (Uri.TryCreate(supabaseUrl, UriKind.Absolute, out var uri))
+            {
+                _supabaseUrl = $"{uri.Scheme}://{uri.Host}";
+                if (uri.Port != 80 && uri.Port != 443)
+                {
+                    _supabaseUrl += $":{uri.Port}";
+                }
+            }
+            else
+            {
+                _supabaseUrl = supabaseUrl.TrimEnd('/');
+            }
+            _bucket = configuration["Supabase:Bucket"] ?? "Document";
         }
 
         public async Task<IReadOnlyList<DocumentDto>> GetDocumentsForUserAsync(Guid userId)
@@ -251,7 +269,16 @@ namespace BLL.Services
             return string.IsNullOrWhiteSpace(contentType) ? "application/octet-stream" : contentType.Trim();
         }
 
-        private static DocumentDto MapDocument(Document document)
+        private string GetAbsoluteStorageUrl(string url)
+        {
+            if (string.IsNullOrEmpty(url)) return string.Empty;
+            if (url.StartsWith("http://") || url.StartsWith("https://"))
+                return url;
+
+            return $"{_supabaseUrl}/storage/v1/object/public/{_bucket}/{url.TrimStart('/')}";
+        }
+
+        private DocumentDto MapDocument(Document document)
         {
             return new DocumentDto
             {
@@ -262,7 +289,7 @@ namespace BLL.Services
                 OriginalFileName = document.OriginalFileName,
                 StoredFileName = document.StoredFileName,
                 StoragePath = document.StoragePath,
-                StorageUrl = document.StorageUrl,
+                StorageUrl = GetAbsoluteStorageUrl(document.StorageUrl),
                 MimeType = document.MimeType,
                 FileType = document.FileType,
                 FileSize = document.FileSize,

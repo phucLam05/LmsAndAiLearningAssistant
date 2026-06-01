@@ -2,6 +2,7 @@ using BLL.Interfaces;
 using Core.DTOs.Drive;
 using Core.Entities;
 using DAL.Interfaces;
+using Microsoft.Extensions.Configuration;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -17,11 +18,34 @@ namespace BLL.Services
 	{
 		private readonly IFolderRepository _folderRepository;
 		private readonly IDocumentRepository _documentRepository;
+		private readonly ISupabaseStorageProvider _storageProvider;
+		private readonly string _supabaseUrl;
+		private readonly string _bucket;
 
-		public DriveService(IFolderRepository folderRepository, IDocumentRepository documentRepository)
+		public DriveService(
+			IFolderRepository folderRepository, 
+			IDocumentRepository documentRepository,
+			ISupabaseStorageProvider storageProvider,
+			IConfiguration configuration)
 		{
 			_folderRepository = folderRepository;
 			_documentRepository = documentRepository;
+			_storageProvider = storageProvider;
+
+			var supabaseUrl = configuration["Supabase:Url"] ?? "";
+			if (Uri.TryCreate(supabaseUrl, UriKind.Absolute, out var uri))
+			{
+				_supabaseUrl = $"{uri.Scheme}://{uri.Host}";
+				if (uri.Port != 80 && uri.Port != 443)
+				{
+					_supabaseUrl += $":{uri.Port}";
+				}
+			}
+			else
+			{
+				_supabaseUrl = supabaseUrl.TrimEnd('/');
+			}
+			_bucket = configuration["Supabase:Bucket"] ?? "Document";
 		}
 
 		/// <summary>
@@ -29,7 +53,9 @@ namespace BLL.Services
 		/// </summary>
 		public async Task<(List<Folder> Folders, List<Document> Documents)> GetDriveContentsAsync(Guid? folderId, Guid userId)
 		{
-			return await _folderRepository.GetFolderContentsAsync(folderId, userId);
+			var (folders, documents) = await _folderRepository.GetFolderContentsAsync(folderId, userId);
+			NormalizeStorageUrls(documents);
+			return (folders, documents);
 		}
 
 		/// <summary>
@@ -42,6 +68,7 @@ namespace BLL.Services
 				return (null, new List<Folder>(), new List<Document>(), new Dictionary<Guid, int>());
 
 			var (chapters, documents) = await _folderRepository.GetFolderContentsAsync(subjectFolderId, userId);
+			NormalizeStorageUrls(documents);
 			var folderIds = chapters.Select(c => c.Id);
 			var documentCounts = await _folderRepository.GetDocumentCountsForFoldersAsync(folderIds, userId);
 
@@ -75,8 +102,20 @@ namespace BLL.Services
 				? await _folderRepository.GetDocumentCountsForFoldersAsync(chapterIds, userId)
 				: new Dictionary<Guid, int>();
 
-			// 5. Sum document counts per subject (across all its chapters)
+			// 5. Sum document counts per subject (including files directly inside the subject and inside its chapters)
 			var docCountBySubject = new Dictionary<Guid, int>();
+			
+			// 5.1. Fetch counts for documents directly inside the subject folders
+			var rootDocCounts = rootIds.Any()
+				? await _folderRepository.GetDocumentCountsForFoldersAsync(rootIds, userId)
+				: new Dictionary<Guid, int>();
+
+			foreach (var rootId in rootIds)
+			{
+				docCountBySubject[rootId] = rootDocCounts.TryGetValue(rootId, out var directCnt) ? directCnt : 0;
+			}
+
+			// 5.2. Add counts from documents inside each chapter folder
 			foreach (var chapter in chapterFolders)
 			{
 				var subjectId = chapter.ParentFolderId!.Value;
@@ -220,7 +259,101 @@ namespace BLL.Services
 		/// </summary>
 		public async Task<List<Document>> GetAllDocumentsAsync(Guid userId)
 		{
-			return await _documentRepository.GetAllWithOwnerAsync(userId);
+			var docs = await _documentRepository.GetAllWithOwnerAsync(userId);
+			NormalizeStorageUrls(docs);
+			return docs;
+		}
+
+		private void NormalizeStorageUrls(IEnumerable<Document> documents)
+		{
+			if (documents == null) return;
+			foreach (var doc in documents)
+			{
+				if (!string.IsNullOrEmpty(doc.StorageUrl) && !doc.StorageUrl.StartsWith("http://") && !doc.StorageUrl.StartsWith("https://"))
+				{
+					doc.StorageUrl = $"{_supabaseUrl}/storage/v1/object/public/{_bucket}/{doc.StorageUrl.TrimStart('/')}";
+				}
+			}
+		}
+
+		/// <summary>
+		/// Downloads a single document file stream, returning the stream, original file name, and MIME type.
+		/// </summary>
+		public async Task<(Stream FileStream, string FileName, string MimeType)> DownloadDocumentAsync(Guid documentId, Guid userId)
+		{
+			var doc = await _documentRepository.GetByIdWithOwnerAsync(documentId, userId);
+			if (doc == null)
+				throw new KeyNotFoundException("Tài liệu không tồn tại hoặc bạn không có quyền truy cập.");
+
+			var stream = await _storageProvider.DownloadAsync(doc.StoragePath);
+			return (stream, doc.OriginalFileName, doc.MimeType);
+		}
+
+		/// <summary>
+		/// Downloads all contents of a folder (including its documents and subfolders/chapters) as a ZIP archive.
+		/// </summary>
+		public async Task<(byte[] ZipBytes, string FolderName)> DownloadFolderAsZipAsync(Guid folderId, Guid userId)
+		{
+			var folder = await _folderRepository.GetByIdWithOwnerAsync(folderId, userId);
+			if (folder == null)
+				throw new KeyNotFoundException("Thư mục không tồn tại hoặc bạn không có quyền truy cập.");
+
+			using (var memoryStream = new MemoryStream())
+			{
+				using (var archive = new System.IO.Compression.ZipArchive(memoryStream, System.IO.Compression.ZipArchiveMode.Create, true))
+				{
+					// 1. Download and zip files directly inside the subject folder
+					var (_, documents) = await _folderRepository.GetFolderContentsAsync(folderId, userId);
+					foreach (var doc in documents)
+					{
+						try
+						{
+							using (var docStream = await _storageProvider.DownloadAsync(doc.StoragePath))
+							{
+								var entry = archive.CreateEntry(doc.OriginalFileName);
+								using (var entryStream = entry.Open())
+								{
+									await docStream.CopyToAsync(entryStream);
+								}
+							}
+						}
+						catch (Exception ex)
+						{
+							// Log or skip single file error
+							Console.WriteLine($"Error zipping file {doc.OriginalFileName}: {ex.Message}");
+						}
+					}
+
+					// 2. Download and zip files inside each chapter (subfolder)
+					var chapterFolders = await _folderRepository.GetChildFoldersAsync(new[] { folderId }, userId);
+					foreach (var chapter in chapterFolders)
+					{
+						var (_, chapterDocs) = await _folderRepository.GetFolderContentsAsync(chapter.Id, userId);
+						foreach (var doc in chapterDocs)
+						{
+							try
+							{
+								using (var docStream = await _storageProvider.DownloadAsync(doc.StoragePath))
+								{
+									// Use forward slashes for ZIP structure compatibility
+									var entryPath = $"{chapter.Name}/{doc.OriginalFileName}";
+									var entry = archive.CreateEntry(entryPath);
+									using (var entryStream = entry.Open())
+									{
+										await docStream.CopyToAsync(entryStream);
+									}
+								}
+							}
+							catch (Exception ex)
+							{
+								Console.WriteLine($"Error zipping file {doc.OriginalFileName} inside chapter {chapter.Name}: {ex.Message}");
+							}
+						}
+					}
+				}
+
+				return (memoryStream.ToArray(), folder.Name);
+			}
 		}
 	}
 }

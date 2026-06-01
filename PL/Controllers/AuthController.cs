@@ -24,10 +24,10 @@ namespace PL.Controllers
         [HttpGet]
         public IActionResult Register()
         {
-            // If already logged in, redirect to Home
+            // If already logged in, redirect to Drive
             if (User.Identity != null && User.Identity.IsAuthenticated)
             {
-                return RedirectToAction("Index", "Home");
+                return RedirectToAction("Subjects", "Drive");
             }
             return View();
         }
@@ -67,7 +67,7 @@ namespace PL.Controllers
         {
             if (User.Identity != null && User.Identity.IsAuthenticated)
             {
-                return RedirectToAction("Index", "Home");
+                return RedirectToAction("Subjects", "Drive");
             }
             
             ViewData["ReturnUrl"] = returnUrl;
@@ -124,7 +124,7 @@ namespace PL.Controllers
                 return Redirect(returnUrl);
             }
 
-            return RedirectToAction("Index", "Home");
+            return RedirectToAction("Subjects", "Drive");
         }
 
         [HttpPost]

@@ -164,78 +164,98 @@
 <div class="mt-12">
     <div class="flex justify-between items-center mb-6">
         <div class="flex gap-2">
-            <span class="font-headline-sm text-headline-sm font-bold text-on-surface">Tài liệu trực tiếp của môn học</span>
+            <span class="font-headline-sm text-headline-sm font-bold text-on-surface">Tài liệu</span>
         </div>
         <div class="flex gap-4 items-center">
             <span class="font-body-md text-body-md text-on-surface-variant">@Model.Documents.Count Tài liệu</span>
         </div>
     </div>
 
-    <!-- File List -->
-    <div class="bg-surface-container-low border border-outline-variant rounded-xl overflow-hidden shadow-sm">
-        <div class="overflow-x-auto">
-            <table class="w-full text-left border-collapse">
-                <thead>
-                    <tr class="bg-surface-container-lowest border-b border-outline-variant">
-                        <th class="p-4 font-label-md text-label-md font-semibold text-on-surface-variant uppercase tracking-wider">Tên tài liệu</th>
-                        <th class="p-4 font-label-md text-label-md font-semibold text-on-surface-variant uppercase tracking-wider">Trạng thái</th>
-                        <th class="p-4 font-label-md text-label-md font-semibold text-on-surface-variant uppercase tracking-wider hidden lg:table-cell">Kích thước</th>
-                        <th class="p-4 font-label-md text-label-md font-semibold text-on-surface-variant uppercase tracking-wider hidden md:table-cell">Ngày tải lên</th>
-                        <th class="p-4 font-label-md text-label-md font-semibold text-on-surface-variant w-16"></th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-outline-variant">
-                    @foreach (var doc in Model.Documents)
-                    {
-                        <tr class="hover:bg-surface-container-highest transition-colors group cursor-pointer document-row"
-                            data-name="@doc.Title.ToLower()"
-                            ondblclick="window.open('@doc.StorageUrl', '_blank')">
-                            <td class="p-4">
-                                <div class="flex items-center gap-3">
-                                    <div class="w-8 h-8 rounded bg-primary-container/20 flex items-center justify-center flex-shrink-0 text-primary">
-                                        <span class="material-symbols-outlined text-[18px]">description</span>
-                                    </div>
-                                    <div>
-                                        <p class="font-body-md text-body-md font-medium text-on-surface truncate max-w-[200px] sm:max-w-xs">
-                                            <a href="@doc.StorageUrl" target="_blank" class="hover:underline hover:text-primary transition-all">@doc.Title</a>
-                                        </p>
-                                    </div>
-                                </div>
-                            </td>
-                            <td class="p-4">
-                                @if (doc.ProcessingStatus == Core.Entities.DocumentProcessingStatus.Indexed)
-                                {
-                                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-tertiary-container/20 border border-tertiary/20 text-tertiary font-label-md text-label-md">
+    @* ========================= DOCUMENT LIST TABLE ========================= *@
+    <div class="bg-surface-container-low rounded-xl border border-outline-variant overflow-hidden shadow-sm mb-10">
+        @* Table Header *@
+        <div class="grid grid-cols-12 gap-4 px-6 py-4 border-b border-outline-variant bg-surface-container-highest/50">
+            <div class="col-span-8 md:col-span-5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Tên tài liệu</div>
+            <div class="col-span-0 md:col-span-2 hidden md:block text-right font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Trạng thái</div>
+            <div class="col-span-4 md:col-span-2 text-right font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Kích thước</div>
+            <div class="col-span-0 md:col-span-3 hidden md:block text-right font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Ngày tải lên</div>
+        </div>
+
+        @* Table Body *@
+        <div class="flex flex-col" id="documentList">
+            @if (!Model.Documents.Any())
+            {
+                <div class="px-6 py-16 text-center">
+                    <span class="material-symbols-outlined text-[48px] text-on-surface-variant/40 mb-3 block">description</span>
+                    <p class="font-body-md text-body-md text-on-surface-variant mb-4">Chưa có tài liệu nào trong môn học này.</p>
+                </div>
+            }
+            else
+            {
+                @for (int i = 0; i < Model.Documents.Count; i++)
+                {
+                    var doc = Model.Documents[i];
+                    var isLast = i == Model.Documents.Count - 1;
+                    var rowBorder = isLast ? "" : "border-b border-outline-variant/50";
+
+                    <div class="grid grid-cols-12 gap-4 px-6 py-4 @rowBorder hover:bg-surface-container-highest transition-colors group items-center document-row cursor-pointer"
+                         data-name="@doc.Title.ToLower()"
+                         data-id="@doc.Id"
+                         onclick="selectDocumentRow(event, '@doc.Id', '@doc.Title.Replace("'", "\\'")', '@doc.MimeType', '@(doc.FileSize / 1024)', '@doc.UploadedAt.ToLocalTime().ToString("g")', '@doc.ProcessingStatus', '@doc.StorageUrl', '@(doc.User?.FullName ?? User.Identity?.Name ?? "Người dùng")')"
+                         ondblclick="window.open('@doc.StorageUrl', '_blank')"
+                         oncontextmenu="openDocumentCtxMenu(event, '@doc.Id', '@doc.Title.Replace("'", "\\'")', '@doc.StorageUrl')">
+
+                        @* Document Name & Icon *@
+                        <div class="col-span-8 md:col-span-5 flex items-center gap-3 min-w-0">
+                            <span class="material-symbols-outlined text-primary flex-shrink-0" style="font-size:20px">description</span>
+                            <a href="@doc.StorageUrl" target="_blank"
+                               class="font-body-md text-body-md text-on-surface font-medium truncate hover:underline hover:text-primary transition-all max-w-full"
+                               onclick="event.stopPropagation()">
+                                @doc.Title
+                            </a>
+                        </div>
+
+                        @* Processing Status Badge *@
+                        <div class="col-span-0 md:col-span-2 hidden md:flex items-center justify-end">
+                            @switch (doc.ProcessingStatus)
+                            {
+                                case Core.Entities.DocumentProcessingStatus.Indexed:
+                                    <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-tertiary-container/20 border border-tertiary/20 text-tertiary font-label-md text-label-md" style="font-size:11px">
                                         <span class="w-1.5 h-1.5 rounded-full bg-tertiary"></span> Đã index
                                     </span>
-                                }
-                                else
-                                {
-                                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary-container/20 border border-primary/20 text-primary font-label-md text-label-md">
-                                        <span class="material-symbols-outlined text-[12px] animate-spin">sync</span> Đang xử lý
+                                    break;
+                                case Core.Entities.DocumentProcessingStatus.Failed:
+                                    <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-error-container/20 border border-error/20 text-error font-label-md text-label-md" style="font-size:11px">
+                                        <span class="w-1.5 h-1.5 rounded-full bg-error"></span> Lỗi xử lý
                                     </span>
-                                }
-                            </td>
-                            <td class="p-4 hidden lg:table-cell font-body-md text-body-md text-on-surface-variant">@(doc.FileSize / 1024) KB</td>
-                            <td class="p-4 hidden md:table-cell font-body-md text-body-md text-on-surface-variant">@doc.UploadedAt.ToLocalTime().ToString("g")</td>
-                            <td class="p-4 text-right">
-                                <button class="text-outline hover:text-on-surface opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-full hover:bg-surface-bright" onclick="confirmDeleteDocument('@doc.Id');">
-                                    <span class="material-symbols-outlined" style="font-size:16px">delete</span>
-                                </button>
-                            </td>
-                        </tr>
-                    }
-                    @if (!Model.Documents.Any())
-                    {
-                        <tr>
-                            <td colspan="5" class="p-8 text-center text-on-surface-variant font-body-md text-body-md">Không có tệp tin nào được tải lên trực tiếp cho môn học này.</td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
+                                    break;
+                                case Core.Entities.DocumentProcessingStatus.Uploaded:
+                                    <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-surface-bright border border-outline-variant text-on-surface font-label-md text-label-md" style="font-size:11px">
+                                        <span class="w-1.5 h-1.5 rounded-full bg-outline"></span> Đã tải lên
+                                    </span>
+                                    break;
+                                default:
+                                    <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-primary-container/20 border border-primary/20 text-primary font-label-md text-label-md" style="font-size:11px">
+                                        <span class="material-symbols-outlined text-[10px] animate-spin">sync</span> Đang xử lý
+                                    </span>
+                                    break;
+                            }
+                        </div>
+
+                        @* File Size *@
+                        <div class="col-span-4 md:col-span-2 text-right font-body-md text-body-md text-on-surface-variant">
+                            @(doc.FileSize / 1024) KB
+                        </div>
+
+                        @* Uploaded Date *@
+                        <div class="col-span-0 md:col-span-3 hidden md:block text-right font-body-md text-body-md text-on-surface-variant">
+                            @doc.UploadedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
+                        </div>
+                    </div>
+                }
+            }
         </div>
     </div>
-</div>
 
 @* ========================= MODAL OVERLAY ========================= *@
 <div id="modalOverlay" class="fixed inset-0 bg-black/60 z-[100] hidden items-center justify-center backdrop-blur-sm transition-opacity">
@@ -382,6 +402,11 @@
         <span class="material-symbols-outlined text-secondary" style="font-size:18px">edit</span>
         <span>Đổi tên chương</span>
     </button>
+    <button onclick="chapterCtxDownload()"
+            class="w-full flex items-center gap-3 px-4 py-2.5 font-body-md text-body-md text-on-surface hover:bg-surface-container-highest transition-colors">
+        <span class="material-symbols-outlined text-on-surface-variant" style="font-size:18px">download</span>
+        <span>Tải chương xuống</span>
+    </button>
     <div class="border-t border-outline-variant/50 my-1"></div>
     <button onclick="chapterCtxDelete()"
             class="w-full flex items-center gap-3 px-4 py-2.5 font-body-md text-body-md text-error hover:bg-error-container/20 transition-colors">
@@ -389,6 +414,51 @@
         <span>Xóa chương</span>
     </button>
 </div>
+
+<!-- Document Context Menu -->
+<div id="documentCtxMenu"
+     class="hidden fixed bg-surface-container-high border border-outline-variant rounded-xl shadow-2xl z-[500] w-48 overflow-hidden py-1">
+    <button onclick="documentCtxOpen()"
+            class="w-full flex items-center gap-3 px-4 py-2.5 font-body-md text-body-md text-on-surface hover:bg-surface-container-highest transition-colors">
+        <span class="material-symbols-outlined text-primary" style="font-size:18px">open_in_new</span>
+        <span>Mở tài liệu</span>
+    </button>
+    <button onclick="documentCtxDetails()"
+            class="w-full flex items-center gap-3 px-4 py-2.5 font-body-md text-body-md text-on-surface hover:bg-surface-container-highest transition-colors">
+        <span class="material-symbols-outlined text-secondary" style="font-size:18px">info</span>
+        <span>Xem chi tiết</span>
+    </button>
+    <button onclick="documentCtxDownload()"
+            class="w-full flex items-center gap-3 px-4 py-2.5 font-body-md text-body-md text-on-surface hover:bg-surface-container-highest transition-colors">
+        <span class="material-symbols-outlined text-on-surface-variant" style="font-size:18px">download</span>
+        <span>Tải xuống</span>
+    </button>
+    <div class="border-t border-outline-variant/50 my-1"></div>
+    <button onclick="documentCtxDelete()"
+            class="w-full flex items-center gap-3 px-4 py-2.5 font-body-md text-body-md text-error hover:bg-error-container/20 transition-colors">
+        <span class="material-symbols-outlined text-error" style="font-size:18px">delete</span>
+        <span>Xóa tài liệu</span>
+    </button>
+</div>
+
+@section ContextPanel {
+    <aside id="contextPanel" class="fixed right-0 top-header-height h-[calc(100vh-64px)] w-sidebar-width flex flex-col z-40 bg-surface-container-low dark:bg-surface-container-low border-l border-outline-variant transition-transform duration-300 transform translate-x-full">
+        <div class="px-4 pt-4 pb-2 border-b border-outline-variant flex justify-between items-center bg-surface-container-low">
+            <span class="font-label-md text-label-md uppercase tracking-wider text-outline font-bold">Context Panel</span>
+            <button onclick="closeContextPanel()" class="text-outline hover:text-on-surface p-1 rounded transition-colors">
+                <span class="material-symbols-outlined text-[18px]">close_fullscreen</span>
+            </button>
+        </div>
+        <div class="flex border-b border-outline-variant">
+            <button class="flex-1 text-tertiary font-bold border-b-2 border-tertiary pb-2 pt-3 font-label-md text-label-md text-center bg-surface-container">Chi tiết</button>
+            <button class="flex-1 text-on-surface-variant hover:text-on-surface transition-colors pb-2 pt-3 font-label-md text-label-md text-center">Hỏi đáp AI</button>
+        </div>
+        <div class="flex-1 overflow-y-auto p-4 flex flex-col gap-6" id="contextPanelContent">
+            <!-- Details populated by JS -->
+            <div class="text-center text-on-surface-variant mt-10">Chọn một tài liệu để xem chi tiết.</div>
+        </div>
+    </aside>
+}
 
 @section Scripts {
     <script>
@@ -449,9 +519,13 @@
             });
         }
 
-        // ============ Keyboard shortcut — Escape closes modal ============
+        // ============ Keyboard shortcut — Escape closes modal & menus ============
         document.addEventListener('keydown', function(e) {
-            if (e.key === 'Escape') closeModal();
+            if (e.key === 'Escape') {
+                closeModal();
+                closeDocumentCtxMenu();
+                closeChapterCtxMenu();
+            }
         });
 
         // ============ Page-specific Hooks for Sidebar & Workspace New Menu ============
@@ -462,15 +536,35 @@
             openModal('deleteDocModal');
         }
 
-        // ============ Chapter Selection & Context Menu Handling ============
+        // ============ Selection & Context Menu Handling ============
         let selectedChapterId = null;
         let chapterCtxData = { id: null, name: '', url: '' };
+        let selectedDocId = null;
+        let docCtxData = { id: null, title: '', storageUrl: '', mimeType: '', sizeKb: '', uploadedAt: '', status: '' };
+
+        function formatMimeType(mimeType) {
+            if (!mimeType) return "Tài liệu";
+            mimeType = mimeType.toLowerCase();
+            if (mimeType.includes("pdf")) return "PDF Document";
+            if (mimeType.includes("word") || mimeType.includes("officedocument.wordprocessingml") || mimeType.includes("msword")) return "Word Document";
+            if (mimeType.includes("excel") || mimeType.includes("officedocument.spreadsheetml") || mimeType.includes("ms-excel")) return "Excel Spreadsheet";
+            if (mimeType.includes("powerpoint") || mimeType.includes("officedocument.presentationml") || mimeType.includes("ms-powerpoint")) return "PowerPoint Presentation";
+            if (mimeType.includes("image")) return "Hình ảnh";
+            if (mimeType.includes("text")) return "Văn bản";
+            if (mimeType.includes("zip") || mimeType.includes("rar")) return "Tệp nén";
+            return "Tài liệu";
+        }
 
         function selectChapterRow(event, id) {
-            // Unselect all rows
+            // Unselect all chapter rows and document rows
             document.querySelectorAll('.chapter-row').forEach(r => {
                 r.classList.remove('bg-surface-container-highest', 'ring-1', 'ring-primary/30', 'border-primary/40');
             });
+            document.querySelectorAll('.document-row').forEach(r => {
+                r.classList.remove('bg-surface-container-highest', 'ring-1', 'ring-primary/30', 'border-primary/40');
+            });
+            selectedDocId = null;
+            closeContextPanel();
 
             // Select clicked row
             const row = document.querySelector(`.chapter-row[data-id="${id}"]`);
@@ -480,16 +574,131 @@
             selectedChapterId = id;
         }
 
+        function selectDocumentRow(event, id, title, mimeType, sizeKb, uploadedAt, status, storageUrl, authorName) {
+            // Unselect all document rows and chapter rows
+            document.querySelectorAll('.document-row').forEach(r => {
+                r.classList.remove('bg-surface-container-highest', 'ring-1', 'ring-primary/30', 'border-primary/40');
+            });
+            document.querySelectorAll('.chapter-row').forEach(r => {
+                r.classList.remove('bg-surface-container-highest', 'ring-1', 'ring-primary/30', 'border-primary/40');
+            });
+            selectedChapterId = null;
+
+            // Select clicked row
+            const row = document.querySelector(`.document-row[data-id="${id}"]`);
+            if (row) {
+                row.classList.add('bg-surface-container-highest', 'ring-1', 'ring-primary/30', 'border-primary/40');
+            }
+            selectedDocId = id;
+
+            // Populate context menu data
+            docCtxData = {
+                id: id,
+                title: title,
+                storageUrl: storageUrl,
+                mimeType: mimeType,
+                sizeKb: sizeKb,
+                uploadedAt: uploadedAt,
+                status: status
+            };
+
+            // Update details panel
+            const panel = document.getElementById('contextPanel');
+            if (panel) {
+                panel.classList.remove('translate-x-full');
+
+                let statusHtml = '';
+                switch (status) {
+                    case 'Indexed':
+                        statusHtml = '<span class="text-tertiary font-medium">Đã index</span>';
+                        break;
+                    case 'Failed':
+                        statusHtml = '<span class="text-error font-medium">Lỗi xử lý</span>';
+                        break;
+                    case 'Uploaded':
+                        statusHtml = '<span class="text-on-surface-variant font-medium">Đã tải lên</span>';
+                        break;
+                    default:
+                        statusHtml = '<span class="text-primary font-medium flex items-center gap-1"><span class="material-symbols-outlined text-[12px] animate-spin">sync</span>Đang xử lý</span>';
+                        break;
+                }
+
+                const docType = formatMimeType(mimeType);
+
+                const contentHtml = `
+                    <div>
+                        <div class="flex items-center gap-3 mb-4">
+                            <div class="w-10 h-10 rounded bg-primary-container/20 flex items-center justify-center text-primary border border-primary/10 flex-shrink-0">
+                                <span class="material-symbols-outlined">description</span>
+                            </div>
+                            <div class="min-w-0 flex-1">
+                                <h4 class="font-body-md text-body-md font-semibold text-on-surface truncate max-w-full">
+                                    <a href="${storageUrl}" target="_blank" class="hover:underline hover:text-primary transition-all w-fit inline-block max-w-full truncate">${title}</a>
+                                </h4>
+                                <p class="font-label-md text-label-md text-outline mt-0.5">${sizeKb} KB • ${docType}</p>
+                            </div>
+                        </div>
+                        
+                        <div class="space-y-3 font-body-md text-body-md text-on-surface-variant border-b border-outline-variant/30 pb-4">
+                            <div class="flex justify-between">
+                                <span class="text-outline">Trạng thái</span>
+                                ${statusHtml}
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-outline">Ngày tải</span>
+                                <span>${uploadedAt}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-outline">Tác giả gốc</span>
+                                <span>${authorName}</span>
+                            </div>
+                        </div>
+
+                        <div class="mt-4">
+                            <span class="font-label-md text-label-md uppercase tracking-wider text-outline font-bold block mb-2">Tổng quan AI (Auto-generated)</span>
+                            <p class="text-xs text-on-surface-variant leading-relaxed bg-surface-container/30 border border-outline-variant/20 rounded-lg p-3">
+                                Tài liệu này đã được hệ thống Index thành công và sẵn sàng phục vụ AI. Bạn có thể sử dụng tab "Hỏi đáp AI" để truy vấn nhanh thông tin, trích xuất dữ liệu, dịch thuật hoặc tóm tắt các đề mục quan trọng trong tài liệu này một cách trực tiếp.
+                            </p>
+                        </div>
+                    </div>
+                    <div class="mt-auto border-t border-outline-variant pt-4 space-y-2">
+                        <button onclick="confirmDeleteDocument('${id}')" class="w-full bg-surface border border-outline-variant text-error font-label-md text-label-md py-2 rounded hover:bg-error-container/20 transition-colors flex items-center justify-center gap-2">
+                            <span class="material-symbols-outlined text-[18px]">delete</span>
+                            Xóa tài liệu
+                        </button>
+                    </div>
+                `;
+                document.getElementById('contextPanelContent').innerHTML = contentHtml;
+            }
+        }
+
+        function closeContextPanel() {
+            const panel = document.getElementById('contextPanel');
+            if (panel) {
+                panel.classList.add('translate-x-full');
+            }
+        }
+
         // Click outside rows → deselect
         document.addEventListener('click', e => {
-            if (!e.target.closest('.chapter-row') && !e.target.closest('#chapterCtxMenu')) {
+            if (!e.target.closest('.chapter-row') && !e.target.closest('.document-row') && 
+                !e.target.closest('#chapterCtxMenu') && !e.target.closest('#documentCtxMenu') && 
+                !e.target.closest('#contextPanel') && !e.target.closest('#modalOverlay') && 
+                !e.target.closest('.group')) {
+                
                 document.querySelectorAll('.chapter-row').forEach(r => {
                     r.classList.remove('bg-surface-container-highest', 'ring-1', 'ring-primary/30', 'border-primary/40');
                 });
+                document.querySelectorAll('.document-row').forEach(r => {
+                    r.classList.remove('bg-surface-container-highest', 'ring-1', 'ring-primary/30', 'border-primary/40');
+                });
                 selectedChapterId = null;
+                selectedDocId = null;
+                closeContextPanel();
             }
         });
 
+        // ============ Chapter Context Menu ============
         function openChapterCtxMenu(event, id, name) {
             event.preventDefault();
             event.stopPropagation();
@@ -521,7 +730,7 @@
             if (!e.target.closest('#chapterCtxMenu')) closeChapterCtxMenu();
         });
 
-        // Context actions
+        // Chapter Context actions
         function chapterCtxOpen() {
             if (chapterCtxData.url) window.location.href = chapterCtxData.url;
             closeChapterCtxMenu();
@@ -532,9 +741,73 @@
             openEditModal(chapterCtxData.id, chapterCtxData.name);
         }
 
+        function chapterCtxDownload() {
+            closeChapterCtxMenu();
+            if (chapterCtxData.id) {
+                window.location.href = '@Url.Action("DownloadFolder", "Drive")?folderId=' + chapterCtxData.id;
+            }
+        }
+
         function chapterCtxDelete() {
             closeChapterCtxMenu();
             openDeleteModal(chapterCtxData.id, chapterCtxData.name);
+        }
+
+        // ============ Document Context Menu ============
+        function openDocumentCtxMenu(event, id, title, storageUrl) {
+            event.preventDefault();
+            event.stopPropagation();
+
+            // Trigger selection of clicked row to populate panel & selected ID
+            const row = document.querySelector(`.document-row[data-id="${id}"]`);
+            if (row) {
+                row.click();
+            }
+
+            // Explicitly set storageUrl for this document
+            docCtxData.storageUrl = storageUrl;
+
+            const menu = document.getElementById('documentCtxMenu');
+            menu.classList.remove('hidden');
+
+            // Position near cursor, stay in boundaries
+            const x = Math.min(event.clientX, window.innerWidth - 200);
+            const y = Math.min(event.clientY, window.innerHeight - 150);
+            menu.style.left = x + 'px';
+            menu.style.top = y + 'px';
+        }
+
+        function closeDocumentCtxMenu() {
+            document.getElementById('documentCtxMenu').classList.add('hidden');
+        }
+
+        document.addEventListener('click', e => {
+            if (!e.target.closest('#documentCtxMenu')) closeDocumentCtxMenu();
+        });
+
+        // Document Context Menu Action callbacks
+        function documentCtxOpen() {
+            if (docCtxData.storageUrl) window.open(docCtxData.storageUrl, '_blank');
+            closeDocumentCtxMenu();
+        }
+
+        function documentCtxDetails() {
+            closeDocumentCtxMenu();
+            closeModal();
+            const panel = document.getElementById('contextPanel');
+            if (panel) panel.classList.remove('translate-x-full');
+        }
+
+        function documentCtxDownload() {
+            closeDocumentCtxMenu();
+            if (docCtxData.id) {
+                window.location.href = '@Url.Action("DownloadFile", "Drive")?id=' + docCtxData.id;
+            }
+        }
+
+        function documentCtxDelete() {
+            closeDocumentCtxMenu();
+            confirmDeleteDocument(docCtxData.id);
         }
     </script>
 }

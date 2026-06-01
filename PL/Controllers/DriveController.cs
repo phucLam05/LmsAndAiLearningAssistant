@@ -269,6 +269,68 @@ namespace PL.Controllers
         }
 
         /// <summary>
+        /// Downloads the contents of the specified folder as a ZIP file.
+        /// </summary>
+        [HttpGet]
+        public async Task<IActionResult> DownloadFolder(Guid folderId)
+        {
+            var userId = GetUserId();
+            if (userId == Guid.Empty)
+            {
+                return Challenge();
+            }
+
+            try
+            {
+                var (zipBytes, folderName) = await _driveService.DownloadFolderAsZipAsync(folderId, userId);
+                
+                // Format the download response headers
+                var contentDisposition = new System.Net.Mime.ContentDisposition
+                {
+                    FileName = $"{folderName}.zip",
+                    Inline = false
+                };
+                Response.Headers.Append("Content-Disposition", contentDisposition.ToString());
+                return File(zipBytes, "application/zip", $"{folderName}.zip");
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(ex.Message);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Lỗi hệ thống khi tải xuống thư mục: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Downloads a single document file stream.
+        /// </summary>
+        [HttpGet]
+        public async Task<IActionResult> DownloadFile(Guid id)
+        {
+            var userId = GetUserId();
+            if (userId == Guid.Empty)
+            {
+                return Challenge();
+            }
+
+            try
+            {
+                var (stream, fileName, mimeType) = await _driveService.DownloadDocumentAsync(id, userId);
+                return File(stream, mimeType, fileName);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(ex.Message);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Lỗi hệ thống khi tải tài liệu: {ex.Message}");
+            }
+        }
+
+        /// <summary>
         /// Uploads a file directly into a specific folder (subject or chapter).
         /// </summary>
         [HttpPost]

@@ -101,30 +101,33 @@ else
             var iconName   = string.IsNullOrEmpty(subject.Folder.Icon) ? defaultIcons[i % defaultIcons.Length] : subject.Folder.Icon;
             var chaptersUrl = Url.Action("Chapters", "Drive", new { subjectFolderId = subject.Folder.Id });
             var hasCode    = !string.IsNullOrEmpty(subject.SubjectCode);
+            var customColor = string.IsNullOrEmpty(subject.Folder.Color) ? "#1a73e8" : subject.Folder.Color;
 
             <div id="card-@subject.Folder.Id"
-                 class="subject-card bg-surface-container-low border border-outline-variant rounded-xl p-5 transition-all duration-200 group relative cursor-pointer select-none"
+                 class="subject-card bg-surface-container-low border rounded-xl p-5 transition-all duration-200 group relative cursor-pointer select-none"
+                 style="border-color: @(customColor)50;"
                  data-id="@subject.Folder.Id"
-                 data-name="@subject.DisplayName.ToLower() @subject.SubjectCode.ToLower()"
+                 data-name="@subject.Folder.Name.ToLower()"
                  data-url="@chaptersUrl"
-                 data-display-name="@subject.DisplayName"
-                 data-subject-code="@subject.SubjectCode"
+                 data-display-name="@subject.Folder.Name"
+                 data-subject-code=""
+                 data-color="@customColor"
                  onclick="handleCardClick('@subject.Folder.Id', '@chaptersUrl', event)"
-                 oncontextmenu="openContextMenu(event, '@subject.Folder.Id', '@subject.DisplayName.Replace("'","\\'")', '@subject.SubjectCode')"
+                 oncontextmenu="openContextMenu(event, '@subject.Folder.Id', '@subject.Folder.Name.Replace("'","\\'")', '@(subject.Folder.Icon ?? "folder_open")', '@customColor')"
                  ondblclick="window.location.href='@chaptersUrl'">
 
                 @* Top Row: Icon + Code badge + More button *@
                 <div class="flex justify-between items-start mb-4">
                     <div class="flex items-center gap-3">
-                        <div class="w-10 h-10 rounded-lg @theme.Item2 flex items-center justify-center @theme.Item1">
+                        <div class="w-10 h-10 rounded-lg flex items-center justify-center" style="background-color: @(customColor)20; color: @customColor;">
                             <span class="material-symbols-outlined icon-fill" style="font-variation-settings:'FILL' 1">@iconName</span>
                         </div>
                         @if (hasCode)
                         {
-                            <span class="font-label-md text-label-md px-2 py-0.5 rounded @theme.Item3">@subject.SubjectCode</span>
+                            <span class="font-label-md text-label-md px-2 py-0.5 rounded border" style="background-color: @(customColor)10; color: @customColor; border-color: @(customColor)20;">@subject.SubjectCode</span>
                         }
                     </div>
-                    <button onclick="event.stopPropagation(); openContextMenu(event, '@subject.Folder.Id', '@subject.DisplayName.Replace("'","\\'")', '@subject.SubjectCode')"
+                    <button onclick="event.stopPropagation(); openContextMenu(event, '@subject.Folder.Id', '@subject.Folder.Name.Replace("'","\\'")', '@(subject.Folder.Icon ?? "folder_open")', '@customColor')"
                             class="text-on-surface-variant hover:text-on-surface opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-full hover:bg-surface-bright">
                         <span class="material-symbols-outlined">more_vert</span>
                     </button>
@@ -133,7 +136,7 @@ else
                 @* Subject Name *@
                 <h2 id="name-@subject.Folder.Id"
                     class="font-headline-sm text-headline-sm text-on-surface mb-4 leading-snug">
-                    @subject.DisplayName
+                    @subject.Folder.Name
                 </h2>
 
                 @* Stats *@
@@ -144,7 +147,7 @@ else
                     </div>
                     <div class="bg-surface rounded-lg p-3 border border-outline-variant/50">
                         <div class="font-label-md text-label-md text-on-surface-variant mb-1">Tài liệu</div>
-                        <div class="font-headline-md text-headline-md @theme.Item4">@subject.DocumentCount</div>
+                        <div class="font-headline-md text-headline-md" style="color: @customColor;">@subject.DocumentCount</div>
                     </div>
                 </div>
 
@@ -206,37 +209,12 @@ else
                 </button>
             </div>
             <div class="p-6 space-y-4">
-                @* Subject Code + Name Row *@
-                <div class="flex gap-3">
-                    <div class="w-36 flex-shrink-0">
-                        <label class="block text-on-surface-variant font-label-md text-label-md mb-2">Mã môn <span class="text-outline">(tùy chọn)</span></label>
-                        <input type="text" id="subjectCodeInput" maxlength="10"
-                               placeholder="Vd: CS401"
-                               class="w-full bg-surface border border-outline-variant rounded-lg px-3 py-2.5 text-on-surface font-body-md text-body-md focus:border-primary focus:ring-1 focus:ring-primary outline-none placeholder:text-outline transition-colors"
-                               oninput="this.value=this.value.toUpperCase(); updateNamePreview()" />
-                    </div>
-                    <div class="flex-1">
-                        <label class="block text-on-surface-variant font-label-md text-label-md mb-2">Tên môn học <span class="text-error">*</span></label>
-                        <input type="text" id="subjectNameInput" required
-                               placeholder="Ví dụ: Trí tuệ nhân tạo"
-                               class="w-full bg-surface border border-outline-variant rounded-lg px-3 py-2.5 text-on-surface font-body-md text-body-md focus:border-primary focus:ring-1 focus:ring-primary outline-none placeholder:text-outline transition-colors"
-                               oninput="updateNamePreview()" />
-                    </div>
-                </div>
-                @* Tên lưu — editable, auto-fills from code+name but user can override *@
+                @* Subject Name Field *@
                 <div>
-                    <label class="block text-on-surface-variant font-label-md text-label-md mb-2">
-                        Tên lưu vào hệ thống
-                        <span class="text-outline ml-1">(tự động điền · có thể chỉnh sửa)</span>
-                    </label>
+                    <label class="block text-on-surface-variant font-label-md text-label-md mb-2">Tên môn học <span class="text-error">*</span></label>
                     <input type="text" name="Name" id="subjectNameFull" required
-                           placeholder="Tên sẽ tự động điền khi bạn nhập mã + tên môn..."
-                           class="w-full bg-surface border border-outline-variant rounded-lg px-4 py-2.5 text-on-surface font-body-md text-body-md focus:border-primary focus:ring-1 focus:ring-primary outline-none placeholder:text-outline transition-colors"
-                           oninput="createNameManuallyEdited = true" />
-                    <p class="text-outline font-label-md text-label-md mt-1.5 flex items-center gap-1">
-                        <span class="material-symbols-outlined" style="font-size:13px">info</span>
-                        Đây là tên thực sự được lưu. Chỉnh sửa nếu muốn định dạng khác.
-                    </p>
+                           placeholder="Ví dụ: Trí tuệ nhân tạo"
+                           class="w-full bg-surface border border-outline-variant rounded-lg px-4 py-2.5 text-on-surface font-body-md text-body-md focus:border-primary focus:ring-1 focus:ring-primary outline-none placeholder:text-outline transition-colors" />
                 </div>
                 @* Icon + Color *@
                 <div class="flex gap-3">
@@ -287,34 +265,13 @@ else
                 </button>
             </div>
             <div class="p-6 space-y-4">
-                <div class="flex gap-3">
-                    <div class="w-36 flex-shrink-0">
-                        <label class="block text-on-surface-variant font-label-md text-label-md mb-2">Mã môn <span class="text-outline">(tùy chọn)</span></label>
-                        <input type="text" id="editCodeInput" maxlength="10"
-                               placeholder="Vd: CS401"
-                               class="w-full bg-surface border border-outline-variant rounded-lg px-3 py-2.5 text-on-surface font-body-md text-body-md focus:border-primary focus:ring-1 focus:ring-primary outline-none placeholder:text-outline transition-colors"
-                               oninput="this.value=this.value.toUpperCase(); updateEditPreview()" />
-                    </div>
-                    <div class="flex-1">
-                        <label class="block text-on-surface-variant font-label-md text-label-md mb-2">Tên môn học <span class="text-error">*</span></label>
-                        <input type="text" id="editNameInput" required
-                               class="w-full bg-surface border border-outline-variant rounded-lg px-3 py-2.5 text-on-surface font-body-md text-body-md focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-colors"
-                               oninput="updateEditPreview()" />
-                    </div>
-                </div>
+                @* Subject Name Field *@
                 <div>
-                    <label class="block text-on-surface-variant font-label-md text-label-md mb-2">
-                        Tên lưu vào hệ thống
-                        <span class="text-outline ml-1">(tự động điền · có thể chỉnh sửa)</span>
-                    </label>
+                    <label class="block text-on-surface-variant font-label-md text-label-md mb-2">Tên môn học <span class="text-error">*</span></label>
                     <input type="text" name="Name" id="editNameFull" required
-                           class="w-full bg-surface border border-outline-variant rounded-lg px-4 py-2.5 text-on-surface font-body-md text-body-md focus:border-primary focus:ring-1 focus:ring-primary outline-none placeholder:text-outline transition-colors"
-                           oninput="editNameManuallyEdited = true" />
-                    <p class="text-outline font-label-md text-label-md mt-1.5 flex items-center gap-1">
-                        <span class="material-symbols-outlined" style="font-size:13px">info</span>
-                        Đây là tên thực sự được lưu. Chỉnh sửa nếu muốn định dạng khác.
-                    </p>
+                           class="w-full bg-surface border border-outline-variant rounded-lg px-4 py-2.5 text-on-surface font-body-md text-body-md focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-colors" />
                 </div>
+                @* Icon + Color *@
                 <div class="flex gap-3">
                     <div class="flex-1">
                         <label class="block text-on-surface-variant font-label-md text-label-md mb-2">Biểu tượng</label>
@@ -415,61 +372,29 @@ else
     document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeModal(); closeCtxMenu(); } });
 
     // ============================================================
-    // CREATE FORM — smart auto-fill: auto-generates "CODE - Name"
-    // but user can manually override the "Tên lưu" field
+    // CREATE FORM
     // ============================================================
-    let createNameManuallyEdited = false;
-
-    function updateNamePreview() {
-        const code = document.getElementById('subjectCodeInput').value.trim().toUpperCase();
-        const name = document.getElementById('subjectNameInput').value.trim();
-        const auto = code && name ? `${code} - ${name}` : (name || code || '');
-
-        // Only overwrite the "Tên lưu" field if user hasn't manually typed in it
-        if (!createNameManuallyEdited) {
-            document.getElementById('subjectNameFull').value = auto;
-        }
-    }
-
     function resetCreateManualEdit() {
-        createNameManuallyEdited = false;
-        document.getElementById('subjectCodeInput').value  = '';
-        document.getElementById('subjectNameInput').value  = '';
         document.getElementById('subjectNameFull').value   = '';
     }
 
     function submitCreateForm(e) {
-        // Ensure the full name is built if user never edited the Tên lưu field
-        if (!createNameManuallyEdited) updateNamePreview();
         const fullVal = document.getElementById('subjectNameFull').value.trim();
         if (!fullVal) {
             e.preventDefault();
             alert('Vui lòng nhập tên môn học.');
-            document.getElementById('subjectNameInput').focus();
+            document.getElementById('subjectNameFull').focus();
         }
     }
 
     // ============================================================
-    // EDIT FORM — same smart auto-fill pattern
+    // EDIT FORM
     // ============================================================
-    let editNameManuallyEdited = false;
-
-    function updateEditPreview() {
-        const code = document.getElementById('editCodeInput').value.trim().toUpperCase();
-        const name = document.getElementById('editNameInput').value.trim();
-        const auto = code && name ? `${code} - ${name}` : (name || code || '');
-
-        if (!editNameManuallyEdited) {
-            document.getElementById('editNameFull').value = auto;
-        }
-    }
-
     function submitEditForm(e) {
-        if (!editNameManuallyEdited) updateEditPreview();
         if (!document.getElementById('editNameFull').value.trim()) {
             e.preventDefault();
             alert('Vui lòng nhập tên môn học.');
-            document.getElementById('editNameInput').focus();
+            document.getElementById('editNameFull').focus();
         }
     }
 
@@ -493,12 +418,16 @@ else
 
         // Single click → select
         document.querySelectorAll('.subject-card').forEach(c => {
-            c.classList.remove('border-primary', 'bg-surface-container', 'ring-2', 'ring-primary/30');
-            c.classList.add('border-outline-variant');
+            const cardColor = c.dataset.color || "#1a73e8";
+            c.style.borderColor = cardColor + "50";
+            c.style.boxShadow = "none";
+            c.classList.remove('bg-surface-container');
         });
         const card = document.getElementById('card-' + id);
-        card.classList.remove('border-outline-variant');
-        card.classList.add('border-primary', 'bg-surface-container', 'ring-2', 'ring-primary/30');
+        const cardColor = card.dataset.color || "#1a73e8";
+        card.style.borderColor = cardColor;
+        card.style.boxShadow = `0 0 0 2px ${cardColor}40`;
+        card.classList.add('bg-surface-container');
         selectedId = id;
     }
 
@@ -506,8 +435,10 @@ else
     document.addEventListener('click', e => {
         if (!e.target.closest('.subject-card') && !e.target.closest('#ctxMenu')) {
             document.querySelectorAll('.subject-card').forEach(c => {
-                c.classList.remove('border-primary', 'bg-surface-container', 'ring-2', 'ring-primary/30');
-                c.classList.add('border-outline-variant');
+                const cardColor = c.dataset.color || "#1a73e8";
+                c.style.borderColor = cardColor + "50";
+                c.style.boxShadow = "none";
+                c.classList.remove('bg-surface-container');
             });
             selectedId = null;
         }
@@ -516,16 +447,16 @@ else
     // ============================================================
     // CONTEXT MENU (right-click)
     // ============================================================
-    let ctxData = { id: null, name: '', code: '', url: '' };
+    let ctxData = { id: null, name: '', icon: '', color: '', url: '' };
 
-    function openContextMenu(event, id, name, code) {
+    function openContextMenu(event, id, name, icon, color) {
         event.preventDefault();
         event.stopPropagation();
 
         // Select the card
         handleCardClick(id, '@Url.Action("Chapters","Drive")?subjectFolderId=' + id, { target: document.getElementById('card-' + id) });
 
-        ctxData = { id, name, code, url: document.getElementById('card-' + id).dataset.url };
+        ctxData = { id, name, icon, color, url: document.getElementById('card-' + id).dataset.url };
 
         const menu = document.getElementById('ctxMenu');
         menu.classList.remove('hidden');
@@ -550,26 +481,27 @@ else
         closeCtxMenu();
     }
 
+    // Rename action inside context menu
     function ctxRename() {
         closeCtxMenu();
-        const card = document.getElementById('card-' + ctxData.id);
         document.getElementById('editFolderId').value   = ctxData.id;
-        document.getElementById('editCodeInput').value  = ctxData.code;
-        document.getElementById('editNameInput').value  = ctxData.name;
-        // Try to prefill icon/color from card data
+        document.getElementById('editNameFull').value   = ctxData.name;
+        document.getElementById('editIconSelect').value = ctxData.icon;
+        document.getElementById('editColorInput').value = ctxData.color;
         openModal('editSubjectModal');
-        updateEditPreview();
     }
 
     function ctxDownload() {
         closeCtxMenu();
-        alert('Tính năng tải xuống đang được phát triển.');
+        if (ctxData.id) {
+            window.location.href = '@Url.Action("DownloadFolder", "Drive")?folderId=' + ctxData.id;
+        }
     }
 
     function ctxDelete() {
         closeCtxMenu();
         document.getElementById('deleteSubjectId').value   = ctxData.id;
-        document.getElementById('deleteSubjectName').textContent = '"' + (ctxData.code ? ctxData.code + ' - ' : '') + ctxData.name + '"';
+        document.getElementById('deleteSubjectName').textContent = '"' + ctxData.name + '"';
         openModal('deleteSubjectModal');
     }
 
@@ -594,11 +526,18 @@ else
     // ============================================================
     window.openCreateSubjectModal = function() { openModal('createSubjectModal'); }
 
-    // Add New hover effects on subject cards
+    // Hover effects on subject cards using custom color
     document.querySelectorAll('.subject-card').forEach(card => {
+        const cardColor = card.dataset.color || "#1a73e8";
         card.addEventListener('mouseenter', () => {
-            if (!card.classList.contains('border-primary'))
-                card.classList.add('hover:border-primary/50');
+            if (selectedId !== card.dataset.id) {
+                card.style.borderColor = cardColor + "aa"; // higher opacity border on hover
+            }
+        });
+        card.addEventListener('mouseleave', () => {
+            if (selectedId !== card.dataset.id) {
+                card.style.borderColor = cardColor + "50"; // restore normal opacity
+            }
         });
     });
 </script>

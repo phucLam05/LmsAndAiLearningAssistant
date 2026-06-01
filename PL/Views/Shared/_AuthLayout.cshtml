@@ -1,0 +1,112 @@
+@{
+    Layout = null;
+}
+<!DOCTYPE html>
+<html class="dark" lang="vi">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - LMS AI</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    
+    <!-- Fonts & Icons -->
+    <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
+    
+    <style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body { font-family: 'Be Vietnam Pro', sans-serif; }
+    </style>
+    
+    <script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "tertiary-fixed": "#89fa9b",
+                        "secondary-fixed-dim": "#a8c8ff",
+                        "surface": "#121316",
+                        "surface-container-high": "#292a2d",
+                        "error-container": "#93000a",
+                        "surface-dim": "#121316",
+                        "surface-container-highest": "#343538",
+                        "on-secondary-container": "#8cb6fb",
+                        "secondary-container": "#114784",
+                        "surface-container-low": "#1a1b1e",
+                        "on-surface": "#e3e2e6",
+                        "on-tertiary-fixed": "#002108",
+                        "primary": "#adc7ff",
+                        "background": "#121316",
+                        "secondary": "#a8c8ff",
+                        "inverse-surface": "#e3e2e6",
+                        "on-tertiary": "#003914",
+                        "surface-container-lowest": "#0d0e11",
+                        "surface-container": "#1e2022",
+                        "on-surface-variant": "#c1c6d6",
+                        "on-error-container": "#ffdad6",
+                        "secondary-fixed": "#d5e3ff",
+                        "on-tertiary-container": "#ffffff",
+                        "on-primary": "#002e68",
+                        "inverse-on-surface": "#2f3033",
+                        "on-error": "#690005",
+                        "on-secondary-fixed": "#001b3c",
+                        "surface-bright": "#38393c",
+                        "on-secondary": "#003061",
+                        "on-primary-container": "#ffffff",
+                        "on-tertiary-fixed-variant": "#005320",
+                        "primary-container": "#1a73e8",
+                        "surface-tint": "#adc7ff",
+                        "tertiary-container": "#008939",
+                        "on-primary-fixed": "#001a41",
+                        "error": "#ffb4ab",
+                        "inverse-primary": "#005bc0",
+                        "tertiary-fixed-dim": "#6ddd81",
+                        "on-background": "#e3e2e6",
+                        "outline": "#8b909f",
+                        "primary-fixed-dim": "#adc7ff",
+                        "on-secondary-fixed-variant": "#114784",
+                        "outline-variant": "#414754",
+                        "primary-fixed": "#d8e2ff",
+                        "surface-variant": "#343538",
+                        "tertiary": "#6ddd81",
+                        "on-primary-fixed-variant": "#004493"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-background text-on-surface flex items-center justify-center min-h-screen relative overflow-x-hidden px-4">
+    <!-- Decorative Blur Orbs -->
+    <div class="absolute -top-40 -left-40 w-96 h-96 bg-primary/10 rounded-full blur-[120px] pointer-events-none"></div>
+    <div class="absolute -bottom-40 -right-40 w-96 h-96 bg-secondary/10 rounded-full blur-[120px] pointer-events-none"></div>
+
+    <div class="w-full max-w-[420px] p-2 relative z-10">
+        <!-- Logo and Heading -->
+        <div class="flex flex-col items-center mb-8 select-none">
+            <div class="flex items-center gap-2">
+                <span class="material-symbols-outlined text-[36px] text-primary" style="font-variation-settings: 'FILL' 1;">school</span>
+                <span class="text-headline-lg font-bold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-primary to-secondary" style="font-size: 32px;">LMS AI</span>
+            </div>
+            <p class="text-body-md text-outline mt-1">Trợ lý học tập thông minh của bạn</p>
+        </div>
+
+        <!-- Render Content -->
+        @RenderBody()
+    </div>
+
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

@@ -137,29 +137,9 @@
             <a class="font-headline-md text-headline-md font-bold text-on-surface tracking-tight" href="@Url.Action("Index", "Home")">Index AI</a>
         </div>
         
-        <div class="flex-1 max-w-2xl mx-8 hidden md:block">
-            <div class="relative group">
-                <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                    <span class="material-symbols-outlined text-outline">search</span>
-                </div>
-                <input class="w-full bg-surface-container-high border border-outline-variant text-on-surface font-body-md text-body-md rounded-lg pl-12 pr-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all placeholder:text-outline group-hover:bg-surface-container-highest" placeholder="Tìm kiếm trong tài liệu đã index..." type="text"/>
-                <div class="absolute inset-y-0 right-0 pr-2 flex items-center">
-                    <span class="material-symbols-outlined text-outline hover:text-on-surface cursor-pointer p-1">tune</span>
-                </div>
-            </div>
-        </div>
+
         
         <div class="flex items-center gap-4">
-            <div class="flex items-center gap-2">
-                <button class="text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface p-2 rounded-full transition-colors relative">
-                    <span class="material-symbols-outlined">notifications</span>
-                    <span class="absolute top-2 right-2 w-2 h-2 bg-error rounded-full ring-2 ring-surface"></span>
-                </button>
-                <button class="text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface p-2 rounded-full transition-colors">
-                    <span class="material-symbols-outlined">settings</span>
-                </button>
-            </div>
-            
             <div class="relative" id="userMenuWrapper">
                 <div onclick="toggleUserMenu()" class="w-8 h-8 rounded-full bg-surface-container-highest border border-outline-variant overflow-hidden cursor-pointer hover:ring-2 ring-primary transition-all flex items-center justify-center">
                     <span class="material-symbols-outlined text-[24px] text-on-surface flex items-center justify-center">person</span>
@@ -218,11 +198,7 @@
                         <span>Tải tệp lên</span>
                     </button>
 
-                    <button onclick="addNewAction('uploadFolder'); closeAddMenu()"
-                            class="w-full flex items-center gap-3 px-4 py-3 font-body-md text-body-md text-on-surface-variant transition-colors cursor-not-allowed opacity-50" disabled>
-                        <span class="material-symbols-outlined" style="font-size:20px">drive_folder_upload</span>
-                        <span>Tải folder lên <span class="text-outline font-label-md text-label-md">(sắp ra mắt)</span></span>
-                    </button>
+
                 </div>
             </div>
             
@@ -243,11 +219,7 @@
                     <span class="material-symbols-outlined @(isDocuments ? "icon-fill" : "text-outline group-hover:text-on-surface") transition-colors" style="font-size:20px">description</span>
                     <span class="flex-1">Tài liệu</span>
                 </a>
-                <a class="flex items-center gap-3 text-on-surface-variant hover:bg-surface-container-highest rounded-lg px-4 py-2.5 font-label-md text-label-md transition-all group"
-                   href="javascript:void(0)" onclick="alert('Tính năng này chưa khả dụng.')">
-                    <span class="material-symbols-outlined text-outline group-hover:text-on-surface transition-colors" style="font-size:20px">delete</span>
-                    <span class="flex-1">Thùng rác</span>
-                </a>
+
             </nav>
         </aside>
         
@@ -285,11 +257,7 @@
             <span>Tải tệp lên</span>
         </button>
 
-        <button onclick="mainEmptyCtxAction('uploadFolder')"
-                class="w-full flex items-center gap-3 px-4 py-3 font-body-md text-body-md text-on-surface-variant transition-colors cursor-not-allowed opacity-50" disabled>
-            <span class="material-symbols-outlined" style="font-size:20px">drive_folder_upload</span>
-            <span>Tải folder lên <span class="text-outline font-label-md text-label-md">(sắp ra mắt)</span></span>
-        </button>
+
     </div>
 
     <script>
@@ -434,20 +402,36 @@
             document.getElementById('globalDriveFileInput').click();
         }
 
+        window.uploadQueue = [];
+        window.isUploading = false;
+        window.activeUploadXhr = null;
+        window.uploadStats = {
+            total: 0,
+            completed: 0,
+            failed: 0
+        };
+
         function handleGlobalFileSelect(event) {
             const files = event.target.files;
             if (files.length === 0) return;
-            const file = files[0];
             
-            if (window.currentUploadFolderId) {
-                uploadFileAjax(file, window.currentUploadFolderId);
-            }
+            addFilesToUploadQueue(files);
             
             // Clear input so selecting the same file again triggers change event
             event.target.value = '';
         }
 
         function dismissUploadProgressCard() {
+            if (window.isUploading && window.activeUploadXhr) {
+                if (confirm('Bạn có muốn hủy quá trình tải tệp lên hiện tại và các tệp còn lại trong hàng đợi không?')) {
+                    window.activeUploadXhr.abort();
+                    window.uploadQueue = [];
+                    window.isUploading = false;
+                    window.activeUploadXhr = null;
+                } else {
+                    return; // Don't close
+                }
+            }
             const card = document.getElementById('globalUploadProgressCard');
             if (card) {
                 card.classList.add('opacity-0', 'translate-y-12');
@@ -455,12 +439,91 @@
             }
         }
 
+        function addFilesToUploadQueue(files) {
+            const folderId = window.currentUploadFolderId;
+            if (!folderId) return;
+
+            // If queue is empty and we are not uploading, reset stats
+            if (window.uploadQueue.length === 0 && !window.isUploading) {
+                window.uploadStats.total = 0;
+                window.uploadStats.completed = 0;
+                window.uploadStats.failed = 0;
+            }
+
+            const maxSize = 50 * 1024 * 1024;
+            const skippedFiles = [];
+            const addedFiles = [];
+
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                if (file.size > maxSize) {
+                    skippedFiles.push(file.name);
+                    continue;
+                }
+                window.uploadQueue.push({ file: file, folderId: folderId });
+                window.uploadStats.total++;
+                addedFiles.push(file.name);
+            }
+
+            if (skippedFiles.length > 0) {
+                alert(`Các tệp sau vượt quá giới hạn 50MB và bị bỏ qua:\n- ${skippedFiles.join('\n- ')}`);
+            }
+
+            if (addedFiles.length > 0) {
+                if (!window.isUploading) {
+                    processNextQueueItem();
+                } else {
+                    updateUploadProgressUI();
+                }
+            }
+        }
+
+        function processNextQueueItem() {
+            if (window.uploadQueue.length === 0) {
+                // Done with all files
+                window.isUploading = false;
+                window.activeUploadXhr = null;
+
+                const pTitle = document.getElementById('uploadProgressTitle');
+                const spinner = document.getElementById('uploadStatusSpinner');
+                const pBytes = document.getElementById('uploadProgressBytes');
+                const pPercent = document.getElementById('uploadProgressPercent');
+                const pBar = document.getElementById('uploadProgressBar');
+
+                pTitle.textContent = `Tải lên hoàn tất!`;
+                spinner.classList.remove('animate-spin');
+                spinner.textContent = 'check_circle';
+                spinner.style.color = '#6ddd81'; // Green accent
+
+                pBar.style.width = '100%';
+                pPercent.textContent = '100%';
+                pBytes.textContent = `Đã tải lên thành công ${window.uploadStats.completed}/${window.uploadStats.total} tệp.`;
+                pBytes.classList.remove('text-error', 'font-bold');
+                pBytes.classList.add('text-outline');
+
+                // Reload after 1.5 seconds to show new files
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1500);
+                return;
+            }
+
+            window.isUploading = true;
+            const currentItem = window.uploadQueue.shift();
+            uploadFileAjax(currentItem.file, currentItem.folderId);
+        }
+
+        function updateUploadProgressUI() {
+            const pTitle = document.getElementById('uploadProgressTitle');
+            const currentIndex = window.uploadStats.completed + window.uploadStats.failed + 1;
+            pTitle.textContent = `Đang tải tệp lên (${currentIndex}/${window.uploadStats.total})...`;
+        }
+
         function uploadFileAjax(file, folderId) {
             const card = document.getElementById('globalUploadProgressCard');
             const pBar = document.getElementById('uploadProgressBar');
             const pPercent = document.getElementById('uploadProgressPercent');
             const pBytes = document.getElementById('uploadProgressBytes');
-            const pTitle = document.getElementById('uploadProgressTitle');
             const spinner = document.getElementById('uploadStatusSpinner');
             
             document.getElementById('uploadFileName').textContent = file.name;
@@ -480,22 +543,18 @@
             pBytes.textContent = '0.0 / ' + sizeStr;
             pBytes.classList.remove('text-error', 'font-bold');
             pBytes.classList.add('text-outline');
-            pTitle.textContent = 'Đang tải tệp lên...';
+            updateUploadProgressUI();
+            
             spinner.classList.add('animate-spin');
             spinner.textContent = 'sync';
             spinner.style.color = '#adc7ff';
 
             // Show card
-            card.classList.remove('hidden');
-            setTimeout(() => {
-                card.classList.remove('opacity-0', 'translate-y-12');
-            }, 50);
-
-            // Check size (50MB)
-            const maxSize = 50 * 1024 * 1024;
-            if (file.size > maxSize) {
-                handleError('Kích thước tệp vượt quá giới hạn 50MB.');
-                return;
+            if (card.classList.contains('hidden')) {
+                card.classList.remove('hidden');
+                setTimeout(() => {
+                    card.classList.remove('opacity-0', 'translate-y-12');
+                }, 50);
             }
 
             // FormData
@@ -503,8 +562,8 @@
             formData.append('file', file);
             formData.append('folderId', folderId);
 
-            // Send via XMLHttpRequest for progress monitoring
             const xhr = new XMLHttpRequest();
+            window.activeUploadXhr = xhr;
             xhr.open('POST', '/Drive/UploadFile', true);
 
             xhr.upload.onprogress = function(e) {
@@ -526,18 +585,8 @@
                     try {
                         const res = JSON.parse(xhr.responseText);
                         if (res.success) {
-                            // Success
-                            pBar.style.width = '100%';
-                            pPercent.textContent = '100%';
-                            pTitle.textContent = 'Tải lên thành công!';
-                            spinner.classList.remove('animate-spin');
-                            spinner.textContent = 'check_circle';
-                            spinner.style.color = '#6ddd81'; // Green accent
-                            
-                            // Auto reload page after 1.2s to show new document
-                            setTimeout(() => {
-                                window.location.reload();
-                            }, 1200);
+                            window.uploadStats.completed++;
+                            processNextQueueItem();
                         } else {
                             handleError(res.message);
                         }
@@ -554,19 +603,27 @@
             };
 
             function handleError(msg) {
-                pTitle.textContent = 'Tải lên thất bại!';
+                window.uploadStats.failed++;
+                console.error(`Tải tệp "${file.name}" thất bại: ${msg}`);
+                
+                // Show error state on progress UI temporarily
+                const pTitle = document.getElementById('uploadProgressTitle');
+                pTitle.textContent = `Lỗi tải tệp (${window.uploadStats.completed + window.uploadStats.failed}/${window.uploadStats.total})`;
                 spinner.classList.remove('animate-spin');
                 spinner.textContent = 'error';
                 spinner.style.color = '#ffb4ab'; // Red accent
                 
-                // Change progress bar to error state
                 pBar.classList.remove('bg-primary');
                 pBar.classList.add('bg-error');
                 
-                // Show the error message inside the progress card
                 pBytes.textContent = msg;
                 pBytes.classList.remove('text-outline');
                 pBytes.classList.add('text-error', 'font-bold');
+
+                // Wait 1.5 seconds so user can see the error, then continue queue
+                setTimeout(() => {
+                    processNextQueueItem();
+                }, 1500);
             }
 
             xhr.send(formData);
@@ -622,7 +679,7 @@
             
             const files = e.dataTransfer.files;
             if (files.length > 0) {
-                uploadFileAjax(files[0], window.currentUploadFolderId);
+                addFilesToUploadQueue(files);
             }
         });
 
@@ -640,7 +697,7 @@
     </script>
 
     <!-- Global Hidden Upload Input & Progress Modal -->
-    <input type="file" id="globalDriveFileInput" onchange="handleGlobalFileSelect(event)" style="display:none;" />
+    <input type="file" id="globalDriveFileInput" onchange="handleGlobalFileSelect(event)" style="display:none;" multiple />
     
     <div id="globalUploadProgressCard" class="fixed bottom-6 right-6 bg-surface-container-high border border-outline-variant rounded-xl shadow-2xl z-[9999] w-80 overflow-hidden hidden transition-all duration-300 transform translate-y-12 opacity-0">
         <div class="px-4 py-3 bg-surface-container-highest border-b border-outline-variant/50 flex justify-between items-center">
