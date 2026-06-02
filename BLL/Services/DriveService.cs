@@ -310,7 +310,8 @@ namespace BLL.Services
 						{
 							using (var docStream = await _storageProvider.DownloadAsync(doc.StoragePath))
 							{
-								var entry = archive.CreateEntry(doc.OriginalFileName);
+								var safeFileName = Path.GetFileName(doc.OriginalFileName).Replace("/", "_").Replace("\\", "_");
+								var entry = archive.CreateEntry(safeFileName);
 								using (var entryStream = entry.Open())
 								{
 									await docStream.CopyToAsync(entryStream);
@@ -336,7 +337,9 @@ namespace BLL.Services
 								using (var docStream = await _storageProvider.DownloadAsync(doc.StoragePath))
 								{
 									// Use forward slashes for ZIP structure compatibility
-									var entryPath = $"{chapter.Name}/{doc.OriginalFileName}";
+									var safeChapterName = chapter.Name.Replace("/", "_").Replace("\\", "_").Replace("..", "_");
+									var safeFileName = Path.GetFileName(doc.OriginalFileName).Replace("/", "_").Replace("\\", "_");
+									var entryPath = $"{safeChapterName}/{safeFileName}";
 									var entry = archive.CreateEntry(entryPath);
 									using (var entryStream = entry.Open())
 									{

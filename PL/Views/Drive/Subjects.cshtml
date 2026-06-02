@@ -112,9 +112,10 @@ else
                  data-display-name="@subject.Folder.Name"
                  data-subject-code=""
                  data-color="@customColor"
-                 onclick="handleCardClick('@subject.Folder.Id', '@chaptersUrl', event)"
-                 oncontextmenu="openContextMenu(event, '@subject.Folder.Id', '@subject.Folder.Name.Replace("'","\\'")', '@(subject.Folder.Icon ?? "folder_open")', '@customColor')"
-                 ondblclick="window.location.href='@chaptersUrl'">
+                 data-icon="@(subject.Folder.Icon ?? "folder_open")"
+                 onclick="handleCardClick(this, event)"
+                 oncontextmenu="openContextMenu(event, this)"
+                 ondblclick="window.location.href=this.dataset.url">
 
                 @* Top Row: Icon + Code badge + More button *@
                 <div class="flex justify-between items-start mb-4">
@@ -127,7 +128,7 @@ else
                             <span class="font-label-md text-label-md px-2 py-0.5 rounded border" style="background-color: @(customColor)10; color: @customColor; border-color: @(customColor)20;">@subject.SubjectCode</span>
                         }
                     </div>
-                    <button onclick="event.stopPropagation(); openContextMenu(event, '@subject.Folder.Id', '@subject.Folder.Name.Replace("'","\\'")', '@(subject.Folder.Icon ?? "folder_open")', '@customColor')"
+                    <button onclick="event.stopPropagation(); openContextMenu(event, this)"
                             class="text-on-surface-variant hover:text-on-surface opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-full hover:bg-surface-bright">
                         <span class="material-symbols-outlined">more_vert</span>
                     </button>
@@ -404,9 +405,12 @@ else
     let lastClick = { id: null, time: 0 };
     let selectedId = null;
 
-    function handleCardClick(id, url, event) {
+    function handleCardClick(card, event) {
         // Ignore clicks on buttons inside the card
-        if (event.target.closest('button')) return;
+        if (event && event.target && event.target.closest('button')) return;
+
+        const id = card.dataset.id;
+        const url = card.dataset.url;
 
         const now = Date.now();
         if (lastClick.id === id && now - lastClick.time < 350) {
@@ -423,7 +427,6 @@ else
             c.style.boxShadow = "none";
             c.classList.remove('bg-surface-container');
         });
-        const card = document.getElementById('card-' + id);
         const cardColor = card.dataset.color || "#1a73e8";
         card.style.borderColor = cardColor;
         card.style.boxShadow = `0 0 0 2px ${cardColor}40`;
@@ -449,14 +452,21 @@ else
     // ============================================================
     let ctxData = { id: null, name: '', icon: '', color: '', url: '' };
 
-    function openContextMenu(event, id, name, icon, color) {
+    function openContextMenu(event, element) {
         event.preventDefault();
         event.stopPropagation();
 
-        // Select the card
-        handleCardClick(id, '@Url.Action("Chapters","Drive")?subjectFolderId=' + id, { target: document.getElementById('card-' + id) });
+        const card = element.closest('.subject-card');
+        const id = card.dataset.id;
+        const name = card.dataset.displayName;
+        const icon = card.dataset.icon;
+        const color = card.dataset.color;
+        const url = card.dataset.url;
 
-        ctxData = { id, name, icon, color, url: document.getElementById('card-' + id).dataset.url };
+        // Select the card
+        handleCardClick(card, { target: card });
+
+        ctxData = { id, name, icon, color, url };
 
         const menu = document.getElementById('ctxMenu');
         menu.classList.remove('hidden');

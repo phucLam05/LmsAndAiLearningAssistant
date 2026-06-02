@@ -439,20 +439,31 @@
             }
         }
 
+        function formatBytes(bytes) {
+            if (bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+        }
+
         function addFilesToUploadQueue(files) {
             const folderId = window.currentUploadFolderId;
             if (!folderId) return;
 
-            // If queue is empty and we are not uploading, reset stats
+            const card = document.getElementById('globalUploadProgressCard');
+            const listContainer = document.getElementById('globalUploadProgressList');
+
+            // If queue is empty and we are not uploading, reset stats and clear UI list
             if (window.uploadQueue.length === 0 && !window.isUploading) {
                 window.uploadStats.total = 0;
                 window.uploadStats.completed = 0;
                 window.uploadStats.failed = 0;
+                listContainer.innerHTML = '';
             }
 
             const maxSize = 50 * 1024 * 1024;
             const skippedFiles = [];
-            const addedFiles = [];
 
             for (let i = 0; i < files.length; i++) {
                 const file = files[i];
@@ -460,16 +471,51 @@
                     skippedFiles.push(file.name);
                     continue;
                 }
-                window.uploadQueue.push({ file: file, folderId: folderId });
+                
+                const itemId = `upload-item-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+                const sizeStr = formatBytes(file.size);
+                
+                // Inject item to HTML list
+                const itemHtml = `
+                    <div id="${itemId}" class="flex items-center gap-3 p-3 group relative cursor-pointer hover:bg-surface-container-high/30 transition-colors">
+                        <span class="material-symbols-outlined text-primary/80 flex-shrink-0" style="font-size:22px">description</span>
+                        <div class="min-w-0 flex-1 space-y-1">
+                            <div class="flex justify-between items-center">
+                                <span class="font-body-md text-body-md font-semibold text-on-surface truncate pr-2 block" title="${file.name}">${file.name}</span>
+                                <span class="font-label-md text-label-md text-outline whitespace-nowrap">${sizeStr}</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <div class="flex-1 bg-surface-container-low rounded-full h-1.5 overflow-hidden border border-outline-variant/30">
+                                    <div class="file-progress-bar bg-primary h-full w-0 transition-all duration-150 ease-out"></div>
+                                </div>
+                                <span class="file-progress-percent font-label-md text-label-md text-outline min-w-[28px] text-right">0%</span>
+                            </div>
+                            <div class="file-error-msg hidden font-label-md text-label-md text-error font-semibold mt-0.5"></div>
+                        </div>
+                        <div class="flex-shrink-0 flex items-center justify-center w-6 h-6">
+                            <span class="file-status-icon material-symbols-outlined text-[20px] text-outline">schedule</span>
+                        </div>
+                    </div>
+                `;
+                listContainer.insertAdjacentHTML('beforeend', itemHtml);
+
+                window.uploadQueue.push({ file: file, folderId: folderId, itemId: itemId });
                 window.uploadStats.total++;
-                addedFiles.push(file.name);
             }
 
             if (skippedFiles.length > 0) {
                 alert(`Các tệp sau vượt quá giới hạn 50MB và bị bỏ qua:\n- ${skippedFiles.join('\n- ')}`);
             }
 
-            if (addedFiles.length > 0) {
+            if (window.uploadStats.total > 0) {
+                // Show card
+                if (card.classList.contains('hidden')) {
+                    card.classList.remove('hidden');
+                    setTimeout(() => {
+                        card.classList.remove('opacity-0', 'translate-y-12');
+                    }, 50);
+                }
+
                 if (!window.isUploading) {
                     processNextQueueItem();
                 } else {
@@ -486,20 +532,11 @@
 
                 const pTitle = document.getElementById('uploadProgressTitle');
                 const spinner = document.getElementById('uploadStatusSpinner');
-                const pBytes = document.getElementById('uploadProgressBytes');
-                const pPercent = document.getElementById('uploadProgressPercent');
-                const pBar = document.getElementById('uploadProgressBar');
 
-                pTitle.textContent = `Tải lên hoàn tất!`;
+                pTitle.textContent = `Đã tải lên ${window.uploadStats.completed}/${window.uploadStats.total} tệp.`;
                 spinner.classList.remove('animate-spin');
                 spinner.textContent = 'check_circle';
                 spinner.style.color = '#6ddd81'; // Green accent
-
-                pBar.style.width = '100%';
-                pPercent.textContent = '100%';
-                pBytes.textContent = `Đã tải lên thành công ${window.uploadStats.completed}/${window.uploadStats.total} tệp.`;
-                pBytes.classList.remove('text-error', 'font-bold');
-                pBytes.classList.add('text-outline');
 
                 // Reload after 1.5 seconds to show new files
                 setTimeout(() => {
@@ -510,7 +547,7 @@
 
             window.isUploading = true;
             const currentItem = window.uploadQueue.shift();
-            uploadFileAjax(currentItem.file, currentItem.folderId);
+            uploadFileAjax(currentItem);
         }
 
         function updateUploadProgressUI() {
@@ -519,48 +556,38 @@
             pTitle.textContent = `Đang tải tệp lên (${currentIndex}/${window.uploadStats.total})...`;
         }
 
-        function uploadFileAjax(file, folderId) {
-            const card = document.getElementById('globalUploadProgressCard');
-            const pBar = document.getElementById('uploadProgressBar');
-            const pPercent = document.getElementById('uploadProgressPercent');
-            const pBytes = document.getElementById('uploadProgressBytes');
-            const spinner = document.getElementById('uploadStatusSpinner');
-            
-            document.getElementById('uploadFileName').textContent = file.name;
-            
-            // Format size
-            let sizeStr = (file.size / 1024).toFixed(1) + " KB";
-            if (file.size >= 1024 * 1024) {
-                sizeStr = (file.size / (1024 * 1024)).toFixed(1) + " MB";
-            }
-            document.getElementById('uploadFileSize').textContent = sizeStr;
+        function uploadFileAjax(item) {
+            const file = item.file;
+            const folderId = item.folderId;
+            const itemId = item.itemId;
 
-            // Reset UI
-            pBar.classList.remove('bg-error');
-            pBar.classList.add('bg-primary');
-            pBar.style.width = '0%';
-            pPercent.textContent = '0%';
-            pBytes.textContent = '0.0 / ' + sizeStr;
-            pBytes.classList.remove('text-error', 'font-bold');
-            pBytes.classList.add('text-outline');
+            const itemEl = document.getElementById(itemId);
+            if (!itemEl) {
+                processNextQueueItem();
+                return;
+            }
+
+            const pBar = itemEl.querySelector('.file-progress-bar');
+            const pPercent = itemEl.querySelector('.file-progress-percent');
+            const statusIcon = itemEl.querySelector('.file-status-icon');
+            const errorMsg = itemEl.querySelector('.file-error-msg');
+
             updateUploadProgressUI();
-            
-            spinner.classList.add('animate-spin');
-            spinner.textContent = 'sync';
-            spinner.style.color = '#adc7ff';
 
-            // Show card
-            if (card.classList.contains('hidden')) {
-                card.classList.remove('hidden');
-                setTimeout(() => {
-                    card.classList.remove('opacity-0', 'translate-y-12');
-                }, 50);
-            }
+            // Set state to uploading (blue spinner)
+            statusIcon.classList.add('animate-spin');
+            statusIcon.textContent = 'sync';
+            statusIcon.style.color = '#adc7ff';
 
             // FormData
             const formData = new FormData();
             formData.append('file', file);
             formData.append('folderId', folderId);
+
+            const tokenInput = document.querySelector('input[name="__RequestVerificationToken"]');
+            if (tokenInput) {
+                formData.append('__RequestVerificationToken', tokenInput.value);
+            }
 
             const xhr = new XMLHttpRequest();
             window.activeUploadXhr = xhr;
@@ -569,14 +596,10 @@
             xhr.upload.onprogress = function(e) {
                 if (e.lengthComputable) {
                     const percent = Math.round((e.loaded / e.total) * 100);
-                    pBar.style.width = percent + '%';
-                    pPercent.textContent = percent + '%';
-                    
-                    let loadedStr = (e.loaded / 1024).toFixed(1) + " KB";
-                    if (e.loaded >= 1024 * 1024) {
-                        loadedStr = (e.loaded / (1024 * 1024)).toFixed(1) + " MB";
-                    }
-                    pBytes.textContent = loadedStr + ' / ' + sizeStr;
+                    // Cap at 99% visual progress until server fully processed/returns successful
+                    const visualPercent = Math.min(percent, 99);
+                    pBar.style.width = visualPercent + '%';
+                    pPercent.textContent = visualPercent + '%';
                 }
             };
 
@@ -585,6 +608,14 @@
                     try {
                         const res = JSON.parse(xhr.responseText);
                         if (res.success) {
+                            // Completed successfully! Set to 100% and show checkmark
+                            pBar.style.width = '100%';
+                            pPercent.textContent = '100%';
+                            
+                            statusIcon.classList.remove('animate-spin');
+                            statusIcon.textContent = 'check_circle';
+                            statusIcon.style.color = '#6ddd81'; // Green accent
+
                             window.uploadStats.completed++;
                             processNextQueueItem();
                         } else {
@@ -606,19 +637,18 @@
                 window.uploadStats.failed++;
                 console.error(`Tải tệp "${file.name}" thất bại: ${msg}`);
                 
-                // Show error state on progress UI temporarily
-                const pTitle = document.getElementById('uploadProgressTitle');
-                pTitle.textContent = `Lỗi tải tệp (${window.uploadStats.completed + window.uploadStats.failed}/${window.uploadStats.total})`;
-                spinner.classList.remove('animate-spin');
-                spinner.textContent = 'error';
-                spinner.style.color = '#ffb4ab'; // Red accent
+                statusIcon.classList.remove('animate-spin');
+                statusIcon.textContent = 'error';
+                statusIcon.style.color = '#ffb4ab'; // Red accent
                 
                 pBar.classList.remove('bg-primary');
                 pBar.classList.add('bg-error');
                 
-                pBytes.textContent = msg;
-                pBytes.classList.remove('text-outline');
-                pBytes.classList.add('text-error', 'font-bold');
+                pPercent.textContent = 'Lỗi';
+                pPercent.classList.add('text-error', 'font-bold');
+
+                errorMsg.textContent = msg;
+                errorMsg.classList.remove('hidden');
 
                 // Wait 1.5 seconds so user can see the error, then continue queue
                 setTimeout(() => {
@@ -694,12 +724,191 @@
                 }, 300);
             }
         }
+
+        // ============================================================
+        // Document Status Layout Configuration & Rendering
+        // ============================================================
+        const statusConfig = {
+            'Uploaded': {
+                bg: 'bg-surface-bright border border-outline-variant',
+                text: 'text-on-surface',
+                dot: 'bg-outline',
+                label: 'Đã tải lên',
+                spin: false
+            },
+            'Chunking': {
+                bg: 'bg-primary-container/20 border border-primary/20',
+                text: 'text-primary',
+                dot: '',
+                label: 'Đang phân đoạn',
+                spin: true
+            },
+            'Chunked': {
+                bg: 'bg-secondary-container/20 border border-secondary/20',
+                text: 'text-secondary',
+                dot: 'bg-secondary',
+                label: 'Đã phân đoạn',
+                spin: false
+            },
+            'Embedding': {
+                bg: 'bg-primary-container/25 border border-primary/30',
+                text: 'text-primary',
+                dot: '',
+                label: 'Đang tạo vector',
+                spin: true
+            },
+            'Indexed': {
+                bg: 'bg-tertiary-container/20 border border-tertiary/20',
+                text: 'text-tertiary',
+                dot: 'bg-tertiary',
+                label: 'Đã index',
+                spin: false
+            },
+            'Failed': {
+                bg: 'bg-error-container/20 border border-error/20',
+                text: 'text-error',
+                dot: 'bg-error',
+                label: 'Lỗi xử lý',
+                spin: false
+            }
+        };
+
+        function renderStatusBadge(container, status) {
+            if (!container) return;
+            const cfg = statusConfig[status] || {
+                bg: 'bg-primary-container/20 border border-primary/20',
+                text: 'text-primary',
+                dot: '',
+                label: 'Đang xử lý',
+                spin: true
+            };
+
+            let badgeHtml = `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full ${cfg.bg} ${cfg.text} font-label-md text-label-md" style="font-size:11px">`;
+            if (cfg.spin) {
+                badgeHtml += `<span class="material-symbols-outlined text-[10px] animate-spin">sync</span> `;
+            } else if (cfg.dot) {
+                badgeHtml += `<span class="w-1.5 h-1.5 rounded-full ${cfg.dot}"></span> `;
+            }
+            badgeHtml += `${cfg.label}</span>`;
+            container.innerHTML = badgeHtml;
+        }
+
+        // ============================================================
+        // Document Status Live Polling Check
+        // ============================================================
+        function startDocumentStatusPolling() {
+            const docRows = document.querySelectorAll('.document-row');
+            if (docRows.length === 0) return;
+
+            // Check if there are non-final statuses in the rows
+            const checkNeedsPolling = () => {
+                return Array.from(document.querySelectorAll('.document-row')).some(row => {
+                    const status = row.dataset.status;
+                    return status !== 'Indexed' && status !== 'Failed';
+                });
+            };
+
+            if (!checkNeedsPolling()) return;
+
+            const pollInterval = setInterval(async () => {
+                try {
+                    const response = await fetch('/Drive/GetDocumentStatuses');
+                    if (!response.ok) return;
+                    const docStatuses = await response.json();
+
+                    let hasChanges = false;
+
+                    docStatuses.forEach(doc => {
+                        const row = document.querySelector(`.document-row[data-id="${doc.id}"]`);
+                        if (row) {
+                            const oldStatus = row.dataset.status;
+                            const newStatus = doc.status;
+
+                            if (oldStatus !== newStatus) {
+                                row.dataset.status = newStatus;
+                                hasChanges = true;
+
+                                // Update status badge UI in row
+                                const badgeContainer = row.querySelector('.status-badge-container');
+                                if (badgeContainer) {
+                                    renderStatusBadge(badgeContainer, newStatus);
+                                }
+                            }
+                        }
+                    });
+
+                    // Stop polling if everyone has finished
+                    if (!checkNeedsPolling()) {
+                        clearInterval(pollInterval);
+                    }
+
+                    // Trigger stats updates on Documents page if applicable
+                    if (hasChanges && typeof window.updateDocumentsStatsUI === 'function') {
+                        window.updateDocumentsStatsUI();
+                    }
+                } catch (err) {
+                    console.error('Error polling document status:', err);
+                }
+            }, 4000);
+        }
+
+        // ============================================================
+        // Toast Notification System
+        // ============================================================
+        window.showToast = function(message, type = 'success') {
+            const container = document.getElementById('toastContainer');
+            if (!container) return;
+
+            const toast = document.createElement('div');
+            toast.className = `flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg border transition-all duration-300 transform translate-y-2 opacity-0 font-body-md text-body-md`;
+            
+            if (type === 'success') {
+                toast.className += ' bg-surface-container-high border-primary/20 text-on-surface';
+                toast.innerHTML = `
+                    <span class="material-symbols-outlined text-primary" style="font-size:20px">check_circle</span>
+                    <span class="font-medium">${message}</span>
+                `;
+            } else {
+                toast.className += ' bg-surface-container-high border-error/20 text-error';
+                toast.innerHTML = `
+                    <span class="material-symbols-outlined text-error" style="font-size:20px">error</span>
+                    <span class="font-medium">${message}</span>
+                `;
+            }
+
+            container.appendChild(toast);
+
+            // Animate in
+            setTimeout(() => {
+                toast.classList.remove('translate-y-2', 'opacity-0');
+            }, 10);
+
+            // Remove toast after 3.5 seconds
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-y-[-8px]');
+                setTimeout(() => {
+                    toast.remove();
+                }, 300);
+            }, 3500);
+        };
+
+        document.addEventListener('DOMContentLoaded', () => {
+            // Render initial badges dynamically on page load
+            document.querySelectorAll('.document-row').forEach(row => {
+                const container = row.querySelector('.status-badge-container');
+                if (container && row.dataset.status) {
+                    renderStatusBadge(container, row.dataset.status);
+                }
+            });
+
+            startDocumentStatusPolling();
+        });
     </script>
 
     <!-- Global Hidden Upload Input & Progress Modal -->
     <input type="file" id="globalDriveFileInput" onchange="handleGlobalFileSelect(event)" style="display:none;" multiple />
     
-    <div id="globalUploadProgressCard" class="fixed bottom-6 right-6 bg-surface-container-high border border-outline-variant rounded-xl shadow-2xl z-[9999] w-80 overflow-hidden hidden transition-all duration-300 transform translate-y-12 opacity-0">
+    <div id="globalUploadProgressCard" class="fixed bottom-6 right-6 bg-surface-container-high border border-outline-variant rounded-xl shadow-2xl z-[9999] w-96 overflow-hidden hidden transition-all duration-300 transform translate-y-12 opacity-0">
         <div class="px-4 py-3 bg-surface-container-highest border-b border-outline-variant/50 flex justify-between items-center">
             <div class="flex items-center gap-2">
                 <span class="material-symbols-outlined text-primary text-[20px] animate-spin" id="uploadStatusSpinner" style="color:#adc7ff">sync</span>
@@ -709,25 +918,13 @@
                 <span class="material-symbols-outlined" style="font-size:16px">close</span>
             </button>
         </div>
-        <div class="p-4 space-y-3">
-            <div class="flex items-start gap-2.5">
-                <span class="material-symbols-outlined text-primary" style="font-size:22px">description</span>
-                <div class="min-w-0 flex-1">
-                    <p class="font-body-md text-body-md font-semibold text-on-surface truncate" id="uploadFileName">filename.pdf</p>
-                    <p class="font-label-md text-label-md text-outline" id="uploadFileSize">0 KB</p>
-                </div>
-            </div>
-            <div class="space-y-1">
-                <div class="w-full bg-surface-container-low rounded-full h-1.5 overflow-hidden border border-outline-variant/30">
-                    <div id="uploadProgressBar" class="bg-primary h-full w-0 transition-all duration-150 ease-out"></div>
-                </div>
-                <div class="flex justify-between font-label-md text-label-md text-outline">
-                    <span id="uploadProgressPercent">0%</span>
-                    <span id="uploadProgressBytes">0 / 0 MB</span>
-                </div>
-            </div>
+        <div id="globalUploadProgressList" class="max-h-72 overflow-y-auto divide-y divide-outline-variant/20 bg-surface">
+            <!-- Upload items injected dynamically -->
         </div>
     </div>
+
+    <!-- Toast Notification Container -->
+    <div id="toastContainer" class="fixed top-6 right-6 z-[10000] flex flex-col gap-3"></div>
 
     <!-- Global Full-Screen Drag and Drop Overlay -->
     <div id="globalDragDropOverlay" class="fixed inset-0 bg-background/80 backdrop-blur-sm z-[99999] hidden flex flex-col items-center justify-center pointer-events-none select-none transition-all duration-300 opacity-0">

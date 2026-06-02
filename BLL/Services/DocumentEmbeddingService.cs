@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -72,7 +73,10 @@ namespace BLL.Services
                 var chunksToProcess = chunks.Where(c => c.Embedding == null).ToList();
                 _logger.LogInformation("Found {TotalChunks} chunks, {PendingChunks} need embeddings.", chunks.Count, chunksToProcess.Count);
 
-                // 3. Process each chunk
+                // 3. Process each chunk in batches
+                const int batchSize = 10;
+                var batch = new List<DocumentChunk>();
+
                 foreach (var chunk in chunksToProcess)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
@@ -81,8 +85,18 @@ namespace BLL.Services
                     var vectorArray = await _geminiProvider.GetEmbeddingAsync(chunk.Content, cancellationToken);
                     chunk.Embedding = new Vector(vectorArray);
                     
-                    // Save immediately to avoid losing API tokens on failure
-                    await _documentChunkRepository.UpdateChunksAsync(new[] { chunk });
+                    batch.Add(chunk);
+
+                    if (batch.Count >= batchSize)
+                    {
+                        await _documentChunkRepository.UpdateChunksAsync(batch);
+                        batch.Clear();
+                    }
+                }
+
+                if (batch.Any())
+                {
+                    await _documentChunkRepository.UpdateChunksAsync(batch);
                 }
 
                 // 4. Update status to Indexed

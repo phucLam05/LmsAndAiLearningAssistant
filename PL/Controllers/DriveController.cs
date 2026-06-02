@@ -5,6 +5,8 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using PL.Models.Drive;
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Security.Claims;
 using System.Threading.Tasks;
 
@@ -156,6 +158,7 @@ namespace PL.Controllers
         /// Creates a new folder.
         /// </summary>
         [HttpPost]
+        [ValidateAntiForgeryToken]
         public async Task<IActionResult> CreateFolder(FolderCreateDto model, string? returnUrl = null)
         {
             if (!ModelState.IsValid)
@@ -172,7 +175,7 @@ namespace PL.Controllers
                     TempData["SuccessMessage"] = "Đã tạo thành công.";                
             }
 
-            if (!string.IsNullOrEmpty(returnUrl)) return Redirect(returnUrl);
+            if (!string.IsNullOrEmpty(returnUrl) && Url.IsLocalUrl(returnUrl)) return Redirect(returnUrl);
 
             // If this folder was created inside a subject folder, go back to Chapters view
             if (model.ParentFolderId.HasValue)
@@ -185,6 +188,7 @@ namespace PL.Controllers
         /// Updates an existing folder (e.g. rename a chapter). Redirects to returnUrl if provided.
         /// </summary>
         [HttpPost]
+        [ValidateAntiForgeryToken]
         public async Task<IActionResult> UpdateFolder(Guid folderId, FolderUpdateDto dto, string? returnUrl = null)
         {
             var userId = GetUserId();
@@ -205,6 +209,7 @@ namespace PL.Controllers
         /// Moves a resource to a new destination folder.
         /// </summary>
         [HttpPost]
+        [ValidateAntiForgeryToken]
         public async Task<IActionResult> MoveItem(MoveResourceDto model)
         {
             if (!ModelState.IsValid)
@@ -235,6 +240,7 @@ namespace PL.Controllers
         /// - currentFolderId = some GUID → deleted a chapter → redirect to Chapters of that subject
         /// </summary>
         [HttpPost]
+        [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteFolder(Guid id, Guid? currentFolderId, string? returnUrl = null)
         {
             var userId = GetUserId();
@@ -243,7 +249,7 @@ namespace PL.Controllers
             if (!success) TempData["ErrorMessage"] = error;
             else TempData["SuccessMessage"] = "Đã xóa thành công.";
 
-            if (!string.IsNullOrEmpty(returnUrl)) return Redirect(returnUrl);
+            if (!string.IsNullOrEmpty(returnUrl) && Url.IsLocalUrl(returnUrl)) return Redirect(returnUrl);
 
             if (currentFolderId.HasValue)
                 return RedirectToAction(nameof(Chapters), new { subjectFolderId = currentFolderId.Value });
@@ -256,6 +262,7 @@ namespace PL.Controllers
         /// Deletes a document.
         /// </summary>
         [HttpPost]
+        [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteFile(Guid id, Guid? currentFolderId, string? returnUrl = null)
         {
             var userId = GetUserId();
@@ -264,8 +271,32 @@ namespace PL.Controllers
             if (!success) TempData["ErrorMessage"] = error;
             else TempData["SuccessMessage"] = "Xóa tài liệu thành công.";
 
-            if (!string.IsNullOrEmpty(returnUrl)) return Redirect(returnUrl);
+            if (!string.IsNullOrEmpty(returnUrl) && Url.IsLocalUrl(returnUrl)) return Redirect(returnUrl);
             return RedirectToAction(nameof(Index), new { folderId = currentFolderId });
+        }
+
+        /// <summary>
+        /// Restarts processing (chunking and embedding) for a document.
+        /// </summary>
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> RetryFile(Guid id)
+        {
+            var userId = GetUserId();
+            if (userId == Guid.Empty)
+            {
+                return Json(new { success = false, message = "Bạn chưa đăng nhập." });
+            }
+
+            var result = await _documentService.RetryProcessingAsync(id, userId);
+            if (result.IsSuccess)
+            {
+                return Json(new { success = true, message = "Bắt đầu xử lý lại tài liệu." });
+            }
+            else
+            {
+                return Json(new { success = false, message = result.ErrorMessage });
+            }
         }
 
         /// <summary>
@@ -334,6 +365,7 @@ namespace PL.Controllers
         /// Uploads a file directly into a specific folder (subject or chapter).
         /// </summary>
         [HttpPost]
+        [ValidateAntiForgeryToken]
         public async Task<IActionResult> UploadFile(IFormFile file, Guid folderId)
         {
             var userId = GetUserId();
@@ -372,6 +404,28 @@ namespace PL.Controllers
             {
                 return Json(new { success = false, message = $"Lỗi hệ thống khi tải tệp: {ex.Message}" });
             }
+        }
+
+        /// <summary>
+        /// Gets the processing status of all documents belonging to the user.
+        /// </summary>
+        [HttpGet]
+        public async Task<IActionResult> GetDocumentStatuses()
+        {
+            var userId = GetUserId();
+            if (userId == Guid.Empty)
+            {
+                return Challenge();
+            }
+
+            var documents = await _driveService.GetAllDocumentsAsync(userId);
+            var result = documents.Select(d => new
+            {
+                id = d.Id,
+                status = d.ProcessingStatus.ToString()
+            });
+
+            return Json(result);
         }
     }
 }

@@ -114,10 +114,11 @@
 
                 <div class="grid grid-cols-12 gap-4 px-6 py-4 @rowBorder hover:bg-surface-container-highest transition-colors group items-center chapter-row cursor-pointer"
                      data-name="@chapter.Name.ToLower()"
+                     data-display-name="@chapter.Name"
                      data-id="@chapter.Id"
                      ondblclick="window.location.href='@Url.Action("Index", "Drive", new { folderId = chapter.Id })'"
-                     onclick="selectChapterRow(event, '@chapter.Id')"
-                     oncontextmenu="openChapterCtxMenu(event, '@chapter.Id', '@chapter.Name.Replace("'", "\\'")')">
+                     onclick="selectChapterRow(event, this)"
+                     oncontextmenu="openChapterCtxMenu(event, this)">
 
                     @* Chapter Name — clickable → go into folder (Drive/Index) *@
                     <div class="col-span-8 md:col-span-5 flex items-center gap-3">
@@ -143,12 +144,12 @@
 
                     @* Actions (shown on row hover) *@
                     <div class="col-span-0 md:col-span-2 hidden md:flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button onclick="openEditModal('@chapter.Id', '@chapter.Name.Replace("'", "\\'")')"
+                        <button onclick="openEditModal(this)"
                                 class="p-1.5 text-on-surface-variant hover:text-primary hover:bg-surface-bright rounded-md transition-colors"
                                 title="Sửa tên chương">
                             <span class="material-symbols-outlined" style="font-size:16px">edit</span>
                         </button>
-                        <button onclick="openDeleteModal('@chapter.Id', '@chapter.Name.Replace("'", "\\'")')"
+                        <button onclick="openDeleteModal(this)"
                                 class="p-1.5 text-on-surface-variant hover:text-error hover:bg-error-container/20 rounded-md transition-colors"
                                 title="Xóa chương">
                             <span class="material-symbols-outlined" style="font-size:16px">delete</span>
@@ -201,8 +202,14 @@
                     <div class="grid grid-cols-12 gap-4 px-6 py-4 @rowBorder hover:bg-surface-container-highest transition-colors group items-center document-row cursor-pointer"
                          data-name="@doc.Title.ToLower()"
                          data-id="@doc.Id"
-                         onclick="selectDocumentRow(event, '@doc.Id', '@doc.Title.Replace("'", "\\'")', '@doc.MimeType', '@(doc.FileSize / 1024)', '@doc.UploadedAt.ToLocalTime().ToString("g")', '@doc.ProcessingStatus', '@doc.StorageUrl', '@(doc.User?.FullName ?? User.Identity?.Name ?? "Người dùng")')"
-                         oncontextmenu="openDocumentCtxMenu(event, '@doc.Id', '@doc.Title.Replace("'", "\\'")', '@doc.StorageUrl')">
+                         data-title="@doc.Title"
+                         data-mime="@doc.MimeType"
+                         data-size-kb="@(doc.FileSize / 1024)"
+                         data-uploaded="@doc.UploadedAt.ToLocalTime().ToString("g")"
+                         data-status="@doc.ProcessingStatus"
+                         data-storage-url="@doc.StorageUrl"
+                         onclick="selectDocumentRow(event, this)"
+                         oncontextmenu="openDocumentCtxMenu(event, this)">
 
                         @* Document Name & Icon *@
                         <div class="col-span-8 md:col-span-5 flex items-center gap-3 min-w-0">
@@ -213,31 +220,7 @@
                         </div>
 
                         @* Processing Status Badge *@
-                        <div class="col-span-0 md:col-span-2 hidden md:flex items-center justify-end">
-                            @switch (doc.ProcessingStatus)
-                            {
-                                case Core.Entities.DocumentProcessingStatus.Indexed:
-                                    <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-tertiary-container/20 border border-tertiary/20 text-tertiary font-label-md text-label-md" style="font-size:11px">
-                                        <span class="w-1.5 h-1.5 rounded-full bg-tertiary"></span> Đã index
-                                    </span>
-                                    break;
-                                case Core.Entities.DocumentProcessingStatus.Failed:
-                                    <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-error-container/20 border border-error/20 text-error font-label-md text-label-md" style="font-size:11px">
-                                        <span class="w-1.5 h-1.5 rounded-full bg-error"></span> Lỗi xử lý
-                                    </span>
-                                    break;
-                                case Core.Entities.DocumentProcessingStatus.Uploaded:
-                                    <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-surface-bright border border-outline-variant text-on-surface font-label-md text-label-md" style="font-size:11px">
-                                        <span class="w-1.5 h-1.5 rounded-full bg-outline"></span> Đã tải lên
-                                    </span>
-                                    break;
-                                default:
-                                    <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-primary-container/20 border border-primary/20 text-primary font-label-md text-label-md" style="font-size:11px">
-                                        <span class="material-symbols-outlined text-[10px] animate-spin">sync</span> Đang xử lý
-                                    </span>
-                                    break;
-                            }
-                        </div>
+                        <div class="col-span-0 md:col-span-2 hidden md:flex items-center justify-end status-badge-container"></div>
 
                         @* File Size *@
                         <div class="col-span-4 md:col-span-2 text-right font-body-md text-body-md text-on-surface-variant">
@@ -416,6 +399,12 @@
 <div id="documentCtxMenu"
      class="hidden fixed bg-surface-container-high border border-outline-variant rounded-xl shadow-2xl z-[500] w-48 overflow-hidden py-1">
 
+    <button id="ctxRetryBtn" onclick="documentCtxRetry()"
+            class="w-full flex items-center gap-3 px-4 py-2.5 font-body-md text-body-md text-primary hover:bg-primary-container/20 transition-colors hidden">
+        <span class="material-symbols-outlined text-primary" style="font-size:18px">replay</span>
+        <span>Thử lại (Retry)</span>
+    </button>
+    <div id="ctxRetryDivider" class="border-t border-outline-variant/50 my-1 hidden"></div>
 
     <button onclick="documentCtxDownload()"
             class="w-full flex items-center gap-3 px-4 py-2.5 font-body-md text-body-md text-on-surface hover:bg-surface-container-highest transition-colors">
@@ -459,14 +448,20 @@
         });
 
         // ============ Edit chapter modal ============
-        function openEditModal(folderId, folderName) {
+        function openEditModal(element) {
+            const row = element.closest('.chapter-row');
+            const folderId = row.dataset.id;
+            const folderName = row.dataset.displayName;
             document.getElementById('editFolderId').value = folderId;
             document.getElementById('editFolderName').value = folderName;
             openModal('editChapterModal');
         }
 
         // ============ Delete chapter modal ============
-        function openDeleteModal(folderId, folderName) {
+        function openDeleteModal(element) {
+            const row = element.closest('.chapter-row');
+            const folderId = row.dataset.id;
+            const folderName = row.dataset.displayName;
             document.getElementById('deleteChapterId').value = folderId;
             document.getElementById('deleteChapterName').textContent = '"' + folderName + '"';
             openModal('deleteChapterModal');
@@ -527,7 +522,7 @@
             return "Tài liệu";
         }
 
-        function selectChapterRow(event, id) {
+        function selectChapterRow(event, row) {
             // Unselect all chapter rows and document rows
             document.querySelectorAll('.chapter-row').forEach(r => {
                 r.classList.remove('bg-surface-container-highest', 'ring-1', 'ring-primary/30', 'border-primary/40');
@@ -538,14 +533,11 @@
             selectedDocId = null;
 
             // Select clicked row
-            const row = document.querySelector(`.chapter-row[data-id="${id}"]`);
-            if (row) {
-                row.classList.add('bg-surface-container-highest', 'ring-1', 'ring-primary/30', 'border-primary/40');
-            }
-            selectedChapterId = id;
+            row.classList.add('bg-surface-container-highest', 'ring-1', 'ring-primary/30', 'border-primary/40');
+            selectedChapterId = row.dataset.id;
         }
 
-        function selectDocumentRow(event, id, title, mimeType, sizeKb, uploadedAt, status, storageUrl, authorName) {
+        function selectDocumentRow(event, row) {
             // Unselect all document rows and chapter rows
             document.querySelectorAll('.document-row').forEach(r => {
                 r.classList.remove('bg-surface-container-highest', 'ring-1', 'ring-primary/30', 'border-primary/40');
@@ -556,21 +548,18 @@
             selectedChapterId = null;
 
             // Select clicked row
-            const row = document.querySelector(`.document-row[data-id="${id}"]`);
-            if (row) {
-                row.classList.add('bg-surface-container-highest', 'ring-1', 'ring-primary/30', 'border-primary/40');
-            }
-            selectedDocId = id;
+            row.classList.add('bg-surface-container-highest', 'ring-1', 'ring-primary/30', 'border-primary/40');
+            selectedDocId = row.dataset.id;
 
             // Populate context menu data
             docCtxData = {
-                id: id,
-                title: title,
-                storageUrl: storageUrl,
-                mimeType: mimeType,
-                sizeKb: sizeKb,
-                uploadedAt: uploadedAt,
-                status: status
+                id: row.dataset.id,
+                title: row.dataset.title,
+                storageUrl: row.dataset.storageUrl,
+                mimeType: row.dataset.mime,
+                sizeKb: row.dataset.sizeKb,
+                uploadedAt: row.dataset.uploaded,
+                status: row.dataset.status
             };
         }
 
@@ -593,17 +582,18 @@
         });
 
         // ============ Chapter Context Menu ============
-        function openChapterCtxMenu(event, id, name) {
+        function openChapterCtxMenu(event, element) {
             event.preventDefault();
             event.stopPropagation();
 
+            const row = element.closest('.chapter-row');
             // Select the row
-            selectChapterRow(event, id);
+            selectChapterRow(event, row);
 
             chapterCtxData = { 
-                id: id, 
-                name: name, 
-                url: '@Url.Action("Index", "Drive")?folderId=' + id 
+                id: row.dataset.id, 
+                name: row.dataset.displayName, 
+                url: '@Url.Action("Index", "Drive")?folderId=' + row.dataset.id 
             };
 
             const menu = document.getElementById('chapterCtxMenu');
@@ -630,9 +620,10 @@
             closeChapterCtxMenu();
         }
 
+        // Rename action inside context menu
         function chapterCtxRename() {
             closeChapterCtxMenu();
-            openEditModal(chapterCtxData.id, chapterCtxData.name);
+            openEditModal(document.querySelector(`.chapter-row[data-id="${chapterCtxData.id}"]`));
         }
 
         function chapterCtxDownload() {
@@ -644,25 +635,31 @@
 
         function chapterCtxDelete() {
             closeChapterCtxMenu();
-            openDeleteModal(chapterCtxData.id, chapterCtxData.name);
+            openDeleteModal(document.querySelector(`.chapter-row[data-id="${chapterCtxData.id}"]`));
         }
 
         // ============ Document Context Menu ============
-        function openDocumentCtxMenu(event, id, title, storageUrl) {
+        function openDocumentCtxMenu(event, element) {
             event.preventDefault();
             event.stopPropagation();
 
-            // Trigger selection of clicked row to populate panel & selected ID
-            const row = document.querySelector(`.document-row[data-id="${id}"]`);
+            const row = element.closest('.document-row');
             if (row) {
-                row.click();
+                selectDocumentRow(event, row);
             }
-
-            // Explicitly set storageUrl for this document
-            docCtxData.storageUrl = storageUrl;
 
             const menu = document.getElementById('documentCtxMenu');
             menu.classList.remove('hidden');
+
+            const retryBtn = document.getElementById('ctxRetryBtn');
+            const retryDivider = document.getElementById('ctxRetryDivider');
+            if (row && row.dataset.status === 'Failed') {
+                retryBtn.classList.remove('hidden');
+                retryDivider.classList.remove('hidden');
+            } else {
+                retryBtn.classList.add('hidden');
+                retryDivider.classList.add('hidden');
+            }
 
             // Position near cursor, stay in boundaries
             const x = Math.min(event.clientX, window.innerWidth - 200);
@@ -680,6 +677,47 @@
         });
 
         // Document Context Menu Action callbacks
+
+        async function documentCtxRetry() {
+            closeDocumentCtxMenu();
+            if (!docCtxData.id) return;
+
+            const formData = new FormData();
+            formData.append('id', docCtxData.id);
+
+            const tokenInput = document.querySelector('input[name="__RequestVerificationToken"]');
+            if (tokenInput) {
+                formData.append('__RequestVerificationToken', tokenInput.value);
+            }
+
+            try {
+                const response = await fetch('/Drive/RetryFile', {
+                    method: 'POST',
+                    body: formData
+                });
+                const res = await response.json();
+                if (res.success) {
+                    // Update local UI
+                    const row = document.querySelector(`.document-row[data-id="${docCtxData.id}"]`);
+                    if (row) {
+                        row.dataset.status = 'Uploaded';
+                        const badgeContainer = row.querySelector('.status-badge-container');
+                        if (badgeContainer) {
+                            renderStatusBadge(badgeContainer, 'Uploaded');
+                        }
+                    }
+                    showToast('Đã bắt đầu xử lý lại tài liệu.', 'success');
+                    
+                    // Restart polling
+                    startDocumentStatusPolling();
+                } else {
+                    showToast(res.message, 'error');
+                }
+            } catch (err) {
+                console.error('Error retrying processing:', err);
+                showToast('Không thể yêu cầu xử lý lại tài liệu.', 'error');
+            }
+        }
 
         function documentCtxDownload() {
             closeDocumentCtxMenu();
