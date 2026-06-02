@@ -182,17 +182,14 @@
                      data-name="@doc.Title.ToLower()"
                      data-id="@doc.Id"
                      onclick="selectDocumentRow(event, '@doc.Id', '@doc.Title.Replace("'", "\\'")', '@doc.MimeType', '@(doc.FileSize / 1024)', '@doc.UploadedAt.ToLocalTime().ToString("g")', '@doc.ProcessingStatus', '@doc.StorageUrl', '@(doc.User?.FullName ?? User.Identity?.Name ?? "Người dùng")')"
-                     ondblclick="window.open('@doc.StorageUrl', '_blank')"
                      oncontextmenu="openDocumentCtxMenu(event, '@doc.Id', '@doc.Title.Replace("'", "\\'")', '@doc.StorageUrl')">
 
                     @* Document Name & Icon *@
                     <div class="col-span-8 md:col-span-5 flex items-center gap-3 min-w-0">
                         <span class="material-symbols-outlined text-primary flex-shrink-0" style="font-size:20px">description</span>
-                        <a href="@doc.StorageUrl" target="_blank"
-                           class="font-body-md text-body-md text-on-surface font-medium truncate hover:underline hover:text-primary transition-all max-w-full"
-                           onclick="event.stopPropagation()">
+                        <span class="font-body-md text-body-md text-on-surface font-medium truncate max-w-full">
                             @doc.Title
-                        </a>
+                        </span>
                     </div>
 
                     @* Processing Status Badge *@
@@ -237,24 +234,7 @@
     </div>
 </div>
 
-@section ContextPanel {
-    <aside id="contextPanel" class="fixed right-0 top-header-height h-[calc(100vh-64px)] w-sidebar-width flex flex-col z-40 bg-surface-container-low dark:bg-surface-container-low border-l border-outline-variant transition-transform duration-300 transform translate-x-full">
-        <div class="px-4 pt-4 pb-2 border-b border-outline-variant flex justify-between items-center bg-surface-container-low">
-            <span class="font-label-md text-label-md uppercase tracking-wider text-outline font-bold">Context Panel</span>
-            <button onclick="closeContextPanel()" class="text-outline hover:text-on-surface p-1 rounded transition-colors">
-                <span class="material-symbols-outlined text-[18px]">close_fullscreen</span>
-            </button>
-        </div>
-        <div class="flex border-b border-outline-variant">
-            <button class="flex-1 text-tertiary font-bold border-b-2 border-tertiary pb-2 pt-3 font-label-md text-label-md text-center bg-surface-container">Chi tiết</button>
-            <button class="flex-1 text-on-surface-variant hover:text-on-surface transition-colors pb-2 pt-3 font-label-md text-label-md text-center">Hỏi đáp AI</button>
-        </div>
-        <div class="flex-1 overflow-y-auto p-4 flex flex-col gap-6" id="contextPanelContent">
-            <!-- Details populated by JS -->
-            <div class="text-center text-on-surface-variant mt-10">Chọn một tài liệu để xem chi tiết.</div>
-        </div>
-    </aside>
-}
+
 
 @* ========================= MODAL OVERLAY ========================= *@
 <div id="modalOverlay" class="fixed inset-0 bg-black/60 z-[100] hidden items-center justify-center backdrop-blur-sm transition-opacity">
@@ -377,16 +357,8 @@
 <!-- Document Context Menu -->
 <div id="documentCtxMenu"
      class="hidden fixed bg-surface-container-high border border-outline-variant rounded-xl shadow-2xl z-[500] w-48 overflow-hidden py-1">
-    <button onclick="documentCtxOpen()"
-            class="w-full flex items-center gap-3 px-4 py-2.5 font-body-md text-body-md text-on-surface hover:bg-surface-container-highest transition-colors">
-        <span class="material-symbols-outlined text-primary" style="font-size:18px">open_in_new</span>
-        <span>Mở tài liệu</span>
-    </button>
-    <button onclick="documentCtxDetails()"
-            class="w-full flex items-center gap-3 px-4 py-2.5 font-body-md text-body-md text-on-surface hover:bg-surface-container-highest transition-colors">
-        <span class="material-symbols-outlined text-secondary" style="font-size:18px">info</span>
-        <span>Xem chi tiết</span>
-    </button>
+
+
     <button onclick="documentCtxDownload()"
             class="w-full flex items-center gap-3 px-4 py-2.5 font-body-md text-body-md text-on-surface hover:bg-surface-container-highest transition-colors">
         <span class="material-symbols-outlined text-on-surface-variant" style="font-size:18px">download</span>
@@ -477,83 +449,6 @@
                 uploadedAt: uploadedAt,
                 status: status
             };
-
-            // Update details panel
-            const panel = document.getElementById('contextPanel');
-            if (panel) {
-                panel.classList.remove('translate-x-full');
-
-                let statusHtml = '';
-                switch (status) {
-                    case 'Indexed':
-                        statusHtml = '<span class="text-tertiary font-medium">Đã index</span>';
-                        break;
-                    case 'Failed':
-                        statusHtml = '<span class="text-error font-medium">Lỗi xử lý</span>';
-                        break;
-                    case 'Uploaded':
-                        statusHtml = '<span class="text-on-surface-variant font-medium">Đã tải lên</span>';
-                        break;
-                    default:
-                        statusHtml = '<span class="text-primary font-medium flex items-center gap-1"><span class="material-symbols-outlined text-[12px] animate-spin">sync</span>Đang xử lý</span>';
-                        break;
-                }
-
-                const docType = formatMimeType(mimeType);
-
-                const contentHtml = `
-                    <div>
-                        <div class="flex items-center gap-3 mb-4">
-                            <div class="w-10 h-10 rounded bg-primary-container/20 flex items-center justify-center text-primary border border-primary/10 flex-shrink-0">
-                                <span class="material-symbols-outlined">description</span>
-                            </div>
-                            <div class="min-w-0 flex-1">
-                                <h4 class="font-body-md text-body-md font-semibold text-on-surface truncate max-w-full">
-                                    <a href="${storageUrl}" target="_blank" class="hover:underline hover:text-primary transition-all w-fit inline-block max-w-full truncate">${title}</a>
-                                </h4>
-                                <p class="font-label-md text-label-md text-outline mt-0.5">${sizeKb} KB • ${docType}</p>
-                            </div>
-                        </div>
-                        
-                        <div class="space-y-3 font-body-md text-body-md text-on-surface-variant border-b border-outline-variant/30 pb-4">
-                            <div class="flex justify-between">
-                                <span class="text-outline">Trạng thái</span>
-                                ${statusHtml}
-                            </div>
-                            <div class="flex justify-between">
-                                <span class="text-outline">Ngày tải</span>
-                                <span>${uploadedAt}</span>
-                            </div>
-                            <div class="flex justify-between">
-                                <span class="text-outline">Tác giả gốc</span>
-                                <span>${authorName}</span>
-                            </div>
-                        </div>
-
-                        <!-- HARDCODE: Fallback description until database column is added -->
-                        <div class="mt-4">
-                            <span class="font-label-md text-label-md uppercase tracking-wider text-outline font-bold block mb-2">Tổng quan AI (Auto-generated)</span>
-                            <p class="text-xs text-on-surface-variant leading-relaxed bg-surface-container/30 border border-outline-variant/20 rounded-lg p-3">
-                                Tài liệu này đã được hệ thống Index thành công và sẵn sàng phục vụ AI. Bạn có thể sử dụng tab "Hỏi đáp AI" để truy vấn nhanh thông tin, trích xuất dữ liệu, dịch thuật hoặc tóm tắt các đề mục quan trọng trong tài liệu này một cách trực tiếp.
-                            </p>
-                        </div>
-                    </div>
-                    <div class="mt-auto border-t border-outline-variant pt-4 space-y-2">
-                        <button onclick="confirmDeleteDocument('${id}')" class="w-full bg-surface border border-outline-variant text-error font-label-md text-label-md py-2 rounded hover:bg-error-container/20 transition-colors flex items-center justify-center gap-2">
-                            <span class="material-symbols-outlined text-[18px]">delete</span>
-                            Xóa tài liệu
-                        </button>
-                    </div>
-                `;
-                document.getElementById('contextPanelContent').innerHTML = contentHtml;
-            }
-        }
-
-        function closeContextPanel() {
-            const panel = document.getElementById('contextPanel');
-            if (panel) {
-                panel.classList.add('translate-x-full');
-            }
         }
 
         function confirmDeleteDocument(id) {
@@ -563,7 +458,7 @@
 
         // Click outside elements to deselect
         document.addEventListener('click', e => {
-            if (!e.target.closest('.document-row') && !e.target.closest('.folder-card') && !e.target.closest('#documentCtxMenu') && !e.target.closest('#folderCtxMenu') && !e.target.closest('#contextPanel') && !e.target.closest('#modalOverlay') && !e.target.closest('.group')) {
+            if (!e.target.closest('.document-row') && !e.target.closest('.folder-card') && !e.target.closest('#documentCtxMenu') && !e.target.closest('#folderCtxMenu') && !e.target.closest('#modalOverlay') && !e.target.closest('.group')) {
                 document.querySelectorAll('.document-row').forEach(r => {
                     r.classList.remove('bg-surface-container-highest', 'ring-1', 'ring-primary/30', 'border-primary/40');
                 });
@@ -572,7 +467,6 @@
                 });
                 selectedDocId = null;
                 selectedFolderId = null;
-                closeContextPanel();
             }
         });
 
@@ -590,7 +484,6 @@
                 r.classList.remove('bg-surface-container-highest', 'ring-1', 'ring-primary/30', 'border-primary/40');
             });
             selectedDocId = null;
-            closeContextPanel();
 
             // Select clicked folder card
             const card = document.querySelector(`.folder-card[data-id="${id}"]`);
@@ -680,17 +573,6 @@
         });
 
         // Context Menu Action callbacks
-        function documentCtxOpen() {
-            if (docCtxData.storageUrl) window.open(docCtxData.storageUrl, '_blank');
-            closeDocumentCtxMenu();
-        }
-
-        function documentCtxDetails() {
-            closeDocumentCtxMenu();
-            closeModal();
-            const panel = document.getElementById('contextPanel');
-            if (panel) panel.classList.remove('translate-x-full');
-        }
 
         function documentCtxDownload() {
             closeDocumentCtxMenu();
