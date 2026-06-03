@@ -14,6 +14,7 @@ namespace BLL
             services.AddScoped<IDocumentService, DocumentService>();
             services.AddScoped<IEmbeddingService, DocumentEmbeddingService>();
             services.AddScoped<IDriveService, DriveService>();
+            services.AddScoped<IAdminService, AdminService>();
 
             // Document parsers
             services.AddScoped<IDocumentParser, PdfParser>();

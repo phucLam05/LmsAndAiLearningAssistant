@@ -102,7 +102,8 @@ namespace PL.Controllers
             {
                 new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
                 new Claim(ClaimTypes.Name, user.FullName),
-                new Claim(ClaimTypes.Email, model.Email)
+                new Claim(ClaimTypes.Email, model.Email),
+                new Claim(ClaimTypes.Role, user.Role.ToString())
             };
 
             var claimsIdentity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);

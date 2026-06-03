@@ -1,0 +1,94 @@
+@model Core.DTOs.Admin.DashboardStatsDto
+@{
+    ViewData["Title"] = "Admin Dashboard";
+}
+
+<div class="container mt-4">
+    <h2 class="mb-4">Admin Dashboard</h2>
+
+    <div class="row g-4 mb-5">
+        <div class="col-md-3">
+            <div class="card text-white bg-primary h-100 shadow-sm border-0">
+                <div class="card-body">
+                    <h5 class="card-title">Total Users</h5>
+                    <h2 class="display-5 fw-bold">@Model.TotalUsers</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-white bg-success h-100 shadow-sm border-0">
+                <div class="card-body">
+                    <h5 class="card-title">Documents Uploaded</h5>
+                    <h2 class="display-5 fw-bold">@Model.TotalDocuments</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-white bg-warning h-100 shadow-sm border-0">
+                <div class="card-body">
+                    <h5 class="card-title">Storage Used (MB)</h5>
+                    <h2 class="display-5 fw-bold">@(Math.Round((double)Model.TotalStorageUsedBytes / 1024 / 1024, 2))</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-white bg-info h-100 shadow-sm border-0">
+                <div class="card-body">
+                    <h5 class="card-title">Total AI Chunks</h5>
+                    <h2 class="display-5 fw-bold">@Model.TotalDocumentChunks</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-white fw-bold">
+                    System Resources Overview
+                </div>
+                <div class="card-body">
+                    <canvas id="resourcesChart" height="100"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            var ctx = document.getElementById('resourcesChart').getContext('2d');
+            var resourcesChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['Users', 'Documents', 'Chunks'],
+                    datasets: [{
+                        label: 'Count',
+                        data: [@Model.TotalUsers, @Model.TotalDocuments, @Model.TotalDocumentChunks],
+                        backgroundColor: [
+                            'rgba(13, 110, 253, 0.7)',
+                            'rgba(25, 135, 84, 0.7)',
+                            'rgba(13, 202, 240, 0.7)'
+                        ],
+                        borderColor: [
+                            'rgba(13, 110, 253, 1)',
+                            'rgba(25, 135, 84, 1)',
+                            'rgba(13, 202, 240, 1)'
+                        ],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        });
+    </script>
+}

@@ -53,6 +53,10 @@ namespace DAL.Data
                     .IsRequired()
                     .HasMaxLength(100);
 
+                entity.Property(e => e.Role)
+                    .HasConversion<int>()
+                    .HasDefaultValue(UserRole.Student);
+
                 entity.Property(e => e.CreatedAt)
                     .HasDefaultValueSql("NOW()"); // PostgreSQL specific current timestamp
             });
