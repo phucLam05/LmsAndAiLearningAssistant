@@ -39,5 +39,10 @@ namespace Core.Entities
         /// Date and time when the user was created.
         /// </summary>
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+        /// <summary>
+        /// Role of the user. Determines access level.
+        /// </summary>
+        public UserRole Role { get; set; } = UserRole.Student;
     }
 }

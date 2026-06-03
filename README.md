@@ -98,9 +98,11 @@ The service role key is used only by backend services. It must never be exposed 
 8. After chunking, a continuation job (`EmbeddingService`) creates vector embeddings using the Gemini API.
 9. The document status transitions sequentially: `Uploaded` -> `Chunking` -> `Chunked` -> `Embedding` -> `Indexed` -> `Failed`.
 
-**Resumption Logic:** If a document fails during chunking or embedding, the user can hit "Retry" in the UI. The request is validated by the BLL to ensure the user owns the document, and the pipeline is smart enough to check the current status and only resume work from where it failed, avoiding redundant processing and API costs.
+**Cancellation Logic:** When a user deletes a document, the enqueued background jobs (Chunking and Embedding) are immediately canceled using Hangfire's `IBackgroundJobClient.Delete(jobId)` to save API usage and system resources. This prevents zombie loops from processing deleted documents.
 
-*(Note: Background job enqueuing and ownership validation are strictly handled in the BLL to maintain a clean three-tier architecture.)*
+**Resumption Logic:** If a document fails during chunking or embedding, the user can hit "Retry" in the UI. The request is validated by the BLL to ensure the user owns the document, and the pipeline intelligently checks the database (`HasChunksAsync`) to resume work exactly from where it failed (e.g., skipping Chunking if chunks already exist), avoiding redundant processing and API costs.
+
+*(Note: Background job enqueuing, cancellation, and ownership validation are strictly handled in the BLL to maintain a clean three-tier architecture.)*
 
 If the Supabase upload succeeds but database save fails, the backend attempts to delete the uploaded object to avoid orphan files.
 

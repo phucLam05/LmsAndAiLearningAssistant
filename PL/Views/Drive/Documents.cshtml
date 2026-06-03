@@ -1,0 +1,444 @@
+@model PL.Models.Drive.DriveDocumentsViewModel
+@{
+    ViewData["Title"] = "Tài liệu";
+    Layout = "~/Views/Shared/_DriveLayout.cshtml";
+}
+
+@* ========================= BREADCRUMBS ========================= *@
+<nav aria-label="Breadcrumb" class="flex text-on-surface-variant font-body-md text-body-md mb-6">
+    <ol class="inline-flex items-center space-x-1">
+        <li class="inline-flex items-center">
+            <span class="text-on-surface font-medium">Tài liệu</span>
+        </li>
+    </ol>
+</nav>
+
+@* ========================= ALERTS ========================= *@
+@if (TempData["SuccessMessage"] != null)
+{
+    <div class="success-alert fixed bottom-6 right-6 bg-surface-container-high border border-tertiary/30 text-tertiary px-5 py-4 rounded-xl flex items-center gap-3 shadow-2xl z-[9999] max-w-sm transition-all duration-500 ease-in-out cursor-pointer hover:scale-[1.02]">
+        <span class="material-symbols-outlined text-tertiary filled" style="font-size:24px">check_circle</span>
+        <div class="flex-1">
+            <p class="font-label-md text-label-md font-bold text-on-surface">Thành công</p>
+            <p class="font-body-md text-body-md text-on-surface-variant">@TempData["SuccessMessage"]</p>
+        </div>
+        <button onclick="event.stopPropagation(); this.closest('.success-alert').remove()" class="text-outline hover:text-on-surface p-1 rounded-md transition-colors">
+            <span class="material-symbols-outlined" style="font-size:16px">close</span>
+        </button>
+    </div>
+}
+@if (TempData["ErrorMessage"] != null)
+{
+    <div class="error-alert fixed bottom-6 right-6 bg-surface-container-high border border-error/30 text-error px-5 py-4 rounded-xl flex items-center gap-3 shadow-2xl z-[9999] max-w-sm transition-all duration-500 ease-in-out cursor-pointer hover:scale-[1.02]">
+        <span class="material-symbols-outlined text-error filled" style="font-size:24px">error</span>
+        <div class="flex-1">
+            <p class="font-label-md text-label-md font-bold text-on-surface">Lỗi</p>
+            <p class="font-body-md text-body-md text-on-surface-variant">@TempData["ErrorMessage"]</p>
+        </div>
+        <button onclick="event.stopPropagation(); this.closest('.error-alert').remove()" class="text-outline hover:text-on-surface p-1 rounded-md transition-colors">
+            <span class="material-symbols-outlined" style="font-size:16px">close</span>
+        </button>
+    </div>
+}
+
+@* ========================= PAGE HEADER ========================= *@
+<div class="w-full flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+    <div>
+        <h1 class="font-headline-lg text-headline-lg font-bold text-on-surface">Tài liệu</h1>
+        <p class="font-body-md text-body-md text-on-surface-variant mt-1">Tổng quan các tài liệu đã được xử lý và sẵn sàng cho AI tìm kiếm.</p>
+    </div>
+    <div class="flex items-center gap-3">
+        <div class="hidden md:block">
+            @await Html.PartialAsync("~/Views/Shared/Components/_SearchBar.cshtml", new PL.Models.Drive.SearchBarViewModel 
+            { 
+                InputId = "searchDocumentInput", 
+                Placeholder = "Tìm kiếm...", 
+                OnInput = "filterDocuments(this.value)",
+                ExtraClasses = "w-64"
+            })
+        </div>
+    </div>
+</div>
+
+@* ========================= STATS CARDS SECTION ========================= *@
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+    <!-- Card 1: Total Docs -->
+    <div class="bg-surface-container-low border border-outline-variant rounded-2xl p-6 relative overflow-hidden shadow-sm flex flex-col justify-between group hover:border-primary/30 transition-colors">
+        <div>
+            <div class="flex justify-between items-start">
+                <span class="font-label-md text-label-md uppercase tracking-wider text-on-surface-variant font-bold">Tổng tài liệu</span>
+                <span class="material-symbols-outlined text-outline group-hover:text-primary transition-colors text-[24px]">description</span>
+            </div>
+            <h2 class="font-display-lg text-display-lg font-bold text-on-surface mt-4 tracking-tight">@Model.TotalDocuments.ToString("N0")</h2>
+        </div>
+
+    </div>
+
+    <!-- Card 2: Indexed Successfully -->
+    <div class="bg-surface-container-low border border-outline-variant rounded-2xl p-6 relative overflow-hidden shadow-sm flex flex-col justify-between group hover:border-tertiary/30 transition-colors">
+        <div>
+            <div class="flex justify-between items-start">
+                <span class="font-label-md text-label-md uppercase tracking-wider text-on-surface-variant font-bold">Đã index thành công</span>
+                <span class="material-symbols-outlined text-tertiary filled text-[24px]">check_circle</span>
+            </div>
+            <h2 id="indexedDocsCount" class="font-display-lg text-display-lg font-bold text-on-surface mt-4 tracking-tight">@Model.IndexedDocuments.ToString("N0")</h2>
+        </div>
+        <div class="mt-6 w-full bg-surface rounded-full h-1.5 overflow-hidden">
+            @{
+                var indexPercent = Model.TotalDocuments > 0 ? (double)Model.IndexedDocuments / Model.TotalDocuments * 100 : 0;
+            }
+            <div id="indexedDocsProgressBar" class="bg-tertiary h-full rounded-full" style="width: @(indexPercent)%"></div>
+        </div>
+    </div>
+
+    <!-- Card 3: Index Size -->
+    <div class="bg-surface-container-low border border-outline-variant rounded-2xl p-6 relative overflow-hidden shadow-sm flex flex-col justify-between group hover:border-secondary/30 transition-colors">
+        <div>
+            <div class="flex justify-between items-start">
+                <span class="font-label-md text-label-md uppercase tracking-wider text-on-surface-variant font-bold">Dung lượng index</span>
+                <span class="material-symbols-outlined text-outline group-hover:text-secondary transition-colors text-[24px]">database</span>
+            </div>
+            <h2 class="font-display-lg text-display-lg font-bold text-on-surface mt-4 tracking-tight">@Model.TotalSizeFormatted</h2>
+        </div>
+
+    </div>
+</div>
+
+@* ========================= DOCUMENT LIST TABLE ========================= *@
+<div class="bg-surface-container-low rounded-xl border border-outline-variant overflow-hidden shadow-sm">
+    @* Table Header *@
+    <div class="grid grid-cols-12 gap-4 px-6 py-4 border-b border-outline-variant bg-surface-container-highest/50">
+        <div class="col-span-8 md:col-span-5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Tên tài liệu</div>
+        <div class="col-span-0 md:col-span-3 hidden md:block text-right font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Trạng thái</div>
+        <div class="col-span-4 md:col-span-4 text-right font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Môn học / Chương</div>
+    </div>
+
+    @* Table Body *@
+    <div class="flex flex-col" id="documentList">
+        @if (!Model.Documents.Any())
+        {
+            <div class="px-6 py-16 text-center">
+                <span class="material-symbols-outlined text-[48px] text-on-surface-variant/40 mb-3 block">description</span>
+                <p class="font-body-md text-body-md text-on-surface-variant mb-2">Chưa có tài liệu nào được tải lên.</p>
+                <p class="font-body-md text-body-md text-outline text-xs">Hãy chọn một môn học và chương để bắt đầu tải tài liệu.</p>
+            </div>
+        }
+        else
+        {
+            @for (int i = 0; i < Model.Documents.Count; i++)
+            {
+                var doc = Model.Documents[i];
+                var isLast = i == Model.Documents.Count - 1;
+                var rowBorder = isLast ? "" : "border-b border-outline-variant/50";
+                
+                // Get folder hierarchy name (e.g. MAE > Chương 1)
+                string folderLocation = "Chưa gắn";
+                if (doc.Folder != null)
+                {
+                    if (doc.Folder.ParentFolder != null)
+                    {
+                        folderLocation = $"{doc.Folder.ParentFolder.Name} > {doc.Folder.Name}";
+                    }
+                    else
+                    {
+                        folderLocation = doc.Folder.Name;
+                    }
+                }
+
+                <div class="grid grid-cols-12 gap-4 px-6 py-4 @rowBorder hover:bg-surface-container-highest transition-colors group items-center document-row cursor-pointer"
+                     data-name="@doc.Title.ToLower()"
+                     data-id="@doc.Id"
+                     data-title="@doc.Title"
+                     data-mime="@doc.MimeType"
+                     data-size-kb="@(doc.FileSize / 1024)"
+                     data-uploaded="@doc.UploadedAt.ToLocalTime().ToString("g")"
+                     data-status="@doc.ProcessingStatus"
+                     data-folder="@folderLocation"
+                     data-storage-url="@doc.StorageUrl"
+                     onclick="selectDocumentRow(event, this)"
+                     oncontextmenu="openDocumentCtxMenu(event, this)">
+
+                    @* Document Name & Icon *@
+                    <div class="col-span-8 md:col-span-5 flex items-center gap-3 min-w-0">
+                        <span class="material-symbols-outlined text-primary flex-shrink-0" style="font-size:20px">description</span>
+                        <span class="font-body-md text-body-md text-on-surface font-medium truncate max-w-full">
+                            @doc.Title
+                        </span>
+                    </div>
+
+                    @* Processing Status Badge *@
+                    <div class="col-span-0 md:col-span-3 hidden md:flex items-center justify-end status-badge-container"></div>
+
+                    @* Subject/Chapter Location *@
+                    <div class="col-span-4 md:col-span-4 text-right font-body-md text-body-md text-on-surface-variant truncate pr-2">
+                        <span class="bg-surface-bright/50 px-2 py-1 rounded border border-outline-variant/30 text-xs font-mono font-medium">
+                            @folderLocation
+                        </span>
+                    </div>
+                </div>
+            }
+        }
+    </div>
+</div>
+
+
+
+@* ========================= MODAL OVERLAY ========================= *@
+<div id="modalOverlay" class="fixed inset-0 bg-black/60 z-[100] hidden items-center justify-center backdrop-blur-sm transition-opacity">
+    
+    <!-- Delete Document Modal (Xóa tài liệu khỏi hệ thống) -->
+    <div id="deleteDocModal" class="hidden bg-surface-container-low border border-error/50 rounded-xl shadow-xl w-full max-w-md overflow-hidden mx-4">
+        <form asp-action="DeleteFile" method="post">
+            <input type="hidden" name="id" id="deleteDocId" value="" />
+            <input type="hidden" name="returnUrl" value="@Url.Action("Documents", "Drive")" />
+            <div class="px-6 py-4 border-b border-outline-variant/50 flex justify-between items-center">
+                <h3 class="font-headline-sm text-headline-sm font-bold text-error">Xóa tài liệu</h3>
+                <button type="button" onclick="closeModal()" class="text-outline hover:text-on-surface p-1 rounded transition-colors">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+            <div class="p-6">
+                <p class="text-on-surface-variant font-body-md text-body-md">Bạn có chắc chắn muốn xóa tài liệu này khỏi thư mục không? Thao tác này không thể hoàn tác.</p>
+            </div>
+            <div class="px-6 py-4 bg-surface-container-highest border-t border-outline-variant/50 flex justify-end gap-3">
+                <button type="button" onclick="closeModal()" class="px-4 py-2 rounded-lg text-on-surface-variant hover:bg-surface-variant font-label-md text-label-md transition-colors">Hủy</button>
+                <button type="submit" class="px-5 py-2 bg-error text-on-error rounded-lg font-label-md text-label-md font-bold hover:bg-error-container/80 transition-colors">Xóa</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Document Context Menu -->
+<div id="documentCtxMenu"
+     class="hidden fixed bg-surface-container-high border border-outline-variant rounded-xl shadow-2xl z-[500] w-48 overflow-hidden py-1">
+
+    <button id="ctxRetryBtn" onclick="documentCtxRetry()"
+            class="w-full flex items-center gap-3 px-4 py-2.5 font-body-md text-body-md text-primary hover:bg-primary-container/20 transition-colors hidden">
+        <span class="material-symbols-outlined text-primary" style="font-size:18px">replay</span>
+        <span>Thử lại (Retry)</span>
+    </button>
+    <div id="ctxRetryDivider" class="border-t border-outline-variant/50 my-1 hidden"></div>
+
+    <button onclick="documentCtxDownload()"
+            class="w-full flex items-center gap-3 px-4 py-2.5 font-body-md text-body-md text-on-surface hover:bg-surface-container-highest transition-colors">
+        <span class="material-symbols-outlined text-on-surface-variant" style="font-size:18px">download</span>
+        <span>Tải xuống</span>
+    </button>
+    <div class="border-t border-outline-variant/50 my-1"></div>
+    <button onclick="documentCtxDelete()"
+            class="w-full flex items-center gap-3 px-4 py-2.5 font-body-md text-body-md text-error hover:bg-error-container/20 transition-colors">
+        <span class="material-symbols-outlined text-error" style="font-size:18px">delete</span>
+        <span>Xóa tài liệu</span>
+    </button>
+</div>
+
+@section Scripts {
+    <script>
+        // ============ Modal Helpers ============
+        function openModal(modalId) {
+            const overlay = document.getElementById('modalOverlay');
+            overlay.classList.remove('hidden');
+            overlay.classList.add('flex');
+            
+            // Hide all modals inside overlay
+            Array.from(overlay.children).forEach(child => child.classList.add('hidden'));
+            
+            document.getElementById(modalId).classList.remove('hidden');
+        }
+
+        function closeModal() {
+            const overlay = document.getElementById('modalOverlay');
+            overlay.classList.add('hidden');
+            overlay.classList.remove('flex');
+        }
+
+        // Close overlay when clicking background
+        document.getElementById('modalOverlay').addEventListener('click', function(e) {
+            if (e.target === this) closeModal();
+        });
+
+        // ============ Keyboard Shortcut ============
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeModal();
+                closeDocumentCtxMenu();
+            }
+        });
+
+        // ============ Document Selection & Details Panel ============
+        let selectedDocId = null;
+        let docCtxData = { id: null, title: '', storageUrl: '', mimeType: '', sizeKb: '', uploadedAt: '', status: '', folder: '' };
+
+        function formatMimeType(mimeType) {
+            if (!mimeType) return "Tài liệu";
+            mimeType = mimeType.toLowerCase();
+            if (mimeType.includes("pdf")) return "PDF Document";
+            if (mimeType.includes("word") || mimeType.includes("officedocument.wordprocessingml") || mimeType.includes("msword")) return "Word Document";
+            if (mimeType.includes("excel") || mimeType.includes("officedocument.spreadsheetml") || mimeType.includes("ms-excel")) return "Excel Spreadsheet";
+            if (mimeType.includes("powerpoint") || mimeType.includes("officedocument.presentationml") || mimeType.includes("ms-powerpoint")) return "PowerPoint Presentation";
+            if (mimeType.includes("image")) return "Hình ảnh";
+            if (mimeType.includes("text")) return "Văn bản";
+            if (mimeType.includes("zip") || mimeType.includes("rar")) return "Tệp nén";
+            return "Tài liệu";
+        }
+
+        function selectDocumentRow(event, row) {
+            // Unselect all rows
+            document.querySelectorAll('.document-row').forEach(r => {
+                r.classList.remove('bg-surface-container-highest', 'ring-1', 'ring-primary/30', 'border-primary/40');
+            });
+
+            // Select clicked row
+            row.classList.add('bg-surface-container-highest', 'ring-1', 'ring-primary/30', 'border-primary/40');
+            selectedDocId = row.dataset.id;
+
+            // Populate context menu data
+            docCtxData = {
+                id: row.dataset.id,
+                title: row.dataset.title,
+                storageUrl: row.dataset.storageUrl, 
+                mimeType: row.dataset.mime,
+                sizeKb: row.dataset.sizeKb,
+                uploadedAt: row.dataset.uploaded,
+                status: row.dataset.status,
+                folder: row.dataset.folder
+            };
+        }
+
+        function confirmDeleteDocument(id) {
+            document.getElementById('deleteDocId').value = id;
+            openModal('deleteDocModal');
+        }
+
+        // Click outside elements to deselect
+        document.addEventListener('click', e => {
+            if (!e.target.closest('.document-row') && !e.target.closest('#documentCtxMenu') && !e.target.closest('#modalOverlay')) {
+                document.querySelectorAll('.document-row').forEach(r => {
+                    r.classList.remove('bg-surface-container-highest', 'ring-1', 'ring-primary/30', 'border-primary/40');
+                });
+                selectedDocId = null;
+            }
+        });
+
+        // ============ Document Context Menu ============
+        function openDocumentCtxMenu(event, element) {
+            event.preventDefault();
+            event.stopPropagation();
+
+            const row = element.closest('.document-row');
+            if (row) {
+                selectDocumentRow(event, row);
+            }
+
+            const menu = document.getElementById('documentCtxMenu');
+            menu.classList.remove('hidden');
+
+            const retryBtn = document.getElementById('ctxRetryBtn');
+            const retryDivider = document.getElementById('ctxRetryDivider');
+            if (row && row.dataset.status === 'Failed') {
+                retryBtn.classList.remove('hidden');
+                retryDivider.classList.remove('hidden');
+            } else {
+                retryBtn.classList.add('hidden');
+                retryDivider.classList.add('hidden');
+            }
+
+            // Position near cursor, stay in boundaries
+            const x = Math.min(event.clientX, window.innerWidth - 200);
+            const y = Math.min(event.clientY, window.innerHeight - 150);
+            menu.style.left = x + 'px';
+            menu.style.top = y + 'px';
+        }
+
+        function closeDocumentCtxMenu() {
+            document.getElementById('documentCtxMenu').classList.add('hidden');
+        }
+
+        document.addEventListener('click', e => {
+            if (!e.target.closest('#documentCtxMenu')) closeDocumentCtxMenu();
+        });
+
+        // Context Menu Action callbacks
+
+        // Manual Retry action callback
+        async function documentCtxRetry() {
+            closeDocumentCtxMenu();
+            if (!docCtxData.id) return;
+
+            const formData = new FormData();
+            formData.append('id', docCtxData.id);
+
+            const tokenInput = document.querySelector('input[name="__RequestVerificationToken"]');
+            if (tokenInput) {
+                formData.append('__RequestVerificationToken', tokenInput.value);
+            }
+
+            try {
+                const response = await fetch('/Drive/RetryFile', {
+                    method: 'POST',
+                    body: formData
+                });
+                const res = await response.json();
+                if (res.success) {
+                    // Update local UI
+                    const row = document.querySelector(`.document-row[data-id="${docCtxData.id}"]`);
+                    if (row) {
+                        row.dataset.status = 'Uploaded';
+                        const badgeContainer = row.querySelector('.status-badge-container');
+                        if (badgeContainer) {
+                            renderStatusBadge(badgeContainer, 'Uploaded');
+                        }
+                    }
+                    showToast('Đã bắt đầu xử lý lại tài liệu.', 'success');
+                    
+                    // Restart polling
+                    startDocumentStatusPolling();
+                } else {
+                    showToast(res.message, 'error');
+                }
+            } catch (err) {
+                console.error('Error retrying processing:', err);
+                showToast('Không thể yêu cầu xử lý lại tài liệu.', 'error');
+            }
+        }
+
+        function documentCtxDownload() {
+            closeDocumentCtxMenu();
+            if (docCtxData.id) {
+                window.location.href = '@Url.Action("DownloadFile", "Drive")?id=' + docCtxData.id;
+            }
+        }
+
+        function documentCtxDelete() {
+            closeDocumentCtxMenu();
+            confirmDeleteDocument(docCtxData.id);
+        }
+
+        // ============ Filter Documents ============
+        function filterDocuments(query) {
+            const rows = document.querySelectorAll('.document-row');
+            const q = query.toLowerCase().trim();
+            rows.forEach(row => {
+                const name = row.getAttribute('data-name') || '';
+                row.style.display = !q || name.includes(q) ? '' : 'none';
+            });
+        }
+
+        // ============ Update Documents Stats UI ============
+        window.updateDocumentsStatsUI = function() {
+            const totalDocs = document.querySelectorAll('.document-row').length;
+            const indexedDocs = document.querySelectorAll('.document-row[data-status="Indexed"]').length;
+            
+            const countEl = document.getElementById('indexedDocsCount');
+            if (countEl) {
+                countEl.textContent = indexedDocs.toLocaleString();
+            }
+            
+            const barEl = document.getElementById('indexedDocsProgressBar');
+            if (barEl) {
+                const percent = totalDocs > 0 ? (indexedDocs / totalDocs * 100) : 0;
+                barEl.style.width = percent + '%';
+            }
+        }
+    </script>
+}

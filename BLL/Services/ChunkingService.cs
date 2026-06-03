@@ -78,9 +78,6 @@ namespace BLL.Services
                 // Download and extract text
                 string content = await ReadFileContentAsync(document, cancellationToken);
                 
-                // Clear old chunks in case of retry
-                await _documentChunkRepository.DeleteChunksByDocumentIdAsync(documentId);
-                
                 if (string.IsNullOrWhiteSpace(content))
                 {
                     _logger.LogWarning("No content extracted from document {DocumentId}. Skipping chunk creation.", documentId);
@@ -105,6 +102,7 @@ namespace BLL.Services
             catch (Exception ex)
             {
                 _logger.LogError(ex, "An error occurred while chunking document {DocumentId}", documentId);
+                _documentRepository.ClearTracker();
                 await _documentRepository.UpdateStatusAsync(documentId, DocumentProcessingStatus.Failed);
                 return Result.Failure($"Chunking error: {ex.Message}");
             }
@@ -159,7 +157,23 @@ namespace BLL.Services
 
             for (int i = 0; i < text.Length; i += step)
             {
+                // Adjust starting position if it lands on a low surrogate
+                if (i > 0 && i < text.Length && char.IsLowSurrogate(text[i]))
+                {
+                    i--;
+                }
+
                 int length = Math.Min(chunkSize, text.Length - i);
+                
+                // Adjust ending position if it ends on a high surrogate
+                if (char.IsHighSurrogate(text[i + length - 1]))
+                {
+                    if (i + length < text.Length)
+                        length++;
+                    else
+                        length--; // Handle invalid string edge case
+                }
+
                 yield return new DocumentChunk
                 {
                     Id = Guid.NewGuid(),

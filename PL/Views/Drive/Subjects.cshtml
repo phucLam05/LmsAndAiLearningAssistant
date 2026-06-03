@@ -1,0 +1,554 @@
+@model PL.Models.Drive.DriveSubjectsViewModel
+@{
+    ViewData["Title"] = "Môn học - Index AI";
+    Layout = "~/Views/Shared/_DriveLayout.cshtml";
+
+    // Relative time helper
+    Func<DateTime, string> relTime = (dt) => {
+        var span = DateTime.UtcNow - dt.ToUniversalTime();
+        if (span.TotalMinutes < 2)   return "vừa xong";
+        if (span.TotalHours   < 1)   return $"{(int)span.TotalMinutes} phút trước";
+        if (span.TotalDays    < 1)   return $"{(int)span.TotalHours} giờ trước";
+        if (span.TotalDays    < 2)   return "hôm qua";
+        if (span.TotalDays    < 7)   return $"{(int)span.TotalDays} ngày trước";
+        return dt.ToLocalTime().ToString("dd/MM/yyyy");
+    };
+
+    // Color themes (iconColor, iconBg, badgeClass, statTextColor) — cycle by index
+    var themes = new[] {
+        ("text-primary",   "bg-secondary-container/20",  "text-primary bg-primary/10 border border-primary/20",    "text-primary"),
+        ("text-tertiary",  "bg-tertiary-container/20",   "text-tertiary bg-tertiary/10 border border-tertiary/20",  "text-tertiary"),
+        ("text-error",     "bg-error-container/20",      "text-error bg-error/10 border border-error/20",           "text-error"),
+        ("text-secondary", "bg-secondary-container/30",  "text-secondary bg-secondary/10 border border-secondary/20","text-secondary"),
+    };
+
+    // Default icons when folder.Icon is empty
+    //HARDCODE
+    var defaultIcons = new[] { "neurology","dataset","router","code","science","calculate","history_edu","biotech","hub","memory" };
+}
+
+@* ========================= ALERTS ========================= *@
+@if (TempData["SuccessMessage"] != null)
+{
+    <div class="success-alert fixed bottom-6 right-6 bg-surface-container-high border border-tertiary/30 text-tertiary px-5 py-4 rounded-xl flex items-center gap-3 shadow-2xl z-[9999] max-w-sm transition-all duration-500 ease-in-out cursor-pointer hover:scale-[1.02]">
+        <span class="material-symbols-outlined text-tertiary filled" style="font-size:24px">check_circle</span>
+        <div class="flex-1">
+            <p class="font-label-md text-label-md font-bold text-on-surface">Thành công</p>
+            <p class="font-body-md text-body-md text-on-surface-variant">@TempData["SuccessMessage"]</p>
+        </div>
+        <button onclick="event.stopPropagation(); this.closest('.success-alert').remove()" class="text-outline hover:text-on-surface p-1 rounded-md transition-colors">
+            <span class="material-symbols-outlined" style="font-size:16px">close</span>
+        </button>
+    </div>
+}
+@if (TempData["ErrorMessage"] != null)
+{
+    <div class="error-alert fixed bottom-6 right-6 bg-surface-container-high border border-error/30 text-error px-5 py-4 rounded-xl flex items-center gap-3 shadow-2xl z-[9999] max-w-sm transition-all duration-500 ease-in-out cursor-pointer hover:scale-[1.02]">
+        <span class="material-symbols-outlined text-error filled" style="font-size:24px">error</span>
+        <div class="flex-1">
+            <p class="font-label-md text-label-md font-bold text-on-surface">Lỗi</p>
+            <p class="font-body-md text-body-md text-on-surface-variant">@TempData["ErrorMessage"]</p>
+        </div>
+        <button onclick="event.stopPropagation(); this.closest('.error-alert').remove()" class="text-outline hover:text-on-surface p-1 rounded-md transition-colors">
+            <span class="material-symbols-outlined" style="font-size:16px">close</span>
+        </button>
+    </div>
+}
+
+@* ========================= PAGE HEADER ========================= *@
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+    <div>
+        <h1 class="font-headline-lg text-headline-lg text-on-surface font-bold">Môn học</h1>
+        <p class="font-body-md text-body-md text-on-surface-variant mt-1">Quản lý và tổ chức các môn học trong hệ thống.</p>
+    </div>
+    <div class="flex items-center gap-3">
+        @await Html.PartialAsync("~/Views/Shared/Components/_SearchBar.cshtml", new PL.Models.Drive.SearchBarViewModel 
+        { 
+            InputId = "subjectSearch", 
+            Placeholder = "Tìm kiếm...", 
+            OnInput = "filterSubjects(this.value)",
+            ExtraClasses = "w-full md:w-56"
+        })
+        <button onclick="openModal('createSubjectModal')"
+                class="bg-primary text-on-primary font-label-md text-label-md px-4 py-2 rounded-lg hover:opacity-90 transition-opacity flex items-center gap-2 whitespace-nowrap shadow-sm">
+            <span class="material-symbols-outlined" style="font-size:18px">add</span>
+            Thêm môn học mới
+        </button>
+    </div>
+</div>
+
+@* ========================= SUBJECTS GRID ========================= *@
+@if (!Model.Subjects.Any())
+{
+    <div class="flex flex-col items-center justify-center py-24 text-center">
+        <span class="material-symbols-outlined text-[64px] text-on-surface-variant/30 mb-4">folder_open</span>
+        <h2 class="font-headline-md text-headline-md text-on-surface mb-2">Chưa có môn học nào</h2>
+        <p class="font-body-md text-body-md text-on-surface-variant mb-6">Tạo môn học đầu tiên để bắt đầu tổ chức tài liệu của bạn.</p>
+        <button onclick="openModal('createSubjectModal')"
+                class="bg-primary text-on-primary font-label-md text-label-md px-6 py-3 rounded-lg hover:opacity-90 transition-opacity flex items-center gap-2 shadow-sm">
+            <span class="material-symbols-outlined">add</span>
+            Tạo môn học đầu tiên
+        </button>
+    </div>
+}
+else
+{
+    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6" id="subjectsGrid">
+        @for (int i = 0; i < Model.Subjects.Count; i++)
+        {
+            var subject    = Model.Subjects[i];
+            var theme      = themes[i % themes.Length];
+            var iconName   = string.IsNullOrEmpty(subject.Folder.Icon) ? defaultIcons[i % defaultIcons.Length] : subject.Folder.Icon;
+            var chaptersUrl = Url.Action("Chapters", "Drive", new { subjectFolderId = subject.Folder.Id });
+            var hasCode    = !string.IsNullOrEmpty(subject.SubjectCode);
+            var customColor = string.IsNullOrEmpty(subject.Folder.Color) ? "#1a73e8" : subject.Folder.Color;
+
+            <div id="card-@subject.Folder.Id"
+                 class="subject-card bg-surface-container-low border rounded-xl p-5 transition-all duration-200 group relative cursor-pointer select-none"
+                 style="border-color: @(customColor)50;"
+                 data-id="@subject.Folder.Id"
+                 data-name="@subject.Folder.Name.ToLower()"
+                 data-url="@chaptersUrl"
+                 data-display-name="@subject.Folder.Name"
+                 data-subject-code=""
+                 data-color="@customColor"
+                 data-icon="@(subject.Folder.Icon ?? "folder_open")"
+                 onclick="handleCardClick(this, event)"
+                 oncontextmenu="openContextMenu(event, this)"
+                 ondblclick="window.location.href=this.dataset.url">
+
+                @* Top Row: Icon + Code badge + More button *@
+                <div class="flex justify-between items-start mb-4">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-lg flex items-center justify-center" style="background-color: @(customColor)20; color: @customColor;">
+                            <span class="material-symbols-outlined icon-fill" style="font-variation-settings:'FILL' 1">@iconName</span>
+                        </div>
+                        @if (hasCode)
+                        {
+                            <span class="font-label-md text-label-md px-2 py-0.5 rounded border" style="background-color: @(customColor)10; color: @customColor; border-color: @(customColor)20;">@subject.SubjectCode</span>
+                        }
+                    </div>
+                    <button onclick="event.stopPropagation(); openContextMenu(event, this)"
+                            class="text-on-surface-variant hover:text-on-surface opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-full hover:bg-surface-bright">
+                        <span class="material-symbols-outlined">more_vert</span>
+                    </button>
+                </div>
+
+                @* Subject Name *@
+                <h2 id="name-@subject.Folder.Id"
+                    class="font-headline-sm text-headline-sm text-on-surface mb-4 leading-snug">
+                    @subject.Folder.Name
+                </h2>
+
+                @* Stats *@
+                <div class="grid grid-cols-2 gap-4 mb-5">
+                    <div class="bg-surface rounded-lg p-3 border border-outline-variant/50">
+                        <div class="font-label-md text-label-md text-on-surface-variant mb-1">Số chương</div>
+                        <div class="font-headline-md text-headline-md text-on-surface">@subject.ChapterCount</div>
+                    </div>
+                    <div class="bg-surface rounded-lg p-3 border border-outline-variant/50">
+                        <div class="font-label-md text-label-md text-on-surface-variant mb-1">Tài liệu</div>
+                        <div class="font-headline-md text-headline-md" style="color: @customColor;">@subject.DocumentCount</div>
+                    </div>
+                </div>
+
+                @* Footer: Last updated *@
+                <div class="flex items-center justify-between border-t border-outline-variant/50 pt-4">
+                    <div class="flex items-center gap-2 text-on-surface-variant font-label-md text-label-md">
+                        <span class="material-symbols-outlined" style="font-size:16px">update</span>
+                        Cập nhật @relTime(subject.Folder.UpdatedAt)
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+
+    <p id="noResults" class="hidden text-center text-on-surface-variant font-body-md text-body-md py-16">
+        Không tìm thấy môn học phù hợp.
+    </p>
+}
+
+@* ========================= RIGHT-CLICK CONTEXT MENU ========================= *@
+<div id="ctxMenu"
+     class="fixed z-[300] hidden bg-surface-container-high border border-outline-variant rounded-xl shadow-2xl overflow-hidden py-1 min-w-[180px]"
+     style="min-width:200px">
+    <button onclick="ctxOpenChapters()"
+            class="w-full flex items-center gap-3 px-4 py-2.5 font-body-md text-body-md text-on-surface hover:bg-surface-container-highest transition-colors">
+        <span class="material-symbols-outlined text-primary" style="font-size:18px">menu_book</span>
+        Mở môn học
+    </button>
+    <div class="border-t border-outline-variant/50 my-1"></div>
+    <button onclick="ctxRename()"
+            class="w-full flex items-center gap-3 px-4 py-2.5 font-body-md text-body-md text-on-surface hover:bg-surface-container-highest transition-colors">
+        <span class="material-symbols-outlined text-on-surface-variant" style="font-size:18px">edit</span>
+        Đổi tên / Sửa
+    </button>
+    <button onclick="ctxDownload()"
+            class="w-full flex items-center gap-3 px-4 py-2.5 font-body-md text-body-md text-on-surface hover:bg-surface-container-highest transition-colors">
+        <span class="material-symbols-outlined text-on-surface-variant" style="font-size:18px">download</span>
+        Tải xuống
+    </button>
+    <div class="border-t border-outline-variant/50 my-1"></div>
+    <button onclick="ctxDelete()"
+            class="w-full flex items-center gap-3 px-4 py-2.5 font-body-md text-body-md text-error hover:bg-error-container/20 transition-colors">
+        <span class="material-symbols-outlined" style="font-size:18px">delete</span>
+        Xóa môn học
+    </button>
+</div>
+
+@* ========================= MODAL OVERLAY ========================= *@
+<div id="modalOverlay" class="fixed inset-0 bg-black/60 z-[200] hidden items-center justify-center backdrop-blur-sm">
+
+    @* --- Create Subject Modal --- *@
+    <div id="createSubjectModal" class="hidden bg-surface-container-low border border-outline-variant rounded-xl shadow-2xl w-full max-w-lg overflow-hidden mx-4">
+        <form asp-action="CreateFolder" asp-controller="Drive" method="post">
+            <input type="hidden" name="ParentFolderId" value="" />@* null = root *@
+            <div class="px-6 py-4 border-b border-outline-variant/50 flex justify-between items-center">
+                <h3 class="font-headline-sm text-headline-sm font-bold text-on-surface">Thêm môn học mới</h3>
+                <button type="button" onclick="closeModal()" class="text-outline hover:text-on-surface p-1 rounded transition-colors">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+            <div class="p-6 space-y-4">
+                @* Subject Name Field *@
+                <div>
+                    <label class="block text-on-surface-variant font-label-md text-label-md mb-2">Tên môn học <span class="text-error">*</span></label>
+                    <input type="text" name="Name" id="subjectNameFull" required
+                           placeholder="Ví dụ: Trí tuệ nhân tạo"
+                           class="w-full bg-surface border border-outline-variant rounded-lg px-4 py-2.5 text-on-surface font-body-md text-body-md focus:border-primary focus:ring-1 focus:ring-primary outline-none placeholder:text-outline transition-colors" />
+                </div>
+                @* Icon + Color *@
+                <div class="flex gap-3">
+                    <div class="flex-1">
+                        <label class="block text-on-surface-variant font-label-md text-label-md mb-2">Biểu tượng</label>
+                        <select name="Icon"
+                                class="w-full bg-surface border border-outline-variant rounded-lg px-3 py-2.5 text-on-surface font-body-md text-body-md focus:border-primary outline-none transition-colors">
+                            <option value="folder_open">📁 folder_open</option>
+                            <option value="neurology">🧠 neurology</option>
+                            <option value="dataset">📊 dataset</option>
+                            <option value="router">🌐 router</option>
+                            <option value="code">💻 code</option>
+                            <option value="science">🔬 science</option>
+                            <option value="calculate">🔢 calculate</option>
+                            <option value="history_edu">📜 history_edu</option>
+                            <option value="biotech">🧬 biotech</option>
+                            <option value="hub">🔗 hub</option>
+                            <option value="memory">💾 memory</option>
+                        </select>
+                    </div>
+                    <div class="w-28">
+                        <label class="block text-on-surface-variant font-label-md text-label-md mb-2">Màu sắc</label>
+                        <input type="color" name="Color" value="#1a73e8"
+                               class="w-full h-[46px] rounded-lg cursor-pointer bg-surface border border-outline-variant" />
+                    </div>
+                </div>
+            </div>
+            <div class="px-6 py-4 bg-surface-container-highest border-t border-outline-variant/50 flex justify-end gap-3">
+                <button type="button" onclick="closeModal()" class="px-4 py-2 rounded-lg text-on-surface-variant hover:bg-surface-variant font-label-md text-label-md transition-colors">Hủy</button>
+                <button type="submit" onclick="submitCreateForm(event)"
+                        class="px-5 py-2 bg-primary text-on-primary rounded-lg font-label-md text-label-md font-bold hover:opacity-90 transition-opacity flex items-center gap-2">
+                    <span class="material-symbols-outlined" style="font-size:16px">add</span>
+                    Tạo môn học
+                </button>
+            </div>
+        </form>
+    </div>
+
+    @* --- Edit Subject Modal --- *@
+    <div id="editSubjectModal" class="hidden bg-surface-container-low border border-outline-variant rounded-xl shadow-2xl w-full max-w-lg overflow-hidden mx-4">
+        <form asp-action="UpdateFolder" asp-controller="Drive" method="post">
+            <input type="hidden" name="folderId" id="editFolderId" value="" />
+            <input type="hidden" name="returnUrl" value="@Url.Action("Subjects", "Drive")" />
+            <div class="px-6 py-4 border-b border-outline-variant/50 flex justify-between items-center">
+                <h3 class="font-headline-sm text-headline-sm font-bold text-on-surface">Sửa môn học</h3>
+                <button type="button" onclick="closeModal()" class="text-outline hover:text-on-surface p-1 rounded transition-colors">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+            <div class="p-6 space-y-4">
+                @* Subject Name Field *@
+                <div>
+                    <label class="block text-on-surface-variant font-label-md text-label-md mb-2">Tên môn học <span class="text-error">*</span></label>
+                    <input type="text" name="Name" id="editNameFull" required
+                           class="w-full bg-surface border border-outline-variant rounded-lg px-4 py-2.5 text-on-surface font-body-md text-body-md focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-colors" />
+                </div>
+                @* Icon + Color *@
+                <div class="flex gap-3">
+                    <div class="flex-1">
+                        <label class="block text-on-surface-variant font-label-md text-label-md mb-2">Biểu tượng</label>
+                        <select name="Icon" id="editIconSelect"
+                                class="w-full bg-surface border border-outline-variant rounded-lg px-3 py-2.5 text-on-surface font-body-md text-body-md focus:border-primary outline-none transition-colors">
+                            <option value="folder_open">📁 folder_open</option>
+                            <option value="neurology">🧠 neurology</option>
+                            <option value="dataset">📊 dataset</option>
+                            <option value="router">🌐 router</option>
+                            <option value="code">💻 code</option>
+                            <option value="science">🔬 science</option>
+                            <option value="calculate">🔢 calculate</option>
+                            <option value="history_edu">📜 history_edu</option>
+                            <option value="biotech">🧬 biotech</option>
+                            <option value="hub">🔗 hub</option>
+                            <option value="memory">💾 memory</option>
+                        </select>
+                    </div>
+                    <div class="w-28">
+                        <label class="block text-on-surface-variant font-label-md text-label-md mb-2">Màu sắc</label>
+                        <input type="color" name="Color" id="editColorInput" value="#1a73e8"
+                               class="w-full h-[46px] rounded-lg cursor-pointer bg-surface border border-outline-variant" />
+                    </div>
+                </div>
+            </div>
+            <div class="px-6 py-4 bg-surface-container-highest border-t border-outline-variant/50 flex justify-end gap-3">
+                <button type="button" onclick="closeModal()" class="px-4 py-2 rounded-lg text-on-surface-variant hover:bg-surface-variant font-label-md text-label-md transition-colors">Hủy</button>
+                <button type="submit" onclick="submitEditForm(event)"
+                        class="px-5 py-2 bg-primary-container text-on-primary-container rounded-lg font-label-md text-label-md font-bold hover:opacity-90 transition-opacity flex items-center gap-2">
+                    <span class="material-symbols-outlined" style="font-size:16px">check</span>
+                    Lưu thay đổi
+                </button>
+            </div>
+        </form>
+    </div>
+
+    @* --- Delete Subject Modal --- *@
+    <div id="deleteSubjectModal" class="hidden bg-surface-container-low border border-error/40 rounded-xl shadow-2xl w-full max-w-md overflow-hidden mx-4">
+        <form asp-action="DeleteFolder" asp-controller="Drive" method="post">
+            <input type="hidden" name="id" id="deleteSubjectId" value="" />
+            <input type="hidden" name="currentFolderId" value="" />@* null = go back to subjects *@
+            <div class="px-6 py-4 border-b border-outline-variant/50 flex justify-between items-center">
+                <h3 class="font-headline-sm text-headline-sm font-bold text-error">Xóa môn học</h3>
+                <button type="button" onclick="closeModal()" class="text-outline hover:text-on-surface p-1 rounded transition-colors">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+            <div class="p-6">
+                <div class="flex gap-3 items-start">
+                    <span class="material-symbols-outlined text-error mt-0.5" style="font-size:22px">warning</span>
+                    <div>
+                        <p class="font-body-md text-body-md text-on-surface mb-2">
+                            Bạn có chắc chắn muốn xóa môn học
+                            <strong id="deleteSubjectName" class="text-error"></strong>?
+                        </p>
+                        <p class="font-body-md text-body-md text-on-surface-variant">Tất cả chương và tài liệu bên trong sẽ bị xóa vĩnh viễn. Thao tác này <strong>không thể hoàn tác</strong>.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="px-6 py-4 bg-surface-container-highest border-t border-outline-variant/50 flex justify-end gap-3">
+                <button type="button" onclick="closeModal()" class="px-4 py-2 rounded-lg text-on-surface-variant hover:bg-surface-variant font-label-md text-label-md transition-colors">Hủy</button>
+                <button type="submit"
+                        class="px-5 py-2 bg-error text-on-error rounded-lg font-label-md text-label-md font-bold hover:opacity-90 transition-colors flex items-center gap-2">
+                    <span class="material-symbols-outlined" style="font-size:16px">delete_forever</span>
+                    Xóa vĩnh viễn
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    // ============================================================
+    // MODAL HELPERS
+    // ============================================================
+    function openModal(id) {
+        const overlay = document.getElementById('modalOverlay');
+        overlay.classList.remove('hidden');
+        overlay.classList.add('flex');
+        Array.from(overlay.children).forEach(c => c.classList.add('hidden'));
+        document.getElementById(id).classList.remove('hidden');
+
+        // Reset manual-edit flag & clear form when opening create modal
+        if (id === 'createSubjectModal') {
+            resetCreateManualEdit();
+        }
+        if (id === 'editSubjectModal') {
+            editNameManuallyEdited = false;
+        }
+    }
+    function closeModal() {
+        const overlay = document.getElementById('modalOverlay');
+        overlay.classList.add('hidden');
+        overlay.classList.remove('flex');
+    }
+    document.getElementById('modalOverlay').addEventListener('click', e => { if (e.target === e.currentTarget) closeModal(); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeModal(); closeCtxMenu(); } });
+
+    // ============================================================
+    // CREATE FORM
+    // ============================================================
+    function resetCreateManualEdit() {
+        document.getElementById('subjectNameFull').value   = '';
+    }
+
+    function submitCreateForm(e) {
+        const fullVal = document.getElementById('subjectNameFull').value.trim();
+        if (!fullVal) {
+            e.preventDefault();
+            alert('Vui lòng nhập tên môn học.');
+            document.getElementById('subjectNameFull').focus();
+        }
+    }
+
+    // ============================================================
+    // EDIT FORM
+    // ============================================================
+    function submitEditForm(e) {
+        if (!document.getElementById('editNameFull').value.trim()) {
+            e.preventDefault();
+            alert('Vui lòng nhập tên môn học.');
+            document.getElementById('editNameFull').focus();
+        }
+    }
+
+    // ============================================================
+    // CARD SELECTION — single click = select, double click = navigate
+    // ============================================================
+    let lastClick = { id: null, time: 0 };
+    let selectedId = null;
+
+    function handleCardClick(card, event) {
+        // Ignore clicks on buttons inside the card
+        if (event && event.target && event.target.closest('button')) return;
+
+        const id = card.dataset.id;
+        const url = card.dataset.url;
+
+        const now = Date.now();
+        if (lastClick.id === id && now - lastClick.time < 350) {
+            // Double click → navigate
+            window.location.href = url;
+            return;
+        }
+        lastClick = { id, time: now };
+
+        // Single click → select
+        document.querySelectorAll('.subject-card').forEach(c => {
+            const cardColor = c.dataset.color || "#1a73e8";
+            c.style.borderColor = cardColor + "50";
+            c.style.boxShadow = "none";
+            c.classList.remove('bg-surface-container');
+        });
+        const cardColor = card.dataset.color || "#1a73e8";
+        card.style.borderColor = cardColor;
+        card.style.boxShadow = `0 0 0 2px ${cardColor}40`;
+        card.classList.add('bg-surface-container');
+        selectedId = id;
+    }
+
+    // Click outside cards → deselect
+    document.addEventListener('click', e => {
+        if (!e.target.closest('.subject-card') && !e.target.closest('#ctxMenu')) {
+            document.querySelectorAll('.subject-card').forEach(c => {
+                const cardColor = c.dataset.color || "#1a73e8";
+                c.style.borderColor = cardColor + "50";
+                c.style.boxShadow = "none";
+                c.classList.remove('bg-surface-container');
+            });
+            selectedId = null;
+        }
+    });
+
+    // ============================================================
+    // CONTEXT MENU (right-click)
+    // ============================================================
+    let ctxData = { id: null, name: '', icon: '', color: '', url: '' };
+
+    function openContextMenu(event, element) {
+        event.preventDefault();
+        event.stopPropagation();
+
+        const card = element.closest('.subject-card');
+        const id = card.dataset.id;
+        const name = card.dataset.displayName;
+        const icon = card.dataset.icon;
+        const color = card.dataset.color;
+        const url = card.dataset.url;
+
+        // Select the card
+        handleCardClick(card, { target: card });
+
+        ctxData = { id, name, icon, color, url };
+
+        const menu = document.getElementById('ctxMenu');
+        menu.classList.remove('hidden');
+
+        // Position near cursor, keep on screen
+        const x = Math.min(event.clientX, window.innerWidth  - 210);
+        const y = Math.min(event.clientY, window.innerHeight - 220);
+        menu.style.left = x + 'px';
+        menu.style.top  = y + 'px';
+    }
+
+    function closeCtxMenu() {
+        document.getElementById('ctxMenu').classList.add('hidden');
+    }
+
+    document.addEventListener('click', e => {
+        if (!e.target.closest('#ctxMenu')) closeCtxMenu();
+    });
+
+    function ctxOpenChapters() {
+        if (ctxData.url) window.location.href = ctxData.url;
+        closeCtxMenu();
+    }
+
+    // Rename action inside context menu
+    function ctxRename() {
+        closeCtxMenu();
+        document.getElementById('editFolderId').value   = ctxData.id;
+        document.getElementById('editNameFull').value   = ctxData.name;
+        document.getElementById('editIconSelect').value = ctxData.icon;
+        document.getElementById('editColorInput').value = ctxData.color;
+        openModal('editSubjectModal');
+    }
+
+    function ctxDownload() {
+        closeCtxMenu();
+        if (ctxData.id) {
+            window.location.href = '@Url.Action("DownloadFolder", "Drive")?folderId=' + ctxData.id;
+        }
+    }
+
+    function ctxDelete() {
+        closeCtxMenu();
+        document.getElementById('deleteSubjectId').value   = ctxData.id;
+        document.getElementById('deleteSubjectName').textContent = '"' + ctxData.name + '"';
+        openModal('deleteSubjectModal');
+    }
+
+    // ============================================================
+    // SEARCH FILTER
+    // ============================================================
+    function filterSubjects(q) {
+        q = q.toLowerCase().trim();
+        const cards = document.querySelectorAll('.subject-card');
+        let visible = 0;
+        cards.forEach(card => {
+            const match = !q || card.dataset.name.includes(q);
+            card.style.display = match ? '' : 'none';
+            if (match) visible++;
+        });
+        const noResults = document.getElementById('noResults');
+        if (noResults) noResults.classList.toggle('hidden', visible > 0);
+    }
+
+    // ============================================================
+    // "THÊM MỚI" sidebar hook — opens create modal
+    // ============================================================
+    window.openCreateSubjectModal = function() { openModal('createSubjectModal'); }
+
+    // Hover effects on subject cards using custom color
+    document.querySelectorAll('.subject-card').forEach(card => {
+        const cardColor = card.dataset.color || "#1a73e8";
+        card.addEventListener('mouseenter', () => {
+            if (selectedId !== card.dataset.id) {
+                card.style.borderColor = cardColor + "aa"; // higher opacity border on hover
+            }
+        });
+        card.addEventListener('mouseleave', () => {
+            if (selectedId !== card.dataset.id) {
+                card.style.borderColor = cardColor + "50"; // restore normal opacity
+            }
+        });
+    });
+</script>
+}

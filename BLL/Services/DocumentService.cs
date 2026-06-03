@@ -18,25 +18,46 @@ namespace BLL.Services
     {
         private readonly IDocumentRepository _documentRepository;
         private readonly IFolderRepository _folderRepository;
+        private readonly IDocumentChunkRepository _documentChunkRepository;
         private readonly ISupabaseStorageProvider _storageService;
         private readonly UploadOptions _uploadOptions;
         private readonly ILogger<DocumentService> _logger;
         private readonly IBackgroundJobClient _backgroundJobs;
+        private readonly string _supabaseUrl;
+        private readonly string _bucket;
 
         public DocumentService(
             IDocumentRepository documentRepository,
             IFolderRepository folderRepository,
+            IDocumentChunkRepository documentChunkRepository,
             ISupabaseStorageProvider storageService,
             IOptions<UploadOptions> uploadOptions,
             ILogger<DocumentService> logger,
-            IBackgroundJobClient backgroundJobs)
+            IBackgroundJobClient backgroundJobs,
+            Microsoft.Extensions.Configuration.IConfiguration configuration)
         {
             _documentRepository = documentRepository;
             _folderRepository = folderRepository;
+            _documentChunkRepository = documentChunkRepository;
             _storageService = storageService;
             _uploadOptions = uploadOptions.Value;
             _logger = logger;
             _backgroundJobs = backgroundJobs;
+
+            var supabaseUrl = configuration["Supabase:Url"] ?? "";
+            if (Uri.TryCreate(supabaseUrl, UriKind.Absolute, out var uri))
+            {
+                _supabaseUrl = $"{uri.Scheme}://{uri.Host}";
+                if (uri.Port != 80 && uri.Port != 443)
+                {
+                    _supabaseUrl += $":{uri.Port}";
+                }
+            }
+            else
+            {
+                _supabaseUrl = supabaseUrl.TrimEnd('/');
+            }
+            _bucket = configuration["Supabase:Bucket"] ?? "Document";
         }
 
         public async Task<IReadOnlyList<DocumentDto>> GetDocumentsForUserAsync(Guid userId)
@@ -70,12 +91,27 @@ namespace BLL.Services
 
             try
             {
-                var folder = await _folderRepository.GetOrCreateDefaultUploadFolderAsync(uploadDto.UserId);
+                Guid folderId;
+                if (uploadDto.FolderId.HasValue && uploadDto.FolderId.Value != Guid.Empty)
+                {
+                    var folder = await _folderRepository.GetByIdWithOwnerAsync(uploadDto.FolderId.Value, uploadDto.UserId);
+                    if (folder == null)
+                    {
+                        return Result<DocumentDto>.Failure("Thư mục không tồn tại hoặc bạn không có quyền truy cập.");
+                    }
+                    folderId = folder.Id;
+                }
+                else
+                {
+                    var folder = await _folderRepository.GetOrCreateDefaultUploadFolderAsync(uploadDto.UserId);
+                    folderId = folder.Id;
+                }
+
                 var document = new Document
                 {
                     Id = Guid.NewGuid(),
                     UserId = uploadDto.UserId,
-                    FolderId = folder.Id,
+                    FolderId = folderId,
                     Title = Path.GetFileNameWithoutExtension(uploadDto.OriginalFileName),
                     OriginalFileName = Path.GetFileName(uploadDto.OriginalFileName),
                     StoredFileName = storedFileName,
@@ -94,7 +130,11 @@ namespace BLL.Services
 
                 // Enqueue the chunking job, followed by the embedding job
                 var chunkingJobId = _backgroundJobs.Enqueue<IChunkingService>(x => x.ProcessFileChunkingAsync(document.Id, CancellationToken.None));
-                _backgroundJobs.ContinueJobWith<IEmbeddingService>(chunkingJobId, x => x.ProcessEmbeddingsAsync(document.Id, CancellationToken.None));
+                var embeddingJobId = _backgroundJobs.ContinueJobWith<IEmbeddingService>(chunkingJobId, x => x.ProcessEmbeddingsAsync(document.Id, CancellationToken.None));
+
+                document.ChunkingJobId = chunkingJobId;
+                document.EmbeddingJobId = embeddingJobId;
+                await _documentRepository.UpdateAsync(document);
 
                 return Result<DocumentDto>.Success(MapDocument(document));
             }
@@ -121,6 +161,16 @@ namespace BLL.Services
                 if (document == null)
                 {
                     return Result.Failure("Document not found or access denied.");
+                }
+
+                // Delete Background Jobs if they are still queued or running
+                if (!string.IsNullOrEmpty(document.ChunkingJobId))
+                {
+                    _backgroundJobs.Delete(document.ChunkingJobId);
+                }
+                if (!string.IsNullOrEmpty(document.EmbeddingJobId))
+                {
+                    _backgroundJobs.Delete(document.EmbeddingJobId);
                 }
 
                 try
@@ -159,9 +209,24 @@ namespace BLL.Services
                     return Result.Failure("Document not found or access denied.");
                 }
 
-                // Enqueue the chunking job which will cascade to embedding
-                var chunkingJobId = _backgroundJobs.Enqueue<IChunkingService>(x => x.ProcessFileChunkingAsync(documentId, CancellationToken.None));
-                _backgroundJobs.ContinueJobWith<IEmbeddingService>(chunkingJobId, x => x.ProcessEmbeddingsAsync(documentId, CancellationToken.None));
+                bool hasChunks = await _documentChunkRepository.HasChunksAsync(documentId);
+                if (hasChunks)
+                {
+                    document.ProcessingStatus = DocumentProcessingStatus.Chunked;
+                    var embeddingJobId = _backgroundJobs.Enqueue<IEmbeddingService>(x => x.ProcessEmbeddingsAsync(documentId, CancellationToken.None));
+                    document.EmbeddingJobId = embeddingJobId;
+                }
+                else
+                {
+                    document.ProcessingStatus = DocumentProcessingStatus.Uploaded;
+                    var chunkingJobId = _backgroundJobs.Enqueue<IChunkingService>(x => x.ProcessFileChunkingAsync(documentId, CancellationToken.None));
+                    var embeddingJobId = _backgroundJobs.ContinueJobWith<IEmbeddingService>(chunkingJobId, x => x.ProcessEmbeddingsAsync(documentId, CancellationToken.None));
+                    
+                    document.ChunkingJobId = chunkingJobId;
+                    document.EmbeddingJobId = embeddingJobId;
+                }
+
+                await _documentRepository.UpdateAsync(document);
 
                 return Result.Success();
             }
@@ -204,7 +269,16 @@ namespace BLL.Services
             return string.IsNullOrWhiteSpace(contentType) ? "application/octet-stream" : contentType.Trim();
         }
 
-        private static DocumentDto MapDocument(Document document)
+        private string GetAbsoluteStorageUrl(string url)
+        {
+            if (string.IsNullOrEmpty(url)) return string.Empty;
+            if (url.StartsWith("http://") || url.StartsWith("https://"))
+                return url;
+
+            return $"{_supabaseUrl}/storage/v1/object/public/{_bucket}/{url.TrimStart('/')}";
+        }
+
+        private DocumentDto MapDocument(Document document)
         {
             return new DocumentDto
             {
@@ -215,7 +289,7 @@ namespace BLL.Services
                 OriginalFileName = document.OriginalFileName,
                 StoredFileName = document.StoredFileName,
                 StoragePath = document.StoragePath,
-                StorageUrl = document.StorageUrl,
+                StorageUrl = GetAbsoluteStorageUrl(document.StorageUrl),
                 MimeType = document.MimeType,
                 FileType = document.FileType,
                 FileSize = document.FileSize,

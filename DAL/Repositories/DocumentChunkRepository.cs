@@ -50,5 +50,10 @@ namespace DAL.Repositories
             _context.DocumentChunks.UpdateRange(chunks);
             await _context.SaveChangesAsync();
         }
+
+        public async Task<bool> HasChunksAsync(Guid documentId)
+        {
+            return await _context.DocumentChunks.AnyAsync(c => c.DocumentId == documentId);
+        }
     }
 }

@@ -8,7 +8,11 @@ namespace PL.Controllers
     {
         public IActionResult Index()
         {
-            return View();
+            if (User.Identity != null && User.Identity.IsAuthenticated)
+            {
+                return RedirectToAction("Subjects", "Drive");
+            }
+            return RedirectToAction("Login", "Auth");
         }
 
         public IActionResult Privacy()

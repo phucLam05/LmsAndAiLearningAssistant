@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -72,7 +73,10 @@ namespace BLL.Services
                 var chunksToProcess = chunks.Where(c => c.Embedding == null).ToList();
                 _logger.LogInformation("Found {TotalChunks} chunks, {PendingChunks} need embeddings.", chunks.Count, chunksToProcess.Count);
 
-                // 3. Process each chunk
+                // 3. Process each chunk in batches
+                const int batchSize = 10;
+                var batch = new List<DocumentChunk>();
+
                 foreach (var chunk in chunksToProcess)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
@@ -80,15 +84,22 @@ namespace BLL.Services
                     // Generate embedding vector using Gemini
                     var vectorArray = await _geminiProvider.GetEmbeddingAsync(chunk.Content, cancellationToken);
                     chunk.Embedding = new Vector(vectorArray);
+                    
+                    batch.Add(chunk);
+
+                    if (batch.Count >= batchSize)
+                    {
+                        await _documentChunkRepository.UpdateChunksAsync(batch);
+                        batch.Clear();
+                    }
                 }
 
-                // 4. Save updated chunks back to DB if any were processed
-                if (chunksToProcess.Any())
+                if (batch.Any())
                 {
-                    await _documentChunkRepository.UpdateChunksAsync(chunksToProcess);
+                    await _documentChunkRepository.UpdateChunksAsync(batch);
                 }
 
-                // 5. Update status to Indexed
+                // 4. Update status to Indexed
                 await _documentRepository.UpdateStatusAsync(documentId, DocumentProcessingStatus.Indexed);
                 _logger.LogInformation("Successfully completed embedding process for DocumentId: {DocumentId}", documentId);
                 
@@ -98,6 +109,7 @@ namespace BLL.Services
             {
                 _logger.LogError(ex, "Failed to process embeddings for DocumentId: {DocumentId}", documentId);
                 
+                _documentRepository.ClearTracker();
                 // If it fails, update status to Failed so the user can see it
                 await _documentRepository.UpdateStatusAsync(documentId, DocumentProcessingStatus.Failed);
                 return Result.Failure($"Embedding error: {ex.Message}");

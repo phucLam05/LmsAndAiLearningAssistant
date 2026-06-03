@@ -102,6 +102,16 @@ namespace Core.Entities
         /// Navigation to document chunks.
         /// </summary>
         public ICollection<DocumentChunk> Chunks { get; set; } = new List<DocumentChunk>();
+
+        /// <summary>
+        /// ID of the Hangfire job responsible for chunking this document.
+        /// </summary>
+        public string? ChunkingJobId { get; set; }
+
+        /// <summary>
+        /// ID of the Hangfire job responsible for embedding this document.
+        /// </summary>
+        public string? EmbeddingJobId { get; set; }
     }
 
     /// <summary>
