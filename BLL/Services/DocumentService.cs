@@ -4,22 +4,30 @@ using Core.DTOs.Common;
 using Core.DTOs.Documents;
 using Core.Entities;
 using DAL.Interfaces;
+using DAL.Data;
 using Hangfire;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Configuration;
+using Microsoft.EntityFrameworkCore;
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace BLL.Services
 {
     /// <summary>
-    /// Handles document upload business rules, Supabase storage coordination, metadata persistence, 
-    /// and enqueues background jobs for document chunking and embedding.
+    /// Coordinates document upload, storage in Supabase, and Hangfire background processing.
     /// </summary>
     public class DocumentService : IDocumentService
     {
         private readonly IDocumentRepository _documentRepository;
-        private readonly IFolderRepository _folderRepository;
         private readonly IDocumentChunkRepository _documentChunkRepository;
         private readonly ISupabaseStorageProvider _storageService;
+        private readonly ApplicationDbContext _dbContext;
         private readonly UploadOptions _uploadOptions;
         private readonly ILogger<DocumentService> _logger;
         private readonly IBackgroundJobClient _backgroundJobs;
@@ -28,18 +36,18 @@ namespace BLL.Services
 
         public DocumentService(
             IDocumentRepository documentRepository,
-            IFolderRepository folderRepository,
             IDocumentChunkRepository documentChunkRepository,
             ISupabaseStorageProvider storageService,
+            ApplicationDbContext dbContext,
             IOptions<UploadOptions> uploadOptions,
             ILogger<DocumentService> logger,
             IBackgroundJobClient backgroundJobs,
-            Microsoft.Extensions.Configuration.IConfiguration configuration)
+            IConfiguration configuration)
         {
             _documentRepository = documentRepository;
-            _folderRepository = folderRepository;
             _documentChunkRepository = documentChunkRepository;
             _storageService = storageService;
+            _dbContext = dbContext;
             _uploadOptions = uploadOptions.Value;
             _logger = logger;
             _backgroundJobs = backgroundJobs;
@@ -60,9 +68,9 @@ namespace BLL.Services
             _bucket = configuration["Supabase:Bucket"] ?? "Document";
         }
 
-        public async Task<IReadOnlyList<DocumentDto>> GetDocumentsForUserAsync(Guid userId)
+        public async Task<IReadOnlyList<DocumentDto>> GetDocumentsBySubjectIdAsync(Guid subjectId)
         {
-            var documents = await _documentRepository.GetByUserIdAsync(userId);
+            var documents = await _documentRepository.GetBySubjectIdAsync(subjectId);
             return documents.Select(MapDocument).ToList();
         }
 
@@ -74,9 +82,15 @@ namespace BLL.Services
                 return Result<DocumentDto>.Failure(validationError);
             }
 
-            var extension = Path.GetExtension(uploadDto.OriginalFileName).ToLowerInvariant();
+            var subject = await _dbContext.Subjects.FindAsync(uploadDto.SubjectId);
+            if (subject == null)
+            {
+                return Result<DocumentDto>.Failure("Subject does not exist.");
+            }
+
+            var extension = Path.GetExtension(uploadDto.FileName).ToLowerInvariant();
             var storedFileName = $"{Guid.NewGuid():N}{extension}";
-            var storagePath = BuildStoragePath(uploadDto.UserId, storedFileName);
+            var storagePath = BuildStoragePath(uploadDto.SubjectId, storedFileName);
             var now = DateTime.UtcNow;
 
             try
@@ -85,43 +99,20 @@ namespace BLL.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to upload file to storage for user {UserId}", uploadDto.UserId);
+                _logger.LogError(ex, "Failed to upload file to storage for subject {SubjectId}", uploadDto.SubjectId);
                 return Result<DocumentDto>.Failure($"Supabase upload error: {ex.Message}");
             }
 
             try
             {
-                Guid folderId;
-                if (uploadDto.FolderId.HasValue && uploadDto.FolderId.Value != Guid.Empty)
-                {
-                    var folder = await _folderRepository.GetByIdWithOwnerAsync(uploadDto.FolderId.Value, uploadDto.UserId);
-                    if (folder == null)
-                    {
-                        return Result<DocumentDto>.Failure("Thư mục không tồn tại hoặc bạn không có quyền truy cập.");
-                    }
-                    folderId = folder.Id;
-                }
-                else
-                {
-                    var folder = await _folderRepository.GetOrCreateDefaultUploadFolderAsync(uploadDto.UserId);
-                    folderId = folder.Id;
-                }
-
                 var document = new Document
                 {
                     Id = Guid.NewGuid(),
-                    UserId = uploadDto.UserId,
-                    FolderId = folderId,
-                    Title = Path.GetFileNameWithoutExtension(uploadDto.OriginalFileName),
-                    OriginalFileName = Path.GetFileName(uploadDto.OriginalFileName),
-                    StoredFileName = storedFileName,
-                    StoragePath = storagePath,
-                    StorageUrl = storagePath,
-                    MimeType = NormalizeContentType(uploadDto.ContentType),
-                    FileType = extension.TrimStart('.'),
-                    FileSize = uploadDto.FileSize,
-                    ProcessingStatus = DocumentProcessingStatus.Uploaded,
-                    UploadedAt = now,
+                    SubjectId = uploadDto.SubjectId,
+                    UploadedBy = uploadDto.UploadedBy,
+                    FileName = Path.GetFileName(uploadDto.FileName),
+                    FileUrl = storagePath,
+                    Status = DocumentStatus.Pending,
                     CreatedAt = now,
                     UpdatedAt = now
                 };
@@ -130,17 +121,13 @@ namespace BLL.Services
 
                 // Enqueue the chunking job, followed by the embedding job
                 var chunkingJobId = _backgroundJobs.Enqueue<IChunkingService>(x => x.ProcessFileChunkingAsync(document.Id, CancellationToken.None));
-                var embeddingJobId = _backgroundJobs.ContinueJobWith<IEmbeddingService>(chunkingJobId, x => x.ProcessEmbeddingsAsync(document.Id, CancellationToken.None));
-
-                document.ChunkingJobId = chunkingJobId;
-                document.EmbeddingJobId = embeddingJobId;
-                await _documentRepository.UpdateAsync(document);
+                _backgroundJobs.ContinueJobWith<IEmbeddingService>(chunkingJobId, x => x.ProcessEmbeddingsAsync(document.Id, CancellationToken.None));
 
                 return Result<DocumentDto>.Success(MapDocument(document));
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to save document metadata for user {UserId}", uploadDto.UserId);
+                _logger.LogError(ex, "Failed to save document metadata for subject {SubjectId}", uploadDto.SubjectId);
                 try
                 {
                     await _storageService.DeleteAsync(storagePath);
@@ -157,29 +144,31 @@ namespace BLL.Services
         {
             try
             {
-                var document = await _documentRepository.GetByIdForUserAsync(documentId, userId);
+                var document = await _documentRepository.GetByIdAsync(documentId);
                 if (document == null)
                 {
-                    return Result.Failure("Document not found or access denied.");
+                    return Result.Failure("Document not found.");
                 }
 
-                // Delete Background Jobs if they are still queued or running
-                if (!string.IsNullOrEmpty(document.ChunkingJobId))
+                var user = await _dbContext.Users.FindAsync(userId);
+                if (user == null)
                 {
-                    _backgroundJobs.Delete(document.ChunkingJobId);
+                    return Result.Failure("User not found.");
                 }
-                if (!string.IsNullOrEmpty(document.EmbeddingJobId))
+
+                // Admins can delete any document; Lecturers can only delete their own
+                if (user.Role != UserRole.Admin && document.UploadedBy != userId)
                 {
-                    _backgroundJobs.Delete(document.EmbeddingJobId);
+                    return Result.Failure("Access denied.");
                 }
 
                 try
                 {
-                    await _storageService.DeleteAsync(document.StoragePath);
+                    await _storageService.DeleteAsync(document.FileUrl);
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogWarning(ex, "Failed to delete file from Supabase storage. Path: {StoragePath}", document.StoragePath);
+                    _logger.LogWarning(ex, "Failed to delete file from Supabase storage. Path: {StoragePath}", document.FileUrl);
                 }
 
                 await _documentRepository.DeleteAsync(document);
@@ -192,42 +181,41 @@ namespace BLL.Services
             }
         }
 
-        /// <summary>
-        /// Restarts the processing pipeline (chunking and embedding) for a document.
-        /// Validates that the document belongs to the requesting user before processing.
-        /// </summary>
-        /// <param name="documentId">The ID of the document to retry.</param>
-        /// <param name="userId">The ID of the user requesting the retry.</param>
-        /// <returns>A Result indicating success or failure.</returns>
         public async Task<Result> RetryProcessingAsync(Guid documentId, Guid userId)
         {
             try
             {
-                var document = await _documentRepository.GetByIdForUserAsync(documentId, userId);
+                var document = await _documentRepository.GetByIdAsync(documentId);
                 if (document == null)
                 {
-                    return Result.Failure("Document not found or access denied.");
+                    return Result.Failure("Document not found.");
+                }
+
+                var user = await _dbContext.Users.FindAsync(userId);
+                if (user == null)
+                {
+                    return Result.Failure("User not found.");
+                }
+
+                if (user.Role != UserRole.Admin && document.UploadedBy != userId)
+                {
+                    return Result.Failure("Access denied.");
                 }
 
                 bool hasChunks = await _documentChunkRepository.HasChunksAsync(documentId);
                 if (hasChunks)
                 {
-                    document.ProcessingStatus = DocumentProcessingStatus.Chunked;
-                    var embeddingJobId = _backgroundJobs.Enqueue<IEmbeddingService>(x => x.ProcessEmbeddingsAsync(documentId, CancellationToken.None));
-                    document.EmbeddingJobId = embeddingJobId;
+                    document.Status = DocumentStatus.Processing;
+                    _backgroundJobs.Enqueue<IEmbeddingService>(x => x.ProcessEmbeddingsAsync(documentId, CancellationToken.None));
                 }
                 else
                 {
-                    document.ProcessingStatus = DocumentProcessingStatus.Uploaded;
+                    document.Status = DocumentStatus.Pending;
                     var chunkingJobId = _backgroundJobs.Enqueue<IChunkingService>(x => x.ProcessFileChunkingAsync(documentId, CancellationToken.None));
-                    var embeddingJobId = _backgroundJobs.ContinueJobWith<IEmbeddingService>(chunkingJobId, x => x.ProcessEmbeddingsAsync(documentId, CancellationToken.None));
-                    
-                    document.ChunkingJobId = chunkingJobId;
-                    document.EmbeddingJobId = embeddingJobId;
+                    _backgroundJobs.ContinueJobWith<IEmbeddingService>(chunkingJobId, x => x.ProcessEmbeddingsAsync(documentId, CancellationToken.None));
                 }
 
                 await _documentRepository.UpdateAsync(document);
-
                 return Result.Success();
             }
             catch (Exception ex)
@@ -239,12 +227,12 @@ namespace BLL.Services
 
         private string ValidateUpload(DocumentUploadDto uploadDto)
         {
-            if (uploadDto.UserId == Guid.Empty) return "User is not authenticated.";
+            if (uploadDto.UploadedBy == Guid.Empty) return "User is not authenticated.";
             if (uploadDto.Content == Stream.Null) return "Please choose a file.";
             if (uploadDto.FileSize <= 0) return "File is empty.";
             if (uploadDto.FileSize > _uploadOptions.MaxFileSize) return $"File exceeds the limit of {_uploadOptions.MaxFileSize / (1024 * 1024)}MB.";
 
-            var extension = Path.GetExtension(uploadDto.OriginalFileName);
+            var extension = Path.GetExtension(uploadDto.FileName);
             if (string.IsNullOrWhiteSpace(extension) || !_uploadOptions.AllowedMimeTypes.TryGetValue(extension, out var expectedMimeTypes))
             {
                 return "This file type is not allowed for upload.";
@@ -259,9 +247,9 @@ namespace BLL.Services
             return string.Empty;
         }
 
-        private static string BuildStoragePath(Guid userId, string storedFileName)
+        private static string BuildStoragePath(Guid subjectId, string storedFileName)
         {
-            return $"{userId:N}/{DateTime.UtcNow:yyyy/MM}/{storedFileName}";
+            return $"subject/{subjectId}/{storedFileName}";
         }
 
         private static string NormalizeContentType(string contentType)
@@ -283,20 +271,17 @@ namespace BLL.Services
             return new DocumentDto
             {
                 Id = document.Id,
-                UserId = document.UserId,
-                FolderId = document.FolderId,
-                Title = document.Title,
-                OriginalFileName = document.OriginalFileName,
-                StoredFileName = document.StoredFileName,
-                StoragePath = document.StoragePath,
-                StorageUrl = GetAbsoluteStorageUrl(document.StorageUrl),
-                MimeType = document.MimeType,
-                FileType = document.FileType,
-                FileSize = document.FileSize,
-                ProcessingStatus = (DocumentProcessingStatusDto)document.ProcessingStatus,
-                UploadedAt = document.UploadedAt,
+                SubjectId = document.SubjectId,
+                UploadedBy = document.UploadedBy,
+                FileName = document.FileName,
+                FileUrl = GetAbsoluteStorageUrl(document.FileUrl),
+                Status = document.Status,
                 CreatedAt = document.CreatedAt,
-                UpdatedAt = document.UpdatedAt
+                UpdatedAt = document.UpdatedAt,
+                UpdatedBy = document.UpdatedBy,
+                SubjectCode = document.Subject?.SubjectCode,
+                SubjectName = document.Subject?.Name,
+                UploaderName = document.Uploader?.FullName
             };
         }
     }

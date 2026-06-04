@@ -13,8 +13,11 @@ namespace BLL
             services.AddScoped<IChunkingService, ChunkingService>();
             services.AddScoped<IDocumentService, DocumentService>();
             services.AddScoped<IEmbeddingService, DocumentEmbeddingService>();
-            services.AddScoped<IDriveService, DriveService>();
+            services.AddScoped<ISubjectService, SubjectService>();
+            services.AddHttpClient<IChatService, ChatService>();
             services.AddScoped<IAdminService, AdminService>();
+            services.AddScoped<IEmailService, EmailService>();
+            services.AddScoped<IUserService, UserService>();
 
             // Document parsers
             services.AddScoped<IDocumentParser, PdfParser>();
