@@ -17,7 +17,7 @@ namespace BLL.Services
     public class DocumentService : IDocumentService
     {
         private readonly IDocumentRepository _documentRepository;
-        private readonly IFolderRepository _folderRepository;
+        private readonly ISubjectRepository _subjectRepository;
         private readonly IDocumentChunkRepository _documentChunkRepository;
         private readonly ISupabaseStorageProvider _storageService;
         private readonly UploadOptions _uploadOptions;
@@ -28,7 +28,7 @@ namespace BLL.Services
 
         public DocumentService(
             IDocumentRepository documentRepository,
-            IFolderRepository folderRepository,
+            ISubjectRepository subjectRepository,
             IDocumentChunkRepository documentChunkRepository,
             ISupabaseStorageProvider storageService,
             IOptions<UploadOptions> uploadOptions,
@@ -37,7 +37,7 @@ namespace BLL.Services
             Microsoft.Extensions.Configuration.IConfiguration configuration)
         {
             _documentRepository = documentRepository;
-            _folderRepository = folderRepository;
+            _subjectRepository = subjectRepository;
             _documentChunkRepository = documentChunkRepository;
             _storageService = storageService;
             _uploadOptions = uploadOptions.Value;
@@ -91,39 +91,28 @@ namespace BLL.Services
 
             try
             {
-                Guid folderId;
-                if (uploadDto.FolderId.HasValue && uploadDto.FolderId.Value != Guid.Empty)
+                var subject = await _subjectRepository.GetByIdAsync(uploadDto.SubjectId);
+                if (subject == null)
                 {
-                    var folder = await _folderRepository.GetByIdWithOwnerAsync(uploadDto.FolderId.Value, uploadDto.UserId);
-                    if (folder == null)
-                    {
-                        return Result<DocumentDto>.Failure("Thư mục không tồn tại hoặc bạn không có quyền truy cập.");
-                    }
-                    folderId = folder.Id;
+                    return Result<DocumentDto>.Failure("Môn học không tồn tại.");
                 }
-                else
+
+                if (subject.LecturerId != uploadDto.UserId)
                 {
-                    var folder = await _folderRepository.GetOrCreateDefaultUploadFolderAsync(uploadDto.UserId);
-                    folderId = folder.Id;
+                    return Result<DocumentDto>.Failure("Bạn không có quyền upload tài liệu cho môn học này.");
                 }
 
                 var document = new Document
                 {
                     Id = Guid.NewGuid(),
-                    UserId = uploadDto.UserId,
-                    FolderId = folderId,
-                    Title = Path.GetFileNameWithoutExtension(uploadDto.OriginalFileName),
-                    OriginalFileName = Path.GetFileName(uploadDto.OriginalFileName),
-                    StoredFileName = storedFileName,
-                    StoragePath = storagePath,
-                    StorageUrl = storagePath,
-                    MimeType = NormalizeContentType(uploadDto.ContentType),
-                    FileType = extension.TrimStart('.'),
-                    FileSize = uploadDto.FileSize,
-                    ProcessingStatus = DocumentProcessingStatus.Uploaded,
-                    UploadedAt = now,
+                    SubjectId = subject.Id,
+                    UploadedBy = uploadDto.UserId,
+                    FileName = Path.GetFileName(uploadDto.OriginalFileName),
+                    FileUrl = storagePath,
+                    Status = DocumentStatus.Pending,
                     CreatedAt = now,
-                    UpdatedAt = now
+                    UpdatedAt = now,
+                    UpdatedBy = uploadDto.UserId
                 };
 
                 await _documentRepository.AddAsync(document);
@@ -132,10 +121,8 @@ namespace BLL.Services
                 var chunkingJobId = _backgroundJobs.Enqueue<IChunkingService>(x => x.ProcessFileChunkingAsync(document.Id, CancellationToken.None));
                 var embeddingJobId = _backgroundJobs.ContinueJobWith<IEmbeddingService>(chunkingJobId, x => x.ProcessEmbeddingsAsync(document.Id, CancellationToken.None));
 
-                document.ChunkingJobId = chunkingJobId;
-                document.EmbeddingJobId = embeddingJobId;
-                await _documentRepository.UpdateAsync(document);
-
+                // Normally we would save the JobIds if the entity supported it, but we can just fire-and-forget for now.
+                
                 return Result<DocumentDto>.Success(MapDocument(document));
             }
             catch (Exception ex)
@@ -163,23 +150,13 @@ namespace BLL.Services
                     return Result.Failure("Document not found or access denied.");
                 }
 
-                // Delete Background Jobs if they are still queued or running
-                if (!string.IsNullOrEmpty(document.ChunkingJobId))
-                {
-                    _backgroundJobs.Delete(document.ChunkingJobId);
-                }
-                if (!string.IsNullOrEmpty(document.EmbeddingJobId))
-                {
-                    _backgroundJobs.Delete(document.EmbeddingJobId);
-                }
-
                 try
                 {
-                    await _storageService.DeleteAsync(document.StoragePath);
+                    await _storageService.DeleteAsync(document.FileUrl);
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogWarning(ex, "Failed to delete file from Supabase storage. Path: {StoragePath}", document.StoragePath);
+                    _logger.LogWarning(ex, "Failed to delete file from Supabase storage. Path: {StoragePath}", document.FileUrl);
                 }
 
                 await _documentRepository.DeleteAsync(document);
@@ -212,18 +189,14 @@ namespace BLL.Services
                 bool hasChunks = await _documentChunkRepository.HasChunksAsync(documentId);
                 if (hasChunks)
                 {
-                    document.ProcessingStatus = DocumentProcessingStatus.Chunked;
+                    document.Status = DocumentStatus.Processing;
                     var embeddingJobId = _backgroundJobs.Enqueue<IEmbeddingService>(x => x.ProcessEmbeddingsAsync(documentId, CancellationToken.None));
-                    document.EmbeddingJobId = embeddingJobId;
                 }
                 else
                 {
-                    document.ProcessingStatus = DocumentProcessingStatus.Uploaded;
+                    document.Status = DocumentStatus.Pending;
                     var chunkingJobId = _backgroundJobs.Enqueue<IChunkingService>(x => x.ProcessFileChunkingAsync(documentId, CancellationToken.None));
                     var embeddingJobId = _backgroundJobs.ContinueJobWith<IEmbeddingService>(chunkingJobId, x => x.ProcessEmbeddingsAsync(documentId, CancellationToken.None));
-                    
-                    document.ChunkingJobId = chunkingJobId;
-                    document.EmbeddingJobId = embeddingJobId;
                 }
 
                 await _documentRepository.UpdateAsync(document);
@@ -283,18 +256,18 @@ namespace BLL.Services
             return new DocumentDto
             {
                 Id = document.Id,
-                UserId = document.UserId,
-                FolderId = document.FolderId,
-                Title = document.Title,
-                OriginalFileName = document.OriginalFileName,
-                StoredFileName = document.StoredFileName,
-                StoragePath = document.StoragePath,
-                StorageUrl = GetAbsoluteStorageUrl(document.StorageUrl),
-                MimeType = document.MimeType,
-                FileType = document.FileType,
-                FileSize = document.FileSize,
-                ProcessingStatus = (DocumentProcessingStatusDto)document.ProcessingStatus,
-                UploadedAt = document.UploadedAt,
+                UserId = document.UploadedBy ?? Guid.Empty,
+                FolderId = document.SubjectId ?? Guid.Empty, // DocumentDto.FolderId is Guid
+                Title = document.FileName,
+                OriginalFileName = document.FileName,
+                StoredFileName = document.FileName,
+                StoragePath = document.FileUrl,
+                StorageUrl = GetAbsoluteStorageUrl(document.FileUrl),
+                MimeType = "application/octet-stream",
+                FileType = Path.GetExtension(document.FileName),
+                FileSize = 0, // Not stored anymore
+                ProcessingStatus = (DocumentProcessingStatusDto)document.Status,
+                UploadedAt = document.CreatedAt,
                 CreatedAt = document.CreatedAt,
                 UpdatedAt = document.UpdatedAt
             };

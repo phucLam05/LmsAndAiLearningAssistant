@@ -10,7 +10,7 @@ namespace Core.DTOs.Documents
     {
         public Guid UserId { get; set; }
 
-        public Guid? FolderId { get; set; }
+        public Guid SubjectId { get; set; }
 
         public string OriginalFileName { get; set; } = string.Empty;
 

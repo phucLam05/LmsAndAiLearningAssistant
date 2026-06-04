@@ -1,6 +1,6 @@
 using BLL.Interfaces;
 using BLL.Services;
-using BLL.Strategies.DocumentParsing;
+
 using Microsoft.Extensions.DependencyInjection;
 
 namespace BLL
@@ -13,14 +13,8 @@ namespace BLL
             services.AddScoped<IChunkingService, ChunkingService>();
             services.AddScoped<IDocumentService, DocumentService>();
             services.AddScoped<IEmbeddingService, DocumentEmbeddingService>();
-            services.AddScoped<IDriveService, DriveService>();
+            // services.AddScoped<IDriveService, DriveService>();
             services.AddScoped<IAdminService, AdminService>();
-
-            // Document parsers
-            services.AddScoped<IDocumentParser, PdfParser>();
-            services.AddScoped<IDocumentParser, WordParser>();
-            services.AddScoped<IDocumentParser, PowerPointParser>();
-            services.AddScoped<IDocumentParser, FallbackTextParser>();
 
             return services;
         }

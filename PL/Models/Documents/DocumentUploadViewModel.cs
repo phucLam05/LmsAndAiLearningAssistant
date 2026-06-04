@@ -8,6 +8,10 @@ namespace PL.Models.Documents
     public class DocumentUploadViewModel
     {
         [Required]
+        [Display(Name = "Subject ID")]
+        public Guid SubjectId { get; set; }
+
+        [Required]
         [Display(Name = "File")]
         public IFormFile? File { get; set; }
     }

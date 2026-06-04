@@ -17,7 +17,8 @@ namespace DAL
 
             services.AddScoped<IUserRepository, UserRepository>();
             services.AddScoped<IDocumentRepository, DocumentRepository>();
-            services.AddScoped<IFolderRepository, FolderRepository>();
+            services.AddScoped<ISubjectRepository, SubjectRepository>();
+            // services.AddScoped<IFolderRepository, FolderRepository>();
             services.AddScoped<IDocumentChunkRepository, DocumentChunkRepository>();
 
             services.AddHttpClient<ISupabaseStorageProvider, SupabaseStorageProvider>();

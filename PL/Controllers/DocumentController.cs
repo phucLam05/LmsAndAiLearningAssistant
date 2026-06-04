@@ -76,6 +76,7 @@ namespace PL.Controllers
             var uploadDto = new DocumentUploadDto
             {
                 UserId = userId.Value,
+                SubjectId = model.SubjectId,
                 OriginalFileName = model.File.FileName,
                 ContentType = model.File.ContentType,
                 FileSize = model.File.Length,

@@ -1,15 +1,10 @@
-using System;
-using System.Collections.Generic;
-using System.Threading;
-using System.Threading.Tasks;
+#pragma warning disable SKEXP0050, KMEXP00
 using BLL.Interfaces;
-using BLL.Strategies.DocumentParsing;
 using Core.DTOs.Common;
 using Core.Entities;
 using DAL.Interfaces;
 using Microsoft.Extensions.Logging;
-using System.IO;
-using System.Linq;
+using Microsoft.SemanticKernel.Text;
 
 namespace BLL.Services
 {
@@ -22,7 +17,6 @@ namespace BLL.Services
         private readonly IDocumentChunkRepository _documentChunkRepository;
         private readonly ILogger<ChunkingService> _logger;
         private readonly ISupabaseStorageProvider _storageProvider;
-        private readonly IEnumerable<IDocumentParser> _parsers;
 
         /// <summary>
         /// Initializes a new instance of the ChunkingService.
@@ -36,14 +30,12 @@ namespace BLL.Services
             IDocumentRepository documentRepository,
             IDocumentChunkRepository documentChunkRepository,
             ILogger<ChunkingService> logger, 
-            ISupabaseStorageProvider storageProvider,
-            IEnumerable<IDocumentParser> parsers)
+            ISupabaseStorageProvider storageProvider)
         {
             _documentRepository = documentRepository;
             _documentChunkRepository = documentChunkRepository;
             _logger = logger;
             _storageProvider = storageProvider;
-            _parsers = parsers;
         }
 
         /// <summary>
@@ -65,15 +57,15 @@ namespace BLL.Services
                     return Result.Failure($"Document {documentId} not found.");
                 }
 
-                // Resumption logic: If already chunked, skip to return Success so Hangfire continues to Embedding.
-                if (document.ProcessingStatus >= DocumentProcessingStatus.Chunked)
+                // Resumption logic: If already processing or success, skip to return Success so Hangfire continues to Embedding.
+                if (document.Status >= DocumentStatus.Processing)
                 {
-                    _logger.LogInformation("Document {DocumentId} is already at status {Status}. Skipping chunking.", documentId, document.ProcessingStatus);
+                    _logger.LogInformation("Document {DocumentId} is already at status {Status}. Skipping chunking.", documentId, document.Status);
                     return Result.Success();
                 }
 
-                // Update status to Chunking
-                await _documentRepository.UpdateStatusAsync(documentId, DocumentProcessingStatus.Chunking);
+                // Update status to Processing
+                await _documentRepository.UpdateStatusAsync(documentId, DocumentStatus.Processing);
 
                 // Download and extract text
                 string content = await ReadFileContentAsync(document, cancellationToken);
@@ -81,12 +73,12 @@ namespace BLL.Services
                 if (string.IsNullOrWhiteSpace(content))
                 {
                     _logger.LogWarning("No content extracted from document {DocumentId}. Skipping chunk creation.", documentId);
-                    await _documentRepository.UpdateStatusAsync(documentId, DocumentProcessingStatus.Chunked);
+                    // It will remain Processing for Embedding phase, which will handle empty chunks.
                     return Result.Success();
                 }
 
                 // Chunk the text
-                var chunks = ChunkText(content, chunkSize: 500, overlap: 50, documentId).ToList();
+                var chunks = ChunkText(content, chunkSize: 500, overlap: 50, document.Id, document.SubjectId).ToList();
 
                 if (chunks.Any())
                 {
@@ -94,8 +86,7 @@ namespace BLL.Services
                     _logger.LogInformation("Successfully inserted {ChunkCount} chunks for document {DocumentId}", chunks.Count, documentId);
                 }
 
-                // Update status to Chunked
-                await _documentRepository.UpdateStatusAsync(documentId, DocumentProcessingStatus.Chunked);
+                // Status remains Processing for Embedding.
                 
                 return Result.Success();
             }
@@ -103,7 +94,7 @@ namespace BLL.Services
             {
                 _logger.LogError(ex, "An error occurred while chunking document {DocumentId}", documentId);
                 _documentRepository.ClearTracker();
-                await _documentRepository.UpdateStatusAsync(documentId, DocumentProcessingStatus.Failed);
+                await _documentRepository.UpdateStatusAsync(documentId, DocumentStatus.Failed);
                 return Result.Failure($"Chunking error: {ex.Message}");
             }
         }
@@ -118,25 +109,34 @@ namespace BLL.Services
         {
             try
             {
-                _logger.LogInformation("Downloading file from Supabase Path: {StoragePath}", document.StoragePath);
+                _logger.LogInformation("Downloading file from Supabase Path: {StoragePath}", document.FileUrl);
                 
-                using var stream = await _storageProvider.DownloadAsync(document.StoragePath, cancellationToken);
-                string extension = Path.GetExtension(document.OriginalFileName).ToLowerInvariant();
+                using var stream = await _storageProvider.DownloadAsync(document.FileUrl, cancellationToken);
+                string extension = Path.GetExtension(document.FileName).ToLowerInvariant();
 
-                // Select the first parser that can handle this extension (FallbackTextParser should be registered last)
-                var parser = _parsers.FirstOrDefault(p => p.CanParse(extension));
-                if (parser == null)
+                Microsoft.KernelMemory.DataFormats.IContentDecoder decoder = extension switch
                 {
-                    throw new InvalidOperationException($"No parser found for extension: {extension}");
-                }
+                    ".pdf" => new Microsoft.KernelMemory.DataFormats.Pdf.PdfDecoder(),
+                    ".md" => new Microsoft.KernelMemory.DataFormats.Text.MarkDownDecoder(),
+                    _ => new Microsoft.KernelMemory.DataFormats.Text.TextDecoder()
+                };
 
-                _logger.LogInformation("Extracting text using {ParserName}", parser.GetType().Name);
-                return await parser.ParseAsync(stream, cancellationToken);
+                _logger.LogInformation("Extracting text using Kernel Memory Decoder: {DecoderName}", decoder.GetType().Name);
+                
+                var fileContent = await decoder.DecodeAsync(stream, cancellationToken);
+                
+                var sb = new System.Text.StringBuilder();
+                foreach (var section in fileContent.Sections)
+                {
+                    sb.AppendLine(section.Content);
+                }
+                
+                return sb.ToString();
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to read file from Supabase Path: {StoragePath}", document.StoragePath);
-                throw new InvalidOperationException($"Could not read file from storage: {document.StoragePath}", ex);
+                _logger.LogError(ex, "Failed to read file from Supabase Path: {StoragePath}", document.FileUrl);
+                throw new InvalidOperationException($"Could not read file from storage: {document.FileUrl}", ex);
             }
         }
 
@@ -147,44 +147,29 @@ namespace BLL.Services
         /// <param name="chunkSize">The maximum size of each chunk.</param>
         /// <param name="overlap">The size of the overlap between consecutive chunks.</param>
         /// <param name="documentId">The ID of the document being chunked.</param>
+        /// <param name="subjectId">The Subject ID for RAG filtering.</param>
         /// <returns>An enumerable of DocumentChunk entities.</returns>
-        private IEnumerable<DocumentChunk> ChunkText(string text, int chunkSize, int overlap, Guid documentId)
+        private IEnumerable<DocumentChunk> ChunkText(string text, int chunkSize, int overlap, Guid documentId, Guid? subjectId)
         {
             if (string.IsNullOrEmpty(text)) yield break;
 
-            int step = chunkSize - overlap;
+            // Use Semantic Kernel's TextChunker for semantic chunking
+            // It splits by lines first to preserve sentence boundaries, then by paragraphs
+            var lines = TextChunker.SplitPlainTextLines(text, maxTokensPerLine: 100);
+            var paragraphs = TextChunker.SplitPlainTextParagraphs(lines, maxTokensPerParagraph: chunkSize, overlapTokens: overlap);
+
             int index = 0;
-
-            for (int i = 0; i < text.Length; i += step)
+            foreach (var p in paragraphs)
             {
-                // Adjust starting position if it lands on a low surrogate
-                if (i > 0 && i < text.Length && char.IsLowSurrogate(text[i]))
-                {
-                    i--;
-                }
-
-                int length = Math.Min(chunkSize, text.Length - i);
-                
-                // Adjust ending position if it ends on a high surrogate
-                if (char.IsHighSurrogate(text[i + length - 1]))
-                {
-                    if (i + length < text.Length)
-                        length++;
-                    else
-                        length--; // Handle invalid string edge case
-                }
-
                 yield return new DocumentChunk
                 {
                     Id = Guid.NewGuid(),
                     DocumentId = documentId,
+                    SubjectId = subjectId,
                     ChunkIndex = index++,
-                    Content = text.Substring(i, length),
-                    TokenCount = length, // Simplistic token count
+                    Content = p,
                     CreatedAt = DateTime.UtcNow
                 };
-                
-                if (i + chunkSize >= text.Length) break;
             }
         }
     }

@@ -30,7 +30,7 @@ namespace DAL.Repositories
         {
             return await _context.Documents
                 .AsNoTracking()
-                .Where(document => document.UserId == userId)
+                .Where(document => document.UploadedBy == userId)
                 .OrderByDescending(document => document.CreatedAt)
                 .ToListAsync();
         }
@@ -38,7 +38,7 @@ namespace DAL.Repositories
         public async Task<Document?> GetByIdForUserAsync(Guid documentId, Guid userId)
         {
             return await _context.Documents
-                .FirstOrDefaultAsync(document => document.Id == documentId && document.UserId == userId);
+                .FirstOrDefaultAsync(document => document.Id == documentId && document.UploadedBy == userId);
         }
 
         /// <summary>
@@ -70,13 +70,12 @@ namespace DAL.Repositories
         /// <param name="id">The unique identifier of the document.</param>
         /// <param name="status">The new processing status.</param>
         /// <returns>A task that represents the asynchronous operation.</returns>
-        public async Task UpdateStatusAsync(Guid id, DocumentProcessingStatus status)
+        public async Task UpdateStatusAsync(Guid id, DocumentStatus status)
         {
             var document = await _context.Documents.FindAsync(id);
             if (document != null)
             {
-                document.ProcessingStatus = status;
-                document.UpdatedAt = DateTime.UtcNow;
+                document.Status = status;
                 await _context.SaveChangesAsync();
             }
         }
@@ -84,7 +83,7 @@ namespace DAL.Repositories
         public async Task<Document?> GetByIdWithOwnerAsync(Guid id, Guid userId)
         {
             return await _context.Documents
-                .FirstOrDefaultAsync(d => d.Id == id && d.UserId == userId);
+                .FirstOrDefaultAsync(d => d.Id == id && d.UploadedBy == userId);
         }
 
         /// <summary>
@@ -92,12 +91,14 @@ namespace DAL.Repositories
         /// </summary>
         public async Task<System.Collections.Generic.List<Document>> GetAllWithOwnerAsync(Guid userId)
         {
-            return await _context.Documents
-                .Include(d => d.Folder)
-                .ThenInclude(f => f.ParentFolder)
-                .Where(d => d.UserId == userId)
-                .OrderByDescending(d => d.UploadedAt)
-                .ToListAsync();
+            // Commenting out as requested, since Folder is gone
+            // return await _context.Documents
+            //     .Include(d => d.Folder)
+            //     .ThenInclude(f => f.ParentFolder)
+            //     .Where(d => d.UserId == userId)
+            //     .OrderByDescending(d => d.UploadedAt)
+            //     .ToListAsync();
+            return new List<Document>();
         }
 
         /// <summary>
@@ -105,7 +106,6 @@ namespace DAL.Repositories
         /// </summary>
         public async Task UpdateAsync(Document document)
         {
-            document.UpdatedAt = DateTime.UtcNow;
             _context.Documents.Update(document);
             await _context.SaveChangesAsync();
         }

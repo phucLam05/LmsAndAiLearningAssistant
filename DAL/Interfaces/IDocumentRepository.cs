@@ -52,7 +52,7 @@ namespace DAL.Interfaces
         /// <param name="id">The unique identifier of the document.</param>
         /// <param name="status">The new processing status.</param>
         /// <returns>A task that represents the asynchronous operation.</returns>
-        Task UpdateStatusAsync(Guid id, DocumentProcessingStatus status);
+        Task UpdateStatusAsync(Guid id, DocumentStatus status);
 
         /// <summary>
         /// Retrieves a specific document by its ID and owner ID.

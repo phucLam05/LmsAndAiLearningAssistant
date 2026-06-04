@@ -49,23 +49,22 @@ namespace BLL.Services
                 }
 
                 // If chunking failed, or it's already indexed, we should skip embedding.
-                if (document.ProcessingStatus == DocumentProcessingStatus.Failed || 
-                    document.ProcessingStatus == DocumentProcessingStatus.Indexed ||
-                    document.ProcessingStatus < DocumentProcessingStatus.Chunked)
+                if (document.Status == DocumentStatus.Failed || 
+                    document.Status == DocumentStatus.Success)
                 {
-                    _logger.LogWarning("Document {DocumentId} is at status {Status}. Skipping embedding.", documentId, document.ProcessingStatus);
+                    _logger.LogWarning("Document {DocumentId} is at status {Status}. Skipping embedding.", documentId, document.Status);
                     return Result.Success();
                 }
 
-                // Update status to Embedding
-                await _documentRepository.UpdateStatusAsync(documentId, DocumentProcessingStatus.Embedding);
+                // Status should be Processing now.
+                // We don't need to change it, it's already Processing from ChunkingService.
 
                 // 2. Fetch chunks
                 var chunks = await _documentChunkRepository.GetChunksByDocumentIdAsync(documentId);
                 if (chunks == null || !chunks.Any())
                 {
-                    _logger.LogWarning("No chunks found for DocumentId: {DocumentId}. Marking as Indexed anyway.", documentId);
-                    await _documentRepository.UpdateStatusAsync(documentId, DocumentProcessingStatus.Indexed);
+                    _logger.LogWarning("No chunks found for DocumentId: {DocumentId}. Marking as Success anyway.", documentId);
+                    await _documentRepository.UpdateStatusAsync(documentId, DocumentStatus.Success);
                     return Result.Success();
                 }
 
@@ -99,8 +98,8 @@ namespace BLL.Services
                     await _documentChunkRepository.UpdateChunksAsync(batch);
                 }
 
-                // 4. Update status to Indexed
-                await _documentRepository.UpdateStatusAsync(documentId, DocumentProcessingStatus.Indexed);
+                // 4. Update status to Success
+                await _documentRepository.UpdateStatusAsync(documentId, DocumentStatus.Success);
                 _logger.LogInformation("Successfully completed embedding process for DocumentId: {DocumentId}", documentId);
                 
                 return Result.Success();
@@ -111,7 +110,7 @@ namespace BLL.Services
                 
                 _documentRepository.ClearTracker();
                 // If it fails, update status to Failed so the user can see it
-                await _documentRepository.UpdateStatusAsync(documentId, DocumentProcessingStatus.Failed);
+                await _documentRepository.UpdateStatusAsync(documentId, DocumentStatus.Failed);
                 return Result.Failure($"Embedding error: {ex.Message}");
             }
         }
