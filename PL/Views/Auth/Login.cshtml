@@ -21,10 +21,13 @@
     <form asp-action="Login" method="post" class="space-y-4">
         <input type="hidden" name="returnUrl" value="@ViewData["ReturnUrl"]" />
         
-        <div asp-validation-summary="ModelOnly" class="bg-error-container/20 border border-error-container/40 text-error p-3 rounded-xl text-body-md flex items-start gap-2">
-            <span class="material-symbols-outlined text-[20px]">error</span>
-            <span>Sai thông tin đăng nhập. Vui lòng kiểm tra lại.</span>
-        </div>
+        @if (!ViewData.ModelState.IsValid)
+        {
+            <div asp-validation-summary="ModelOnly" class="bg-error-container/20 border border-error-container/40 text-error p-3 rounded-xl text-body-md flex items-start gap-2">
+                <span class="material-symbols-outlined text-[20px]">error</span>
+                <span>Sai thông tin đăng nhập. Vui lòng kiểm tra lại.</span>
+            </div>
+        }
 
         <div class="space-y-1">
             <label asp-for="Email" class="block text-label-md font-bold text-on-surface-variant">Địa chỉ Email</label>
@@ -50,9 +53,6 @@
         </button>
     </form>
 
-    <div class="border-t border-outline-variant/30 mt-6 pt-6 text-center text-body-md text-outline">
-        Chưa có tài khoản? <a asp-action="Register" class="text-primary hover:underline font-semibold ml-1">Đăng ký ngay</a>
-    </div>
 </div>
 
 @section Scripts {

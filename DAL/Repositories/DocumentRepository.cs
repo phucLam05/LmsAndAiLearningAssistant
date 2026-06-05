@@ -11,41 +11,43 @@ namespace DAL.Repositories
 {
     /// <summary>
     /// EF Core implementation for storing and querying uploaded document metadata.
-    /// Implementation of the IDocumentRepository for PostgreSQL database interactions.
     /// </summary>
     public class DocumentRepository : IDocumentRepository
     {
         private readonly ApplicationDbContext _context;
 
-        /// <summary>
-        /// Initializes a new instance of the DocumentRepository.
-        /// </summary>
-        /// <param name="context">The application database context.</param>
         public DocumentRepository(ApplicationDbContext context)
         {
             _context = context;
         }
 
-        public async Task<IReadOnlyList<Document>> GetByUserIdAsync(Guid userId)
+        public async Task<IReadOnlyList<Document>> GetBySubjectIdAsync(Guid subjectId)
         {
             return await _context.Documents
                 .AsNoTracking()
-                .Where(document => document.UploadedBy == userId)
-                .OrderByDescending(document => document.CreatedAt)
+                .Include(d => d.Subject)
+                .Include(d => d.Uploader)
+                .Where(d => d.SubjectId == subjectId)
+                .OrderByDescending(d => d.CreatedAt)
+                .ToListAsync();
+        }
+
+        public async Task<IReadOnlyList<Document>> GetByUploadedByAsync(Guid userId)
+        {
+            return await _context.Documents
+                .AsNoTracking()
+                .Include(d => d.Subject)
+                .Where(d => d.UploadedBy == userId)
+                .OrderByDescending(d => d.CreatedAt)
                 .ToListAsync();
         }
 
         public async Task<Document?> GetByIdForUserAsync(Guid documentId, Guid userId)
         {
             return await _context.Documents
-                .FirstOrDefaultAsync(document => document.Id == documentId && document.UploadedBy == userId);
+                .FirstOrDefaultAsync(d => d.Id == documentId && d.UploadedBy == userId);
         }
 
-        /// <summary>
-        /// Retrieves a document by its unique identifier.
-        /// </summary>
-        /// <param name="id">The unique identifier of the document.</param>
-        /// <returns>The Document if found; otherwise, null.</returns>
         public async Task<Document?> GetByIdAsync(Guid id)
         {
             return await _context.Documents.FindAsync(id);
@@ -76,29 +78,9 @@ namespace DAL.Repositories
             if (document != null)
             {
                 document.Status = status;
+                document.UpdatedAt = DateTime.UtcNow;
                 await _context.SaveChangesAsync();
             }
-        }
-
-        public async Task<Document?> GetByIdWithOwnerAsync(Guid id, Guid userId)
-        {
-            return await _context.Documents
-                .FirstOrDefaultAsync(d => d.Id == id && d.UploadedBy == userId);
-        }
-
-        /// <summary>
-        /// Retrieves all documents belonging to the specified user, including their folder and parent folder details.
-        /// </summary>
-        public async Task<System.Collections.Generic.List<Document>> GetAllWithOwnerAsync(Guid userId)
-        {
-            // Commenting out as requested, since Folder is gone
-            // return await _context.Documents
-            //     .Include(d => d.Folder)
-            //     .ThenInclude(f => f.ParentFolder)
-            //     .Where(d => d.UserId == userId)
-            //     .OrderByDescending(d => d.UploadedAt)
-            //     .ToListAsync();
-            return new List<Document>();
         }
 
         /// <summary>

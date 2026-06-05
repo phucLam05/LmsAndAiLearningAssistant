@@ -1,65 +1,43 @@
 using BLL.Interfaces;
 using Core.DTOs.Auth;
+using Core.Entities;
+using DAL.Data;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Mvc;
 using PL.Models.Auth;
+using System;
+using System.Collections.Generic;
 using System.Security.Claims;
+using System.Threading.Tasks;
 
 namespace PL.Controllers
 {
     /// <summary>
-    /// Controller responsible for handling user authentication (Registration, Login, Logout).
-    /// Acts as an intermediary between the views and the Business Access Layer (BAL).
+    /// Controller responsible for handling user authentication (Login, Logout, First-time password change).
     /// </summary>
     public class AuthController : Controller
     {
         private readonly IAuthService _authService;
+        private readonly ApplicationDbContext _dbContext;
 
-        public AuthController(IAuthService authService)
+        public AuthController(IAuthService authService, ApplicationDbContext dbContext)
         {
             _authService = authService;
+            _dbContext = dbContext;
         }
 
         [HttpGet]
         public IActionResult Register()
         {
-            // If already logged in, redirect to Drive
-            if (User.Identity != null && User.Identity.IsAuthenticated)
-            {
-                return RedirectToAction("Subjects", "Drive");
-            }
-            return View();
+            return NotFound();
         }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Register(RegisterViewModel model)
+        public IActionResult Register(RegisterViewModel model)
         {
-            if (!ModelState.IsValid)
-            {
-                return View(model);
-            }
-
-            var registerDto = new RegisterDto
-            {
-                Email = model.Email,
-                Password = model.Password,
-                ConfirmPassword = model.ConfirmPassword,
-                FullName = model.FullName
-            };
-
-            var (success, errorMessage) = await _authService.RegisterAsync(registerDto);
-
-            if (!success)
-            {
-                ModelState.AddModelError(string.Empty, errorMessage);
-                return View(model);
-            }
-
-            // On success, redirect to login page with a success message
-            TempData["SuccessMessage"] = "Registration successful! Please login.";
-            return RedirectToAction(nameof(Login));
+            return NotFound();
         }
 
         [HttpGet]
@@ -67,7 +45,7 @@ namespace PL.Controllers
         {
             if (User.Identity != null && User.Identity.IsAuthenticated)
             {
-                return RedirectToAction("Subjects", "Drive");
+                return RedirectToAction("Index", "Subject");
             }
             
             ViewData["ReturnUrl"] = returnUrl;
@@ -97,6 +75,12 @@ namespace PL.Controllers
                 return View(model);
             }
 
+            // Check if user is inactive (0) which indicates mandatory password change
+            if (user.Status == UserStatus.Inactive)
+            {
+                return RedirectToAction(nameof(ChangePassword), new { userId = user.Id, email = model.Email });
+            }
+
             // Create security claims
             var claims = new List<Claim>
             {
@@ -110,11 +94,10 @@ namespace PL.Controllers
 
             var authProperties = new AuthenticationProperties
             {
-                IsPersistent = true, // Keep the user logged in across browser sessions
+                IsPersistent = true,
                 ExpiresUtc = DateTimeOffset.UtcNow.AddDays(7)
             };
 
-            // Sign in the user using Cookie Authentication
             await HttpContext.SignInAsync(
                 CookieAuthenticationDefaults.AuthenticationScheme, 
                 new ClaimsPrincipal(claimsIdentity), 
@@ -125,7 +108,62 @@ namespace PL.Controllers
                 return Redirect(returnUrl);
             }
 
-            return RedirectToAction("Subjects", "Drive");
+            return RedirectToAction("Index", "Subject");
+        }
+
+        [HttpGet]
+        public IActionResult ChangePassword(Guid userId, string email)
+        {
+            if (userId == Guid.Empty || string.IsNullOrEmpty(email))
+            {
+                return RedirectToAction(nameof(Login));
+            }
+
+            ViewBag.Email = email;
+            return View(new FirstTimeChangePasswordDto { UserId = userId });
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ChangePassword(FirstTimeChangePasswordDto model, string email)
+        {
+            if (!ModelState.IsValid)
+            {
+                ViewBag.Email = email;
+                return View(model);
+            }
+
+            var result = await _authService.ActivateAccountAsync(model.UserId, model.TemporaryPassword, model.NewPassword);
+            if (!result.IsSuccess)
+            {
+                ModelState.AddModelError(string.Empty, result.ErrorMessage);
+                ViewBag.Email = email;
+                return View(model);
+            }
+
+            var user = await _dbContext.Users.FindAsync(model.UserId);
+            if (user == null)
+            {
+                return RedirectToAction(nameof(Login));
+            }
+
+            // Sign in immediately after successful activation
+            var claims = new List<Claim>
+            {
+                new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
+                new Claim(ClaimTypes.Name, user.FullName),
+                new Claim(ClaimTypes.Email, email),
+                new Claim(ClaimTypes.Role, user.Role.ToString())
+            };
+
+            var claimsIdentity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
+
+            await HttpContext.SignInAsync(
+                CookieAuthenticationDefaults.AuthenticationScheme, 
+                new ClaimsPrincipal(claimsIdentity));
+
+            TempData["SuccessMessage"] = "Account activated and password changed successfully.";
+            return RedirectToAction("Index", "Subject");
         }
 
         [HttpPost]

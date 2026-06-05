@@ -4,15 +4,23 @@ using Core.DTOs.Common;
 using Core.DTOs.Documents;
 using Core.Entities;
 using DAL.Interfaces;
+using DAL.Data;
 using Hangfire;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Configuration;
+using Microsoft.EntityFrameworkCore;
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace BLL.Services
 {
     /// <summary>
-    /// Handles document upload business rules, Supabase storage coordination, metadata persistence, 
-    /// and enqueues background jobs for document chunking and embedding.
+    /// Coordinates document upload, storage in Supabase, and Hangfire background processing.
     /// </summary>
     public class DocumentService : IDocumentService
     {
@@ -20,6 +28,7 @@ namespace BLL.Services
         private readonly ISubjectRepository _subjectRepository;
         private readonly IDocumentChunkRepository _documentChunkRepository;
         private readonly ISupabaseStorageProvider _storageService;
+        private readonly ApplicationDbContext _dbContext;
         private readonly UploadOptions _uploadOptions;
         private readonly ILogger<DocumentService> _logger;
         private readonly IBackgroundJobClient _backgroundJobs;
@@ -31,15 +40,17 @@ namespace BLL.Services
             ISubjectRepository subjectRepository,
             IDocumentChunkRepository documentChunkRepository,
             ISupabaseStorageProvider storageService,
+            ApplicationDbContext dbContext,
             IOptions<UploadOptions> uploadOptions,
             ILogger<DocumentService> logger,
             IBackgroundJobClient backgroundJobs,
-            Microsoft.Extensions.Configuration.IConfiguration configuration)
+            IConfiguration configuration)
         {
             _documentRepository = documentRepository;
             _subjectRepository = subjectRepository;
             _documentChunkRepository = documentChunkRepository;
             _storageService = storageService;
+            _dbContext = dbContext;
             _uploadOptions = uploadOptions.Value;
             _logger = logger;
             _backgroundJobs = backgroundJobs;
@@ -60,9 +71,9 @@ namespace BLL.Services
             _bucket = configuration["Supabase:Bucket"] ?? "Document";
         }
 
-        public async Task<IReadOnlyList<DocumentDto>> GetDocumentsForUserAsync(Guid userId)
+        public async Task<IReadOnlyList<DocumentDto>> GetDocumentsBySubjectIdAsync(Guid subjectId)
         {
-            var documents = await _documentRepository.GetByUserIdAsync(userId);
+            var documents = await _documentRepository.GetBySubjectIdAsync(subjectId);
             return documents.Select(MapDocument).ToList();
         }
 
@@ -74,9 +85,15 @@ namespace BLL.Services
                 return Result<DocumentDto>.Failure(validationError);
             }
 
-            var extension = Path.GetExtension(uploadDto.OriginalFileName).ToLowerInvariant();
+            var subject = await _dbContext.Subjects.FindAsync(uploadDto.SubjectId);
+            if (subject == null)
+            {
+                return Result<DocumentDto>.Failure("Subject does not exist.");
+            }
+
+            var extension = Path.GetExtension(uploadDto.FileName).ToLowerInvariant();
             var storedFileName = $"{Guid.NewGuid():N}{extension}";
-            var storagePath = BuildStoragePath(uploadDto.UserId, storedFileName);
+            var storagePath = BuildStoragePath(uploadDto.SubjectId, storedFileName);
             var now = DateTime.UtcNow;
 
             try
@@ -85,19 +102,13 @@ namespace BLL.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to upload file to storage for user {UserId}", uploadDto.UserId);
+                _logger.LogError(ex, "Failed to upload file to storage for subject {SubjectId}", uploadDto.SubjectId);
                 return Result<DocumentDto>.Failure($"Supabase upload error: {ex.Message}");
             }
 
             try
             {
-                var subject = await _subjectRepository.GetByIdAsync(uploadDto.SubjectId);
-                if (subject == null)
-                {
-                    return Result<DocumentDto>.Failure("Môn học không tồn tại.");
-                }
-
-                if (subject.LecturerId != uploadDto.UserId)
+                if (subject.LecturerId != uploadDto.UploadedBy)
                 {
                     return Result<DocumentDto>.Failure("Bạn không có quyền upload tài liệu cho môn học này.");
                 }
@@ -106,13 +117,13 @@ namespace BLL.Services
                 {
                     Id = Guid.NewGuid(),
                     SubjectId = subject.Id,
-                    UploadedBy = uploadDto.UserId,
-                    FileName = Path.GetFileName(uploadDto.OriginalFileName),
+                    UploadedBy = uploadDto.UploadedBy,
+                    FileName = Path.GetFileName(uploadDto.FileName),
                     FileUrl = storagePath,
                     Status = DocumentStatus.Pending,
                     CreatedAt = now,
                     UpdatedAt = now,
-                    UpdatedBy = uploadDto.UserId
+                    UpdatedBy = uploadDto.UploadedBy
                 };
 
                 await _documentRepository.AddAsync(document);
@@ -127,7 +138,7 @@ namespace BLL.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to save document metadata for user {UserId}", uploadDto.UserId);
+                _logger.LogError(ex, "Failed to save document metadata for subject {SubjectId}", uploadDto.SubjectId);
                 try
                 {
                     await _storageService.DeleteAsync(storagePath);
@@ -144,10 +155,22 @@ namespace BLL.Services
         {
             try
             {
-                var document = await _documentRepository.GetByIdForUserAsync(documentId, userId);
+                var document = await _documentRepository.GetByIdAsync(documentId);
                 if (document == null)
                 {
-                    return Result.Failure("Document not found or access denied.");
+                    return Result.Failure("Document not found.");
+                }
+
+                var user = await _dbContext.Users.FindAsync(userId);
+                if (user == null)
+                {
+                    return Result.Failure("User not found.");
+                }
+
+                // Admins can delete any document; Lecturers can only delete their own
+                if (user.Role != UserRole.Admin && document.UploadedBy != userId)
+                {
+                    return Result.Failure("Access denied.");
                 }
 
                 try
@@ -169,21 +192,25 @@ namespace BLL.Services
             }
         }
 
-        /// <summary>
-        /// Restarts the processing pipeline (chunking and embedding) for a document.
-        /// Validates that the document belongs to the requesting user before processing.
-        /// </summary>
-        /// <param name="documentId">The ID of the document to retry.</param>
-        /// <param name="userId">The ID of the user requesting the retry.</param>
-        /// <returns>A Result indicating success or failure.</returns>
         public async Task<Result> RetryProcessingAsync(Guid documentId, Guid userId)
         {
             try
             {
-                var document = await _documentRepository.GetByIdForUserAsync(documentId, userId);
+                var document = await _documentRepository.GetByIdAsync(documentId);
                 if (document == null)
                 {
-                    return Result.Failure("Document not found or access denied.");
+                    return Result.Failure("Document not found.");
+                }
+
+                var user = await _dbContext.Users.FindAsync(userId);
+                if (user == null)
+                {
+                    return Result.Failure("User not found.");
+                }
+
+                if (user.Role != UserRole.Admin && document.UploadedBy != userId)
+                {
+                    return Result.Failure("Access denied.");
                 }
 
                 bool hasChunks = await _documentChunkRepository.HasChunksAsync(documentId);
@@ -200,7 +227,6 @@ namespace BLL.Services
                 }
 
                 await _documentRepository.UpdateAsync(document);
-
                 return Result.Success();
             }
             catch (Exception ex)
@@ -212,12 +238,12 @@ namespace BLL.Services
 
         private string ValidateUpload(DocumentUploadDto uploadDto)
         {
-            if (uploadDto.UserId == Guid.Empty) return "User is not authenticated.";
+            if (uploadDto.UploadedBy == Guid.Empty) return "User is not authenticated.";
             if (uploadDto.Content == Stream.Null) return "Please choose a file.";
             if (uploadDto.FileSize <= 0) return "File is empty.";
             if (uploadDto.FileSize > _uploadOptions.MaxFileSize) return $"File exceeds the limit of {_uploadOptions.MaxFileSize / (1024 * 1024)}MB.";
 
-            var extension = Path.GetExtension(uploadDto.OriginalFileName);
+            var extension = Path.GetExtension(uploadDto.FileName);
             if (string.IsNullOrWhiteSpace(extension) || !_uploadOptions.AllowedMimeTypes.TryGetValue(extension, out var expectedMimeTypes))
             {
                 return "This file type is not allowed for upload.";
@@ -232,9 +258,9 @@ namespace BLL.Services
             return string.Empty;
         }
 
-        private static string BuildStoragePath(Guid userId, string storedFileName)
+        private static string BuildStoragePath(Guid subjectId, string storedFileName)
         {
-            return $"{userId:N}/{DateTime.UtcNow:yyyy/MM}/{storedFileName}";
+            return $"subject/{subjectId}/{storedFileName}";
         }
 
         private static string NormalizeContentType(string contentType)
@@ -256,20 +282,17 @@ namespace BLL.Services
             return new DocumentDto
             {
                 Id = document.Id,
-                UserId = document.UploadedBy ?? Guid.Empty,
-                FolderId = document.SubjectId ?? Guid.Empty, // DocumentDto.FolderId is Guid
-                Title = document.FileName,
-                OriginalFileName = document.FileName,
-                StoredFileName = document.FileName,
-                StoragePath = document.FileUrl,
-                StorageUrl = GetAbsoluteStorageUrl(document.FileUrl),
-                MimeType = "application/octet-stream",
-                FileType = Path.GetExtension(document.FileName),
-                FileSize = 0, // Not stored anymore
-                ProcessingStatus = (DocumentProcessingStatusDto)document.Status,
-                UploadedAt = document.CreatedAt,
+                SubjectId = document.SubjectId,
+                UploadedBy = document.UploadedBy,
+                FileName = document.FileName,
+                FileUrl = GetAbsoluteStorageUrl(document.FileUrl),
+                Status = document.Status,
                 CreatedAt = document.CreatedAt,
-                UpdatedAt = document.UpdatedAt
+                UpdatedAt = document.UpdatedAt,
+                UpdatedBy = document.UpdatedBy,
+                SubjectCode = document.Subject?.SubjectCode,
+                SubjectName = document.Subject?.Name,
+                UploaderName = document.Uploader?.FullName
             };
         }
     }

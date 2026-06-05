@@ -10,7 +10,7 @@ namespace PL.Controllers
         {
             if (User.Identity != null && User.Identity.IsAuthenticated)
             {
-                return RedirectToAction("Subjects", "Drive");
+                return RedirectToAction("Index", "Subject");
             }
             return RedirectToAction("Login", "Auth");
         }

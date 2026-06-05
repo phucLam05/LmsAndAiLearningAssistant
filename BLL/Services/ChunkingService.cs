@@ -9,7 +9,7 @@ using Microsoft.SemanticKernel.Text;
 namespace BLL.Services
 {
     /// <summary>
-    /// Implementation of IChunkingService that reads document text and chunks it for further processing.
+    /// Reads document text and chunks it, saving to PostgreSQL.
     /// </summary>
     public class ChunkingService : IChunkingService
     {
@@ -18,14 +18,6 @@ namespace BLL.Services
         private readonly ILogger<ChunkingService> _logger;
         private readonly ISupabaseStorageProvider _storageProvider;
 
-        /// <summary>
-        /// Initializes a new instance of the ChunkingService.
-        /// </summary>
-        /// <param name="documentRepository">The data access repository for documents.</param>
-        /// <param name="documentChunkRepository">The data access repository for chunks.</param>
-        /// <param name="logger">The logger instance.</param>
-        /// <param name="storageProvider">Provider for downloading files from Supabase.</param>
-        /// <param name="parsers">Collection of document parsers injected via DI.</param>
         public ChunkingService(
             IDocumentRepository documentRepository,
             IDocumentChunkRepository documentChunkRepository,
@@ -38,12 +30,6 @@ namespace BLL.Services
             _storageProvider = storageProvider;
         }
 
-        /// <summary>
-        /// Processes a file associated with the given document ID, chunking it into smaller text pieces.
-        /// </summary>
-        /// <param name="documentId">The unique identifier of the document.</param>
-        /// <param name="cancellationToken">Token to monitor for cancellation requests.</param>
-        /// <returns>A task that represents the asynchronous operation.</returns>
         public async Task<Result> ProcessFileChunkingAsync(Guid documentId, CancellationToken cancellationToken)
         {
             try
@@ -99,12 +85,6 @@ namespace BLL.Services
             }
         }
 
-        /// <summary>
-        /// Reads the file content from Supabase storage and extracts text based on file format.
-        /// </summary>
-        /// <param name="document">The document entity containing URL and original file name.</param>
-        /// <param name="cancellationToken">Token to monitor for cancellation requests.</param>
-        /// <returns>The extracted text content of the file.</returns>
         private async Task<string> ReadFileContentAsync(Document document, CancellationToken cancellationToken)
         {
             try

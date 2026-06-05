@@ -13,8 +13,7 @@ using Pgvector;
 namespace BLL.Services
 {
     /// <summary>
-    /// Business logic service that orchestrates generating vector embeddings for document chunks
-    /// and persisting them to the database.
+    /// Service that generates vector embeddings for chunks of text and saves them to the DB.
     /// </summary>
     public class DocumentEmbeddingService : IEmbeddingService
     {
@@ -41,7 +40,6 @@ namespace BLL.Services
             {
                 _logger.LogInformation("Starting embedding process for DocumentId: {DocumentId}", documentId);
 
-                // Fetch document status first
                 var document = await _documentRepository.GetByIdAsync(documentId);
                 if (document == null)
                 {
@@ -59,7 +57,7 @@ namespace BLL.Services
                 // Status should be Processing now.
                 // We don't need to change it, it's already Processing from ChunkingService.
 
-                // 2. Fetch chunks
+                // Fetch chunks
                 var chunks = await _documentChunkRepository.GetChunksByDocumentIdAsync(documentId);
                 if (chunks == null || !chunks.Any())
                 {
@@ -68,11 +66,9 @@ namespace BLL.Services
                     return Result.Success();
                 }
 
-                // Resumption logic: only process chunks that don't have embeddings yet
                 var chunksToProcess = chunks.Where(c => c.Embedding == null).ToList();
                 _logger.LogInformation("Found {TotalChunks} chunks, {PendingChunks} need embeddings.", chunks.Count, chunksToProcess.Count);
 
-                // 3. Process each chunk in batches
                 const int batchSize = 10;
                 var batch = new List<DocumentChunk>();
 
@@ -80,7 +76,6 @@ namespace BLL.Services
                 {
                     cancellationToken.ThrowIfCancellationRequested();
 
-                    // Generate embedding vector using Gemini
                     var vectorArray = await _geminiProvider.GetEmbeddingAsync(chunk.Content, cancellationToken);
                     chunk.Embedding = new Vector(vectorArray);
                     

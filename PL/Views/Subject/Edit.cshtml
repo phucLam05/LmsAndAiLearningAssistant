@@ -1,0 +1,61 @@
+@model Core.Entities.Subject
+@using Core.Entities
+@{
+    ViewData["Title"] = "Edit Subject";
+}
+
+<div class="container py-4" style="max-width: 600px;">
+    <div class="mb-4">
+        <a asp-action="Index" class="btn btn-sm btn-outline-secondary">&larr; Back to Subjects</a>
+    </div>
+
+    <div class="card shadow-sm border-0" style="border-radius: 16px;">
+        <div class="card-body p-4">
+            <h2 class="fw-bold mb-3" style="color: #1a1f36;">Edit Subject</h2>
+            <p class="text-muted mb-4">Modify course subject details or re-assign the lecturer.</p>
+
+            <form asp-action="Edit" method="post">
+                @Html.AntiForgeryToken()
+                <input type="hidden" asp-for="Id" />
+                <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+                <div class="mb-3">
+                    <label asp-for="SubjectCode" class="form-label fw-semibold">Subject Code</label>
+                    <input type="text" name="subjectCode" id="SubjectCode" asp-for="SubjectCode" class="form-control" placeholder="e.g., PRN222" required />
+                    <span asp-validation-for="SubjectCode" class="text-danger"></span>
+                </div>
+
+                <div class="mb-3">
+                    <label asp-for="Name" class="form-label fw-semibold">Subject Name</label>
+                    <input type="text" name="name" id="Name" asp-for="Name" class="form-control" placeholder="e.g., Web Application Development" required />
+                    <span asp-validation-for="Name" class="text-danger"></span>
+                </div>
+
+                <div class="mb-3">
+                    <label asp-for="Description" class="form-label fw-semibold">Description</label>
+                    <textarea name="description" id="Description" asp-for="Description" rows="3" class="form-control" placeholder="Brief details about the subject..."></textarea>
+                    <span asp-validation-for="Description" class="text-danger"></span>
+                </div>
+
+                <div class="mb-3">
+                    <label for="lecturerId" class="form-label fw-semibold">Assign Lecturer</label>
+                    <select name="lecturerId" id="lecturerId" class="form-select" asp-items="ViewBag.Lecturers">
+                        <option value="">-- Choose Lecturer (Optional) --</option>
+                    </select>
+                </div>
+
+                <div class="mb-4">
+                    <label asp-for="Status" class="form-label fw-semibold">Status</label>
+                    <select name="status" id="Status" asp-for="Status" class="form-select">
+                        <option value="@SubjectStatus.Active">Active</option>
+                        <option value="@SubjectStatus.Inactive">Inactive</option>
+                    </select>
+                </div>
+
+                <button type="submit" class="btn btn-primary w-100 py-2.5 fw-semibold" style="border-radius: 10px; background-color: #4f46e5; border-color: #4f46e5;">
+                    Save Changes
+                </button>
+            </form>
+        </div>
+    </div>
+</div>

@@ -3,60 +3,25 @@ using Core.DTOs.Documents;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using PL.Models.Documents;
+using System;
 using System.Security.Claims;
+using System.Threading.Tasks;
 
 namespace PL.Controllers
 {
     /// <summary>
-    /// Handles MVC requests for listing, uploading, retrying, and deleting the current user's files.
+    /// Handles document mutation endpoints (upload, delete, retry) within a Subject context.
     /// </summary>
     [Authorize]
     public class DocumentController : Controller
     {
         private readonly IDocumentService _documentService;
 
-        /// <summary>
-        /// Creates a document controller that delegates upload and metadata behavior to the BLL service.
-        /// Background chunking is now handled within the BLL.
-        /// </summary>
         public DocumentController(IDocumentService documentService)
         {
             _documentService = documentService;
         }
 
-        /// <summary>
-        /// Shows only the current user's uploaded files.
-        /// </summary>
-        [HttpGet]
-        public async Task<IActionResult> Index()
-        {
-            var userId = GetCurrentUserId();
-            if (userId == null)
-            {
-                return Challenge();
-            }
-
-            var model = new DocumentIndexViewModel
-            {
-                Documents = await _documentService.GetDocumentsForUserAsync(userId.Value)
-            };
-
-            return View(model);
-        }
-
-        /// <summary>
-        /// Shows the upload form.
-        /// </summary>
-        [HttpGet]
-        public IActionResult Upload()
-        {
-            return View(new DocumentUploadViewModel());
-        }
-
-        /// <summary>
-        /// Receives the uploaded file and passes its stream to the BLL service for validation and storage.
-        /// If successful, enqueues a background job for chunking the file.
-        /// </summary>
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Upload(DocumentUploadViewModel model)
@@ -69,37 +34,37 @@ namespace PL.Controllers
 
             if (!ModelState.IsValid || model.File == null)
             {
-                return View(model);
+                TempData["ErrorMessage"] = "Invalid file or form submission.";
+                return RedirectToAction("Details", "Subject", new { id = model.SubjectId });
             }
 
             await using var stream = model.File.OpenReadStream();
             var uploadDto = new DocumentUploadDto
             {
-                UserId = userId.Value,
+                UploadedBy = userId.Value,
                 SubjectId = model.SubjectId,
-                OriginalFileName = model.File.FileName,
+                FileName = model.File.FileName,
                 ContentType = model.File.ContentType,
                 FileSize = model.File.Length,
                 Content = stream
             };
 
             var result = await _documentService.UploadAsync(uploadDto);
-            if (!result.IsSuccess || result.Data == null)
+            if (!result.IsSuccess)
             {
-                ModelState.AddModelError(string.Empty, result.ErrorMessage);
-                return View(model);
+                TempData["ErrorMessage"] = result.ErrorMessage;
+            }
+            else
+            {
+                TempData["SuccessMessage"] = "File uploaded successfully and AI indexing started.";
             }
 
-            TempData["SuccessMessage"] = "File uploaded successfully and chunking started.";
-            return RedirectToAction(nameof(Index));
+            return RedirectToAction("Details", "Subject", new { id = model.SubjectId });
         }
 
-        /// <summary>
-        /// Deletes a file only when the metadata record belongs to the current user.
-        /// </summary>
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Delete(Guid id)
+        public async Task<IActionResult> Delete(Guid id, Guid subjectId)
         {
             var userId = GetCurrentUserId();
             if (userId == null)
@@ -111,23 +76,19 @@ namespace PL.Controllers
 
             if (result.IsSuccess)
             {
-                TempData["SuccessMessage"] = "File deleted successfully.";
+                TempData["SuccessMessage"] = "Document deleted successfully.";
             }
             else
             {
                 TempData["ErrorMessage"] = result.ErrorMessage;
             }
 
-            return RedirectToAction(nameof(Index));
+            return RedirectToAction("Details", "Subject", new { id = subjectId });
         }
 
-        /// <summary>
-        /// Restarts the processing pipeline (chunking and embedding) for a document.
-        /// Useful if the document ended up in a Failed state.
-        /// </summary>
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> RetryProcessing(Guid id)
+        public async Task<IActionResult> RetryProcessing(Guid id, Guid subjectId)
         {
             var userId = GetCurrentUserId();
             if (userId == null)
@@ -138,18 +99,16 @@ namespace PL.Controllers
             var result = await _documentService.RetryProcessingAsync(id, userId.Value);
             if (result.IsSuccess)
             {
-                TempData["SuccessMessage"] = "Document processing restarted successfully.";
+                TempData["SuccessMessage"] = "AI processing restarted successfully.";
             }
             else
             {
                 TempData["ErrorMessage"] = result.ErrorMessage;
             }
-            return RedirectToAction(nameof(Index));
+
+            return RedirectToAction("Details", "Subject", new { id = subjectId });
         }
 
-        /// <summary>
-        /// Reads the authenticated user's Guid from the auth cookie claim.
-        /// </summary>
         private Guid? GetCurrentUserId()
         {
             var value = User.FindFirstValue(ClaimTypes.NameIdentifier);
