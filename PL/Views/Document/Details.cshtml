@@ -1,0 +1,80 @@
+@model Core.DTOs.Documents.DocumentDto
+@using Core.DTOs.Documents
+@{
+    ViewData["Title"] = "Document Details";
+    var chunks = ViewBag.Chunks as IReadOnlyList<DocumentChunkDto> ?? new List<DocumentChunkDto>();
+}
+
+<div class="container py-4">
+    <div class="mb-4 d-flex justify-content-between align-items-center">
+        <a asp-controller="Subject" asp-action="Details" asp-route-id="@Model.SubjectId" class="btn btn-sm btn-outline-secondary">&larr; Back to Subject</a>
+        <a asp-action="ViewOriginal" asp-route-id="@Model.Id" target="_blank" class="btn btn-primary">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-file-earmark-arrow-down me-2" viewBox="0 0 16 16">
+              <path d="M8.5 6.5a.5.5 0 0 0-1 0v3.793L6.354 9.146a.5.5 0 1 0-.708.708l2 2a.5.5 0 0 0 .708 0l2-2a.5.5 0 0 0-.708-.708L8.5 10.293V6.5z"/>
+              <path d="M14 14V4.5L9.5 0H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2zM9.5 3A1.5 1.5 0 0 0 11 4.5h2V14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h5.5v2z"/>
+            </svg>
+            View Original File
+        </a>
+    </div>
+
+    <div class="card shadow-sm border-0 mb-4" style="border-radius: 12px;">
+        <div class="card-body p-4">
+            <h3 class="fw-bold mb-4" style="color: #1e293b;">@Model.FileName</h3>
+            
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <div class="text-muted small fw-semibold text-uppercase">Subject</div>
+                    <div class="fw-medium">@Model.SubjectCode - @Model.SubjectName</div>
+                </div>
+                <div class="col-md-3">
+                    <div class="text-muted small fw-semibold text-uppercase">Uploaded By</div>
+                    <div class="fw-medium">@Model.UploaderName</div>
+                </div>
+                <div class="col-md-3">
+                    <div class="text-muted small fw-semibold text-uppercase">Uploaded At</div>
+                    <div class="fw-medium">@Model.CreatedAt.ToLocalTime().ToString("g")</div>
+                </div>
+                <div class="col-md-3">
+                    <div class="text-muted small fw-semibold text-uppercase">AI Status</div>
+                    <div class="fw-medium">
+                        <span class="badge bg-@(Model.Status.ToString() == "Success" ? "success" : Model.Status.ToString() == "Failed" ? "danger" : "warning")">
+                            @Model.Status.ToString()
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <h4 class="fw-bold mb-3" style="color: #0f172a;">Document Chunks (@chunks.Count)</h4>
+    <p class="text-muted mb-4">These text chunks are used by the AI to answer student questions.</p>
+
+    @if (!chunks.Any())
+    {
+        <div class="alert alert-info border-0 shadow-sm" role="alert">
+            No chunks generated yet. If the document is still processing, please wait a moment.
+        </div>
+    }
+    else
+    {
+        <div class="row g-4">
+            @foreach (var chunk in chunks.OrderBy(c => c.ChunkIndex))
+            {
+                <div class="col-12">
+                    <div class="card border-0 shadow-sm" style="border-radius: 10px;">
+                        <div class="card-header bg-light border-0 py-3 d-flex justify-content-between align-items-center" style="border-top-left-radius: 10px; border-top-right-radius: 10px;">
+                            <span class="fw-bold" style="color: #475569;">Chunk #@chunk.ChunkIndex</span>
+                            <div>
+                                <span class="badge bg-secondary me-2">Page @(chunk.PageNumber?.ToString() ?? "N/A")</span>
+                                <span class="badge bg-info text-dark">@chunk.TokenCount Tokens</span>
+                            </div>
+                        </div>
+                        <div class="card-body p-4">
+                            <pre class="mb-0" style="white-space: pre-wrap; font-family: inherit; color: #334155; font-size: 0.95rem;">@chunk.Content</pre>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>

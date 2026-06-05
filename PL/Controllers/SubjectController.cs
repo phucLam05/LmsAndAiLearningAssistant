@@ -173,14 +173,16 @@ namespace PL.Controllers
         {
             var lecturerId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
             var subjects = await _subjectService.GetSubjectsByLecturerAsync(lecturerId);
-            return View(subjects);
+            ViewBag.UserRole = GetUserRole();
+            return View("Index", subjects);
         }
 
         [Authorize(Roles = "Student")]
         public async Task<IActionResult> Browse()
         {
             var subjects = await _subjectService.GetActiveSubjectsAsync();
-            return View(subjects);
+            ViewBag.UserRole = GetUserRole();
+            return View("Index", subjects);
         }
 
         public async Task<IActionResult> Details(Guid id)

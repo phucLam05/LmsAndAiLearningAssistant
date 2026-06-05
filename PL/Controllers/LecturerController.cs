@@ -158,18 +158,6 @@ namespace PL.Controllers
             return Json(new { success = true });
         }
 
-        [HttpGet]
-        public async Task<IActionResult> ViewOriginal(Guid id)
-        {
-            return NotFound("ViewOriginal is temporarily disabled until full document fetching is added to IDocumentService.");
-        }
-
-        [HttpGet]
-        public async Task<IActionResult> DocumentDetails(Guid id)
-        {
-            return NotFound("DocumentDetails is temporarily disabled until GetDocumentByIdAsync is added to IDocumentService.");
-        }
-
         private Guid? GetCurrentUserId()
         {
             var value = User.FindFirstValue(ClaimTypes.NameIdentifier);

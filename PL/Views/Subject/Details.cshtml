@@ -148,7 +148,7 @@
                             <tr class="document-row">
                                 <td>
                                     <div class="fw-bold text-dark text-truncate" style="max-width: 320px;">
-                                        <a href="@doc.FileUrl" target="_blank" class="text-decoration-none text-dark hover:text-primary">
+                                        <a asp-controller="Document" asp-action="Details" asp-route-id="@doc.Id" class="text-decoration-none text-dark hover:text-primary">
                                             @doc.FileName
                                         </a>
                                     </div>

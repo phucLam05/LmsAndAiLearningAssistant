@@ -176,13 +176,13 @@
                                         <td>@doc.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
                                         <td class="text-end">
                                             <div class="d-flex justify-content-end gap-2 align-items-center">
-                                                <a class="btn btn-sm btn-outline-secondary px-2.5 py-1.5" asp-action="ViewOriginal" asp-route-id="@doc.Id" target="_blank" title="View original file from Supabase">
+                                                <a class="btn btn-sm btn-outline-secondary px-2.5 py-1.5" asp-controller="Document" asp-action="ViewOriginal" asp-route-id="@doc.Id" target="_blank" title="View original file from Supabase">
                                                     <i class="bi bi-file-earmark-arrow-down"></i> Original
                                                 </a>
                                                 
                                                 @if (doc.Status == "Success")
                                                 {
-                                                    <a class="btn btn-sm btn-outline-primary px-2.5 py-1.5" asp-action="DocumentDetails" asp-route-id="@doc.Id" title="View text chunks and vector embeddings">
+                                                    <a class="btn btn-sm btn-outline-primary px-2.5 py-1.5" asp-controller="Document" asp-action="Details" asp-route-id="@doc.Id" title="View text chunks and vector embeddings">
                                                         <i class="bi bi-bezier2"></i> Chunks
                                                     </a>
                                                 }
@@ -360,7 +360,7 @@
                 <td>${dateStr}</td>
                 <td class="text-end">
                     <div class="d-flex justify-content-end gap-2 align-items-center">
-                        <a class="btn btn-sm btn-outline-secondary px-2.5 py-1.5" href="/Lecturer/ViewOriginal/${doc.id}" target="_blank" title="View original file from Supabase">
+                        <a class="btn btn-sm btn-outline-secondary px-2.5 py-1.5" href="/Document/ViewOriginal/${doc.id}" target="_blank" title="View original file from Supabase">
                             <i class="bi bi-file-earmark-arrow-down"></i> Original
                         </a>
                         <button class="btn btn-sm btn-outline-primary px-2.5 py-1.5 btn-chunks-inspect" disabled title="Chunks will be viewable when processing completes" data-id="${doc.id}">
@@ -405,10 +405,10 @@
                         const actionsDiv = tr.querySelector('.text-end div');
                         if (actionsDiv) {
                             actionsDiv.innerHTML = `
-                                <a class="btn btn-sm btn-outline-secondary px-2.5 py-1.5" href="/Lecturer/ViewOriginal/${docId}" target="_blank" title="View original file from Supabase">
+                                <a class="btn btn-sm btn-outline-secondary px-2.5 py-1.5" href="/Document/ViewOriginal/${docId}" target="_blank" title="View original file from Supabase">
                                     <i class="bi bi-file-earmark-arrow-down"></i> Original
                                 </a>
-                                <a class="btn btn-sm btn-outline-primary px-2.5 py-1.5 animate-pulse" href="/Lecturer/DocumentDetails/${docId}" title="View text chunks and vector embeddings">
+                                <a class="btn btn-sm btn-outline-primary px-2.5 py-1.5 animate-pulse" href="/Document/Details/${docId}" title="View text chunks and vector embeddings">
                                     <i class="bi bi-bezier2"></i> Chunks
                                 </a>
                             `;

@@ -77,6 +77,60 @@ namespace BLL.Services
             return documents.Select(MapDocument).ToList();
         }
 
+        public async Task<DocumentDto?> GetDocumentByIdAsync(Guid documentId)
+        {
+            var document = await _documentRepository.GetByIdAsync(documentId);
+            return document != null ? MapDocument(document) : null;
+        }
+
+        public async Task<string?> GetSignedDocumentUrlAsync(Guid documentId)
+        {
+            var document = await _documentRepository.GetByIdAsync(documentId);
+            if (document == null) return null;
+            return await _storageService.GetSignedUrlAsync(document.FileUrl);
+        }
+
+        public async Task<(Stream Stream, string ContentType, string FileName)?> DownloadDocumentAsync(Guid documentId)
+        {
+            var document = await _documentRepository.GetByIdAsync(documentId);
+            if (document == null) return null;
+
+            var stream = await _storageService.DownloadAsync(document.FileUrl, CancellationToken.None);
+            
+            // Basic content type resolution
+            var ext = Path.GetExtension(document.FileName).ToLowerInvariant();
+            var contentType = ext switch
+            {
+                ".pdf" => "application/pdf",
+                ".docx" => "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                ".doc" => "application/msword",
+                ".pptx" => "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                ".ppt" => "application/vnd.ms-powerpoint",
+                ".xlsx" => "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                ".xls" => "application/vnd.ms-excel",
+                ".txt" => "text/plain",
+                _ => "application/octet-stream"
+            };
+
+            return (stream, contentType, document.FileName);
+        }
+
+        public async Task<IReadOnlyList<DocumentChunkDto>> GetDocumentChunksAsync(Guid documentId)
+        {
+            var chunks = await _documentChunkRepository.GetChunksByDocumentIdAsync(documentId);
+            return chunks.Select(c => new DocumentChunkDto
+            {
+                Id = c.Id,
+                DocumentId = c.DocumentId ?? Guid.Empty,
+                ChunkIndex = c.ChunkIndex,
+                Content = c.Content,
+                TokenCount = c.TokenCount,
+                PageNumber = c.PageNumber,
+                // Don't expose large embedding vectors to the UI unless absolutely needed.
+                CreatedAt = c.CreatedAt
+            }).ToList();
+        }
+
         public async Task<Result<DocumentDto>> UploadAsync(DocumentUploadDto uploadDto)
         {
             var validationError = ValidateUpload(uploadDto);

@@ -154,32 +154,8 @@ namespace PL.Controllers
                 return View(model);
             }
 
-            var user = await _dbContext.Users.FindAsync(model.UserId);
-            if (user == null)
-            {
-                return RedirectToAction(nameof(Login));
-            }
-
-            // Sign in immediately after successful activation
-            var claims = new List<Claim>
-            {
-                new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
-                new Claim(ClaimTypes.Name, user.FullName),
-                new Claim(ClaimTypes.Email, email),
-                new Claim(ClaimTypes.Role, user.Role.ToString())
-            };
-
-            var claimsIdentity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
-
-            await HttpContext.SignInAsync(
-                CookieAuthenticationDefaults.AuthenticationScheme, 
-                new ClaimsPrincipal(claimsIdentity));
-
-            TempData["SuccessMessage"] = "Account activated and password changed successfully.";
-            if (user.Role.ToString() == "Admin") return RedirectToAction("Index", "Admin");
-            if (user.Role.ToString() == "Lecturer") return RedirectToAction("Portal", "Lecturer");
-            if (user.Role.ToString() == "Student") return RedirectToAction("Browse", "Subject");
-            return RedirectToAction("Index", "Subject");
+            TempData["SuccessMessage"] = "Account activated and password changed successfully. Please log in with your new password.";
+            return RedirectToAction(nameof(Login));
         }
 
         [HttpGet]

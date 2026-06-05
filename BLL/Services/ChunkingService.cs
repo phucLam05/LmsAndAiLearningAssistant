@@ -54,9 +54,9 @@ namespace BLL.Services
                 await _documentRepository.UpdateStatusAsync(documentId, DocumentStatus.Processing);
 
                 // Download and extract text
-                string content = await ReadFileContentAsync(document, cancellationToken);
+                var fileContent = await ReadFileContentAsync(document, cancellationToken);
                 
-                if (string.IsNullOrWhiteSpace(content))
+                if (!fileContent.Sections.Any())
                 {
                     _logger.LogWarning("No content extracted from document {DocumentId}. Skipping chunk creation.", documentId);
                     // It will remain Processing for Embedding phase, which will handle empty chunks.
@@ -64,7 +64,7 @@ namespace BLL.Services
                 }
 
                 // Chunk the text
-                var chunks = ChunkText(content, chunkSize: 500, overlap: 50, document.Id, document.SubjectId).ToList();
+                var chunks = ChunkText(fileContent, chunkSize: 500, overlap: 50, document.Id, document.SubjectId).ToList();
 
                 if (chunks.Any())
                 {
@@ -85,7 +85,7 @@ namespace BLL.Services
             }
         }
 
-        private async Task<string> ReadFileContentAsync(Document document, CancellationToken cancellationToken)
+        private async Task<Microsoft.KernelMemory.DataFormats.FileContent> ReadFileContentAsync(Document document, CancellationToken cancellationToken)
         {
             try
             {
@@ -103,15 +103,7 @@ namespace BLL.Services
 
                 _logger.LogInformation("Extracting text using Kernel Memory Decoder: {DecoderName}", decoder.GetType().Name);
                 
-                var fileContent = await decoder.DecodeAsync(stream, cancellationToken);
-                
-                var sb = new System.Text.StringBuilder();
-                foreach (var section in fileContent.Sections)
-                {
-                    sb.AppendLine(section.Content);
-                }
-                
-                return sb.ToString();
+                return await decoder.DecodeAsync(stream, cancellationToken);
             }
             catch (Exception ex)
             {
@@ -129,27 +121,30 @@ namespace BLL.Services
         /// <param name="documentId">The ID of the document being chunked.</param>
         /// <param name="subjectId">The Subject ID for RAG filtering.</param>
         /// <returns>An enumerable of DocumentChunk entities.</returns>
-        private IEnumerable<DocumentChunk> ChunkText(string text, int chunkSize, int overlap, Guid documentId, Guid? subjectId)
+        private IEnumerable<DocumentChunk> ChunkText(Microsoft.KernelMemory.DataFormats.FileContent fileContent, int chunkSize, int overlap, Guid documentId, Guid? subjectId)
         {
-            if (string.IsNullOrEmpty(text)) yield break;
-
-            // Use Semantic Kernel's TextChunker for semantic chunking
-            // It splits by lines first to preserve sentence boundaries, then by paragraphs
-            var lines = TextChunker.SplitPlainTextLines(text, maxTokensPerLine: 100);
-            var paragraphs = TextChunker.SplitPlainTextParagraphs(lines, maxTokensPerParagraph: chunkSize, overlapTokens: overlap);
-
             int index = 0;
-            foreach (var p in paragraphs)
+            foreach (var section in fileContent.Sections)
             {
-                yield return new DocumentChunk
+                if (string.IsNullOrWhiteSpace(section.Content)) continue;
+
+                var lines = TextChunker.SplitPlainTextLines(section.Content, maxTokensPerLine: 100);
+                var paragraphs = TextChunker.SplitPlainTextParagraphs(lines, maxTokensPerParagraph: chunkSize, overlapTokens: overlap);
+
+                foreach (var p in paragraphs)
                 {
-                    Id = Guid.NewGuid(),
-                    DocumentId = documentId,
-                    SubjectId = subjectId,
-                    ChunkIndex = index++,
-                    Content = p,
-                    CreatedAt = DateTime.UtcNow
-                };
+                    yield return new DocumentChunk
+                    {
+                        Id = Guid.NewGuid(),
+                        DocumentId = documentId,
+                        SubjectId = subjectId,
+                        ChunkIndex = index++,
+                        Content = p,
+                        TokenCount = p.Length / 4, // Rough estimation since we don't have a tokenizer here
+                        PageNumber = section.PageNumber,
+                        CreatedAt = DateTime.UtcNow
+                    };
+                }
             }
         }
     }

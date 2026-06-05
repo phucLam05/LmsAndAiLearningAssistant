@@ -109,6 +109,32 @@ namespace PL.Controllers
             return RedirectToAction("Details", "Subject", new { id = subjectId });
         }
 
+        [HttpGet]
+        public async Task<IActionResult> ViewOriginal(Guid id)
+        {
+            var result = await _documentService.DownloadDocumentAsync(id);
+            if (result == null)
+                return NotFound("Document not found or could not be downloaded.");
+
+            // Return the stream directly to the browser
+            // To force download, you could add: return File(result.Value.Stream, result.Value.ContentType, result.Value.FileName);
+            // To view in browser: return File(result.Value.Stream, result.Value.ContentType);
+            return File(result.Value.Stream, result.Value.ContentType);
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> Details(Guid id)
+        {
+            var document = await _documentService.GetDocumentByIdAsync(id);
+            if (document == null)
+                return NotFound("Document not found.");
+
+            var chunks = await _documentService.GetDocumentChunksAsync(id);
+            ViewBag.Chunks = chunks;
+
+            return View(document);
+        }
+
         private Guid? GetCurrentUserId()
         {
             var value = User.FindFirstValue(ClaimTypes.NameIdentifier);
