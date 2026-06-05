@@ -24,7 +24,7 @@ namespace PL
                 {
                     options.LoginPath = "/Auth/Login";
                     options.LogoutPath = "/Auth/Logout";
-                    options.AccessDeniedPath = "/Auth/Login";
+                    options.AccessDeniedPath = "/Home/AccessDenied";
                 });
 
             builder.Services.AddHangfire(configuration => configuration

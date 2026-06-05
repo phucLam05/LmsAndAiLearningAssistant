@@ -45,6 +45,10 @@ namespace PL.Controllers
         {
             if (User.Identity != null && User.Identity.IsAuthenticated)
             {
+                var role = User.FindFirstValue(ClaimTypes.Role);
+                if (role == "Admin") return RedirectToAction("Index", "Admin");
+                if (role == "Lecturer") return RedirectToAction("Portal", "Lecturer");
+                if (role == "Student") return RedirectToAction("Browse", "Subject");
                 return RedirectToAction("Index", "Subject");
             }
             
@@ -114,6 +118,9 @@ namespace PL.Controllers
                 return Redirect(returnUrl);
             }
 
+            if (user.Role.ToString() == "Admin") return RedirectToAction("Index", "Admin");
+            if (user.Role.ToString() == "Lecturer") return RedirectToAction("Portal", "Lecturer");
+            if (user.Role.ToString() == "Student") return RedirectToAction("Browse", "Subject");
             return RedirectToAction("Index", "Subject");
         }
 
@@ -169,6 +176,9 @@ namespace PL.Controllers
                 new ClaimsPrincipal(claimsIdentity));
 
             TempData["SuccessMessage"] = "Account activated and password changed successfully.";
+            if (user.Role.ToString() == "Admin") return RedirectToAction("Index", "Admin");
+            if (user.Role.ToString() == "Lecturer") return RedirectToAction("Portal", "Lecturer");
+            if (user.Role.ToString() == "Student") return RedirectToAction("Browse", "Subject");
             return RedirectToAction("Index", "Subject");
         }
 

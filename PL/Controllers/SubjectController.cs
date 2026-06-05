@@ -47,6 +47,7 @@ namespace PL.Controllers
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Index()
         {
+            ViewBag.UserRole = GetUserRole();
             var subjects = await _subjectService.GetAllSubjectsAsync();
             return View(subjects);
         }

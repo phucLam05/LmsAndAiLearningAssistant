@@ -108,6 +108,12 @@ namespace PL.Controllers
 
             var subjectGuid = Guid.TryParse(subjectId, out var sg) ? sg : Guid.Empty;
 
+            var dbSubjects = await _subjectService.GetSubjectsByLecturerAsync(userId.Value);
+            if (!dbSubjects.Any(s => s.Id == subjectGuid))
+            {
+                return Json(new { success = false, message = "Unauthorized: You are not assigned to this subject." });
+            }
+
             await using var stream = file.OpenReadStream();
             var uploadDto = new DocumentUploadDto
             {
