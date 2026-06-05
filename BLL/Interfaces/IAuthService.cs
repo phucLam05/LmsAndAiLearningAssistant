@@ -17,5 +17,6 @@ namespace BLL.Interfaces
         Task<User?> LoginAsync(LoginDto loginDto);
 
         Task<Result> ActivateAccountAsync(Guid userId, string temporaryPassword, string newPassword);
+        string DecryptEmail(string encryptedEmailBase64);
     }
 }

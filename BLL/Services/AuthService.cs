@@ -69,6 +69,7 @@ namespace BLL.Services
                 EmailHash = emailHash,
                 EmailEncrypt = emailEncrypt,
                 PasswordHash = passwordHash,
+                Role = registerDto.Role,
                 CreatedAt = DateTime.UtcNow
             };
 
@@ -220,5 +221,7 @@ namespace BLL.Services
                 throw new InvalidOperationException("Decryption failed.");
             }
         }
+
+
     }
 }

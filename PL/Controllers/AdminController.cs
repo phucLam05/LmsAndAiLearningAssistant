@@ -5,7 +5,9 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace PL.Controllers
@@ -18,89 +20,144 @@ namespace PL.Controllers
     {
         private readonly IAdminService _adminService;
         private readonly IUserService _userService;
+        private readonly IAuthService _authService;
 
-        public AdminController(IAdminService adminService, IUserService userService)
+        public AdminController(IAdminService adminService, IUserService userService, IAuthService authService)
         {
             _adminService = adminService;
             _userService = userService;
+            _authService = authService;
         }
 
+        public class MockUser
+        {
+            public Guid Id { get; set; }
+            public string FullName { get; set; } = string.Empty;
+            public string Email { get; set; } = string.Empty;
+            public string Role { get; set; } = "Student"; // Admin, Lecturer, Student
+            public string StudentCode { get; set; } = string.Empty;
+            public string Status { get; set; } = "Active"; // Active (status=1), Inactive (status=0)
+            public DateTime CreatedAt { get; set; }
+        }
+
+        [HttpGet]
         public async Task<IActionResult> Index()
         {
             var stats = await _adminService.GetDashboardStatsAsync();
             return View(stats);
         }
 
-        public async Task<IActionResult> Users()
-        {
-            var users = await _adminService.GetAllUsersAsync();
-            return View(users);
-        }
-
         [HttpGet]
-        public IActionResult CreateUser()
+        public async Task<IActionResult> Users(string? search = null, string? role = null)
         {
-            return View();
+            var dbUsers = await _adminService.GetAllUsersAsync();
+            var users = new List<MockUser>();
+
+            foreach (var u in dbUsers)
+            {
+                string email = "N/A";
+                try
+                {
+                    email = _authService.DecryptEmail(u.EmailEncrypt);
+                }
+                catch
+                {
+                    email = u.EmailHash;
+                }
+
+                users.Add(new MockUser
+                {
+                    Id = u.Id,
+                    FullName = u.FullName,
+                    Email = email,
+                    Role = u.Role.ToString(),
+                    StudentCode = u.UserCode ?? string.Empty,
+                    Status = u.Status.ToString(),
+                    CreatedAt = u.CreatedAt
+                });
+            }
+
+            var filteredUsers = users.AsEnumerable();
+
+            if (!string.IsNullOrEmpty(search))
+            {
+                filteredUsers = filteredUsers.Where(u => u.FullName.Contains(search, StringComparison.OrdinalIgnoreCase) || 
+                                                         u.Email.Contains(search, StringComparison.OrdinalIgnoreCase));
+            }
+
+            if (!string.IsNullOrEmpty(role))
+            {
+                filteredUsers = filteredUsers.Where(u => u.Role.Equals(role, StringComparison.OrdinalIgnoreCase));
+            }
+
+            ViewBag.Search = search;
+            ViewBag.Role = role;
+
+            return View(filteredUsers.OrderByDescending(u => u.CreatedAt).ToList());
         }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> CreateUser(UserCreateDto model)
+        public async Task<IActionResult> CreateUser(string fullName, string email, string role, string? studentCode, bool mustChangePassword = false)
         {
-            if (!ModelState.IsValid)
+            if (string.IsNullOrEmpty(fullName) || string.IsNullOrEmpty(email))
             {
-                return View(model);
+                TempData["ErrorMessage"] = "Name and Email are required.";
+                return RedirectToAction(nameof(Users));
             }
 
-            var result = await _userService.CreateUserAsync(model);
+            var userRole = Enum.TryParse<UserRole>(role, true, out var parsedRole) ? parsedRole : UserRole.Student;
+            
+            // If StudentCode is empty, generate a random one
+            if (string.IsNullOrWhiteSpace(studentCode))
+            {
+                studentCode = "STU" + new Random().Next(100000, 999999).ToString();
+            }
+
+            var createDto = new UserCreateDto
+            {
+                Email = email,
+                FullName = fullName,
+                Role = userRole,
+                UserCode = studentCode
+            };
+
+            var result = await _userService.CreateUserAsync(createDto);
             if (!result.IsSuccess)
             {
-                ModelState.AddModelError(string.Empty, result.ErrorMessage);
-                return View(model);
+                TempData["ErrorMessage"] = result.ErrorMessage;
             }
-
-            TempData["SuccessMessage"] = $"User {model.FullName} created successfully and notification sent.";
+            else
+            {
+                TempData["SuccessMessage"] = $"User {fullName} has been created successfully!";
+            }
             return RedirectToAction(nameof(Users));
         }
 
-        [HttpGet]
-        public async Task<IActionResult> EditUser(Guid id)
-        {
-            var users = await _adminService.GetAllUsersAsync();
-            var user = users.FirstOrDefault(u => u.Id == id);
-            if (user == null)
-            {
-                return NotFound();
-            }
-
-            var editDto = new UserEditDto
-            {
-                Id = user.Id,
-                FullName = user.FullName,
-                Role = user.Role,
-                Status = user.Status
-            };
-
-            return View(editDto);
-        }
-
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> EditUser(UserEditDto model)
+        public async Task<IActionResult> EditUser(Guid id, string fullName, string email, string role, string? studentCode, string status)
         {
-            if (!ModelState.IsValid)
+            var userRole = Enum.TryParse<UserRole>(role, true, out var parsedRole) ? parsedRole : UserRole.Student;
+            var userStatus = Enum.TryParse<UserStatus>(status, true, out var parsedStatus) ? parsedStatus : UserStatus.Active;
+            
+            var editDto = new UserEditDto
             {
-                return View(model);
-            }
+                Id = id,
+                FullName = fullName,
+                Role = userRole,
+                Status = userStatus
+            };
 
-            var result = await _userService.UpdateUserAsync(model);
+            var result = await _userService.UpdateUserAsync(editDto);
             if (!result.IsSuccess)
             {
-                ModelState.AddModelError(string.Empty, result.ErrorMessage);
-                return View(model);
+                TempData["ErrorMessage"] = result.ErrorMessage;
             }
-
-            TempData["SuccessMessage"] = $"User updated successfully.";
+            else
+            {
+                TempData["SuccessMessage"] = $"User {fullName} has been updated successfully!";
+            }
             return RedirectToAction(nameof(Users));
         }
 
@@ -109,55 +166,82 @@ namespace PL.Controllers
         public async Task<IActionResult> DeleteUser(Guid id)
         {
             var result = await _userService.DeleteUserAsync(id);
-            if (!result.IsSuccess)
+            if (result.IsSuccess)
             {
-                TempData["ErrorMessage"] = result.ErrorMessage;
+                TempData["SuccessMessage"] = "User has been deleted successfully.";
             }
             else
             {
-                TempData["SuccessMessage"] = "User deleted successfully.";
+                TempData["ErrorMessage"] = result.ErrorMessage;
             }
-
             return RedirectToAction(nameof(Users));
         }
 
         [HttpPost]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> ImportStudents(IFormFile excelFile)
+        public async Task<IActionResult> BulkImport([FromBody] List<ImportRow> rows)
         {
-            if (excelFile == null || excelFile.Length == 0)
+            if (rows == null || !rows.Any())
             {
-                TempData["ErrorMessage"] = "Please select a valid Excel file.";
-                return RedirectToAction(nameof(Users));
+                return Json(new { success = false, message = "No data received." });
             }
 
-            var extension = Path.GetExtension(excelFile.FileName).ToLowerInvariant();
-            if (extension != ".xlsx")
-            {
-                TempData["ErrorMessage"] = "Only Excel files (.xlsx) are supported.";
-                return RedirectToAction(nameof(Users));
-            }
+            int successCount = 0;
+            int failCount = 0;
+            var results = new List<object>();
 
-            try
+            foreach (var row in rows)
             {
-                using var stream = excelFile.OpenReadStream();
-                var result = await _userService.ImportStudentsFromExcelAsync(stream);
-                
-                if (!result.IsSuccess)
+                if (string.IsNullOrWhiteSpace(row.Email) || string.IsNullOrWhiteSpace(row.FullName))
                 {
-                    TempData["ErrorMessage"] = result.ErrorMessage;
+                    failCount++;
+                    results.Add(new { name = row.FullName, email = row.Email, status = "Failed", reason = "Missing FullName or Email" });
+                    continue;
+                }
+
+                if (!row.Email.Contains("@"))
+                {
+                    failCount++;
+                    results.Add(new { name = row.FullName, email = row.Email, status = "Failed", reason = "Invalid Email Format" });
+                    continue;
+                }
+
+                var code = string.IsNullOrWhiteSpace(row.StudentCode) ? "STU" + new Random().Next(100000, 999999).ToString() : row.StudentCode;
+
+                var createDto = new UserCreateDto
+                {
+                    Email = row.Email,
+                    FullName = row.FullName,
+                    Role = UserRole.Student,
+                    UserCode = code
+                };
+
+                var result = await _userService.CreateUserAsync(createDto);
+                if (result.IsSuccess)
+                {
+                    successCount++;
+                    results.Add(new { name = row.FullName, email = row.Email, status = "Success", studentCode = code });
                 }
                 else
                 {
-                    TempData["SuccessMessage"] = $"Successfully imported {result.Data} students!";
+                    failCount++;
+                    results.Add(new { name = row.FullName, email = row.Email, status = "Failed", reason = result.ErrorMessage });
                 }
             }
-            catch (Exception ex)
-            {
-                TempData["ErrorMessage"] = $"System error during import: {ex.Message}";
-            }
 
-            return RedirectToAction(nameof(Users));
+            return Json(new 
+            { 
+                success = true, 
+                successCount, 
+                failCount, 
+                results 
+            });
+        }
+
+        public class ImportRow
+        {
+            public string FullName { get; set; } = string.Empty;
+            public string Email { get; set; } = string.Empty;
+            public string StudentCode { get; set; } = string.Empty;
         }
     }
 }

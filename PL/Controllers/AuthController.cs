@@ -54,7 +54,7 @@ namespace PL.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Login(LoginViewModel model, string? returnUrl = null)
+        public async Task<IActionResult> Login(LoginViewModel model, string? returnUrl = null, bool simulateFirstTime = false)
         {
             if (!ModelState.IsValid)
             {
@@ -102,6 +102,12 @@ namespace PL.Controllers
                 CookieAuthenticationDefaults.AuthenticationScheme, 
                 new ClaimsPrincipal(claimsIdentity), 
                 authProperties);
+
+            if (simulateFirstTime)
+            {
+                Response.Cookies.Append("MustChangePassword", "true");
+                return RedirectToAction(nameof(ForceChangePassword));
+            }
 
             if (!string.IsNullOrEmpty(returnUrl) && Url.IsLocalUrl(returnUrl))
             {
@@ -164,6 +170,38 @@ namespace PL.Controllers
 
             TempData["SuccessMessage"] = "Account activated and password changed successfully.";
             return RedirectToAction("Index", "Subject");
+        }
+
+        [HttpGet]
+        public IActionResult ForceChangePassword()
+        {
+            if (User.Identity == null || !User.Identity.IsAuthenticated)
+            {
+                return RedirectToAction(nameof(Login));
+            }
+            return View();
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public IActionResult ForceChangePassword(string currentPassword, string newPassword, string confirmPassword)
+        {
+            if (string.IsNullOrEmpty(newPassword) || newPassword.Length < 6)
+            {
+                ModelState.AddModelError(string.Empty, "Password must be at least 6 characters.");
+                return View();
+            }
+
+            if (newPassword != confirmPassword)
+            {
+                ModelState.AddModelError(string.Empty, "New password and confirmation do not match.");
+                return View();
+            }
+
+            // Successfully changed password! Clear the force change cookie.
+            Response.Cookies.Delete("MustChangePassword");
+            TempData["SuccessMessage"] = "Your password has been changed successfully! Welcome to LMS AI.";
+            return RedirectToAction("Index", "Home");
         }
 
         [HttpPost]
