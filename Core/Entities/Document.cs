@@ -10,6 +10,7 @@ namespace Core.Entities
         public Guid? UploadedBy { get; set; }
         public string FileName { get; set; } = string.Empty;
         public string FileUrl { get; set; } = string.Empty;
+        public long FileSize { get; set; } = 0;
         public DocumentStatus Status { get; set; } = DocumentStatus.Pending;
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;

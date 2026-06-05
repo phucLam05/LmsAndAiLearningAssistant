@@ -1,24 +1,106 @@
 # Business Logic Layer (BLL)
 
-The `BLL` project is a class library that contains all the core business logic of the application.
+The `BLL` project is a class library containing all business rules, orchestration, and service logic. It sits between the Presentation Layer and the Data Access Layer, communicating with each exclusively through interfaces.
+
+---
 
 ## Responsibilities
-- **Services**: Classes that orchestrate data flow between the Presentation Layer (PL) and the Data Access Layer (DAL).
-- **Interfaces**: Contracts defining the services to be injected into the PL controllers.
-- **Validation & Logic**: Any business rules, validation logic (other than simple data annotations), and data manipulation occur here.
 
-## Key Components
-- `AuthService`: Handles user authentication, password hashing using `BCrypt.Net-Next`, and email encryption logic.
-- `DocumentService`: Handles file uploads, Supabase storage coordination, and enforces configuration-driven rules for maximum file sizes and allowed MIME types.
-- `ChunkingService`: Processes documents asynchronously into textual chunks for later vector embedding via Hangfire. It leverages the `ISupabaseStorageProvider` from DAL to download files and uses a Strategy pattern via `IDocumentParser` to dynamically select the right parser for each file format.
-- `DocumentEmbeddingService`: Retrieves chunked text, generates high-dimensional vectors via the `IGeminiEmbeddingProvider`, and saves them using `pgvector`.
-- **Strategies/DocumentParsing**: Implementations of `IDocumentParser` (`PdfParser`, `WordParser`, `PowerPointParser`, `FallbackTextParser`) responsible for extracting plain text from specific file types.
+| Folder | Contents |
+|--------|----------|
+| `Services/` | Concrete service implementations |
+| `Interfaces/` | Service contracts consumed by PL controllers |
+| `Strategies/DocumentParsing/` | Pluggable document parsers (Strategy pattern) |
+| `DependencyInjection.cs` | Extension method `AddBusinessLogicLayer()` for `Program.cs` |
+
+---
+
+## Services
+
+| Service | Interface | Responsibility |
+|---------|-----------|----------------|
+| `AuthService` | `IAuthService` | Login validation, password hashing (BCrypt), email encryption/decryption |
+| `UserService` | `IUserService` | User profile management, role-based access |
+| `SubjectService` | `ISubjectService` | Subject CRUD, lecturer ownership checks |
+| `DocumentService` | `IDocumentService` | Upload validation, Supabase coordination, Hangfire job enqueuing |
+| `ChunkingService` | `IChunkingService` | Background job: download → parse → chunk → save (Hangfire) |
+| `DocumentEmbeddingService` | `IEmbeddingService` | Background job: chunk → embed via Gemini → save pgvector (Hangfire) |
+| `ChatService` | `IChatService` | RAG chatbot: embed query → similarity search → Gemini generation |
+| `AdminService` | `IAdminService` | User management, role changes, dashboard statistics |
+| `EmailService` | `IEmailService` | Email sending via SMTP |
+
+---
 
 ## Architectural Patterns
-- **Result Pattern**: Services return `Result` or `Result<T>` instead of throwing exceptions for predictable errors (like invalid files or missing entities). This ensures a clean contract with the PL.
-- **Resumption Logic**: Background services (`ChunkingService` and `DocumentEmbeddingService`) are designed to be idempotent and resumable. If a job fails halfway, the retry process will resume from the last incomplete step (e.g., only embedding chunks that have `Embedding == null`).
 
-## Usage
-- The Presentation Layer depends on the BLL.
-- The BLL depends on the Data Access Layer (`DAL`) and `Core`.
-- Services defined here should be registered in the Dependency Injection container in `PL/Program.cs`.
+### Repository Pattern (Strict 3-tier compliance)
+BLL services depend **only on DAL interfaces** — never on `ApplicationDbContext` directly:
+
+```csharp
+// ✅ Correct — through interface
+public AdminService(IUserRepository userRepository, IDocumentRepository documentRepository, ...)
+
+// ❌ Wrong — bypasses DAL abstraction
+public AdminService(ApplicationDbContext dbContext, ...)
+```
+
+### Result Pattern
+Services return `Result` or `Result<T>` instead of throwing exceptions for predictable failures:
+
+```csharp
+// In DocumentService
+var subject = await _subjectRepository.GetByIdAsync(uploadDto.SubjectId);
+if (subject == null)
+    return Result<DocumentDto>.Failure("Subject does not exist.");
+
+return Result<DocumentDto>.Success(MapDocument(document));
+```
+
+### Strategy Pattern (Document Parsing)
+`ChunkingService` uses `IDocumentParser` to dynamically select the correct parser:
+
+| Parser | Handles |
+|--------|---------|
+| `PdfParser` | `.pdf` files via PdfPig |
+| `WordParser` | `.docx` files via DocumentFormat.OpenXml |
+| `PowerPointParser` | `.pptx` files via DocumentFormat.OpenXml |
+| `FallbackTextParser` | `.txt`, `.csv`, and unknown types |
+
+### Resumption Logic (Idempotent Background Jobs)
+If a background job fails partway through:
+- **Retry from UI** → checks `HasChunksAsync()` first
+- If chunks exist → skips Chunking, re-runs only Embedding
+- If no chunks → runs full pipeline from scratch
+
+This avoids redundant API calls and prevents unnecessary Gemini usage costs.
+
+---
+
+## RAG Chatbot Flow
+
+```
+Student query
+    │
+    ▼
+IGeminiEmbeddingProvider.GetEmbeddingAsync()     ← Gemini Embedding API
+    │
+    ▼
+IDocumentChunkRepository.SearchSimilarChunksAsync()  ← pgvector cosine distance
+    │  (filtered by selected document IDs if user chose specific docs)
+    ▼
+Top 5 matching chunks → build prompt
+    │
+    ▼
+Gemini generateContent API
+    │
+    ▼
+Answer returned to student
+```
+
+---
+
+## Architectural Rule
+
+> BLL depends on DAL **interfaces** and Core only.  
+> BLL must **never** reference `ApplicationDbContext`, `DAL.Data`, or any EF Core `DbSet<T>` directly.  
+> PL depends on BLL **interfaces** only.

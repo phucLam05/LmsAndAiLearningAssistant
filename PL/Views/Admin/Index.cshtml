@@ -3,141 +3,145 @@
     ViewData["Title"] = "Admin Dashboard";
 }
 
-<div class="container mt-4">
-    <h2 class="mb-4">Admin Dashboard</h2>
 
-    <div class="row g-4 mb-5">
-        <div class="col-md-3">
-            <div class="card text-white bg-primary h-100 shadow-sm border-0">
-                <div class="card-body">
-                    <h5 class="card-title">Total Users</h5>
-                    <h2 class="display-5 fw-bold">@Model.TotalUsers</h2>
+
+<div class="space-y-8">
+    <!-- Header -->
+    <div class="select-none">
+        <span class="bg-primary/10 text-primary border border-primary/20 px-2.5 py-0.5 rounded-lg text-xs font-mono font-bold tracking-tight">
+            Admin Console
+        </span>
+        <h1 class="font-headline-lg text-headline-lg md:font-display-lg md:text-display-lg font-bold text-on-surface mt-2 tracking-tight">Hệ thống Quản trị</h1>
+        <p class="font-body-lg text-body-lg text-on-surface-variant mt-1">Tổng quan thông số tài nguyên, quản lý tài khoản và giám sát tác vụ nền.</p>
+    </div>
+
+    <!-- Stats Bento Cards -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 select-none">
+        <!-- Card 1 -->
+        <div class="bg-surface-container-low border border-outline-variant/30 rounded-xl p-5 relative overflow-hidden group">
+            <div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                <span class="material-symbols-outlined text-[64px] text-primary">group</span>
+            </div>
+            <p class="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider mb-1">Tổng người dùng</p>
+            <h3 class="font-headline-lg text-headline-lg font-bold text-on-surface">@Model.TotalUsers</h3>
+            <p class="font-label-md text-label-md text-outline mt-3">Tài khoản trong hệ thống</p>
+        </div>
+        <!-- Card 2 -->
+        <div class="bg-surface-container-low border border-outline-variant/30 rounded-xl p-5 relative overflow-hidden group">
+            <div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                <span class="material-symbols-outlined text-[64px] text-tertiary">description</span>
+            </div>
+            <p class="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider mb-1">Tài liệu tải lên</p>
+            <h3 class="font-headline-lg text-headline-lg font-bold text-on-surface">@Model.TotalDocuments</h3>
+            <p class="font-label-md text-label-md text-outline mt-3">Đã lưu trữ thành công</p>
+        </div>
+        <!-- Card 3 -->
+        <div class="bg-surface-container-low border border-outline-variant/30 rounded-xl p-5 relative overflow-hidden group">
+            <div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                <span class="material-symbols-outlined text-[64px] text-secondary">database</span>
+            </div>
+            <p class="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider mb-1">Dung lượng ổ đĩa</p>
+            <h3 class="font-headline-lg text-headline-lg font-bold text-on-surface">@(Math.Round((double)Model.TotalStorageUsedBytes / 1024 / 1024, 2)) MB</h3>
+            <p class="font-label-md text-label-md text-outline mt-3">Đã upload lên Supabase</p>
+        </div>
+        <!-- Card 4 -->
+        <div class="bg-surface-container-low border border-outline-variant/30 rounded-xl p-5 relative overflow-hidden group">
+            <div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                <span class="material-symbols-outlined text-[64px] text-tertiary">memory</span>
+            </div>
+            <p class="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider mb-1">Tổng AI Chunks</p>
+            <h3 class="font-headline-lg text-headline-lg font-bold text-on-surface">@Model.TotalDocumentChunks</h3>
+            <p class="font-label-md text-label-md text-outline mt-3">Mã hóa vector hoàn tất</p>
+        </div>
+    </div>
+
+    <!-- Quick Actions Panel -->
+    <div class="space-y-4">
+        <h3 class="font-headline-sm text-headline-sm font-bold text-on-surface select-none">Hành động nhanh</h3>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <!-- Action 1 -->
+            <div class="bg-surface-container-low border border-outline-variant/30 rounded-xl p-5 flex flex-col justify-between">
+                <div>
+                    <h4 class="font-headline-sm text-base font-bold text-on-surface mb-2">Quản lý người dùng</h4>
+                    <p class="font-body-md text-xs text-on-surface-variant leading-relaxed mb-4">Tạo mới, chỉnh sửa, xóa tài khoản người dùng hoặc tải danh sách hàng loạt từ file Excel.</p>
+                </div>
+                <div class="flex gap-2 flex-wrap">
+                    <a asp-action="Users" class="bg-primary text-on-primary font-label-md text-xs px-4 py-2 rounded-lg hover:bg-primary-fixed hover:text-on-primary-fixed transition-colors font-semibold shadow-sm">
+                        Quản lý người dùng &rarr;
+                    </a>
                 </div>
             </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card text-white bg-success h-100 shadow-sm border-0">
-                <div class="card-body">
-                    <h5 class="card-title">Documents Uploaded</h5>
-                    <h2 class="display-5 fw-bold">@Model.TotalDocuments</h2>
+            <!-- Action 2 -->
+            <div class="bg-surface-container-low border border-outline-variant/30 rounded-xl p-5 flex flex-col justify-between">
+                <div>
+                    <h4 class="font-headline-sm text-base font-bold text-on-surface mb-2">Quản lý môn học</h4>
+                    <p class="font-body-md text-xs text-on-surface-variant leading-relaxed mb-4">Đăng ký môn học mới, thiết lập giảng viên phụ trách và cấu hình các học liệu giảng dạy.</p>
                 </div>
+                <a asp-controller="Subject" asp-action="Index" class="bg-primary text-on-primary font-label-md text-xs px-4 py-2 rounded-lg hover:bg-primary-fixed hover:text-on-primary-fixed transition-colors font-semibold shadow-sm self-start">
+                    Quản lý môn học &rarr;
+                </a>
             </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card text-white bg-warning h-100 shadow-sm border-0">
-                <div class="card-body">
-                    <h5 class="card-title">Storage Used (MB)</h5>
-                    <h2 class="display-5 fw-bold">@(Math.Round((double)Model.TotalStorageUsedBytes / 1024 / 1024, 2))</h2>
+            <!-- Action 3 -->
+            <div class="bg-surface-container-low border border-outline-variant/30 rounded-xl p-5 flex flex-col justify-between">
+                <div>
+                    <h4 class="font-headline-sm text-base font-bold text-on-surface mb-2">Giám sát tác vụ nền</h4>
+                    <p class="font-body-md text-xs text-on-surface-variant leading-relaxed mb-4">Theo dõi tiến trình trích xuất văn bản, tạo vector embedding và kiểm tra hàng đợi Hangfire.</p>
                 </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card text-white bg-info h-100 shadow-sm border-0">
-                <div class="card-body">
-                    <h5 class="card-title">Total AI Chunks</h5>
-                    <h2 class="display-5 fw-bold">@Model.TotalDocumentChunks</h2>
-                </div>
+                <a href="/hangfire" target="_blank" class="bg-surface border border-outline-variant hover:bg-surface-container-high text-on-surface font-label-md text-xs px-4 py-2 rounded-lg transition-colors flex items-center gap-1.5 self-start">
+                    <span class="material-symbols-outlined text-[16px]">open_in_new</span>
+                    Bảng điều khiển Hangfire
+                </a>
             </div>
         </div>
     </div>
 
-    <h4 class="fw-bold mb-3" style="color: #0f172a;">Quick Actions</h4>
-    <div class="row g-4 mb-5">
-        <div class="col-md-4">
-            <div class="card h-100 shadow-sm border-0" style="border-radius: 12px;">
-                <div class="card-body">
-                    <h5 class="card-title fw-bold" style="color: #1e293b;">Manage Users</h5>
-                    <p class="card-text text-muted small">Create, edit, delete user accounts or upload student lists bulk from Excel.</p>
-                    <div class="d-flex gap-2 flex-wrap">
-                        <a asp-action="Users" class="btn btn-sm btn-primary py-2 px-3 fw-semibold" style="background-color: #4f46e5; border-color: #4f46e5; border-radius: 8px;">
-                            Open User Manager &rarr;
-                        </a>
-                        <a asp-action="CreateUser" class="btn btn-sm btn-outline-primary py-2 px-3 fw-semibold" style="border-radius: 8px;">
-                            + Create User
-                        </a>
-                    </div>
-                </div>
+    <!-- Chart & Quick form -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Resources Chart (2 cols) -->
+        <div class="lg:col-span-2 bg-surface-container-low border border-outline-variant/30 rounded-xl p-5 flex flex-col">
+            <h4 class="font-headline-sm text-base font-bold text-on-surface mb-4 select-none">Biểu đồ tài nguyên hệ thống</h4>
+            <div class="flex-1 min-h-[300px] flex items-center justify-center">
+                <canvas id="resourcesChart" class="w-full max-h-[280px]"></canvas>
             </div>
         </div>
-        <div class="col-md-4">
-            <div class="card h-100 shadow-sm border-0" style="border-radius: 12px;">
-                <div class="card-body">
-                    <h5 class="card-title fw-bold" style="color: #1e293b;">Manage Subjects</h5>
-                    <p class="card-text text-muted small">Register new subjects, write course details, and assign lecturer accounts.</p>
-                    <a asp-controller="Subject" asp-action="Index" class="btn btn-sm btn-primary py-2 px-3 fw-semibold" style="background-color: #4f46e5; border-color: #4f46e5; border-radius: 8px;">
-                        Open Subject Manager &rarr;
-                    </a>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="card h-100 shadow-sm border-0" style="border-radius: 12px;">
-                <div class="card-body">
-                    <h5 class="card-title fw-bold" style="color: #1e293b;">Background Jobs</h5>
-                    <p class="card-text text-muted small">Monitor document chunking status, vector embedding generation, and Hangfire schedules.</p>
-                    <a href="/hangfire" target="_blank" class="btn btn-sm btn-outline-secondary py-2 px-3 fw-semibold" style="border-radius: 8px;">
-                        Open Dashboard &rarr;
-                    </a>
-                </div>
-            </div>
-        </div>
-    </div>
 
-    <div class="row g-4 mb-5">
-        <!-- System Resources Chart -->
-        <div class="col-lg-8">
-            <div class="card shadow-sm border-0 h-100" style="border-radius: 12px;">
-                <div class="card-header bg-white fw-bold border-0 pt-3" style="color: #0f172a;">
-                    System Resources Overview
+        <!-- Quick Form (1 col) -->
+        <div class="bg-surface-container-low border border-outline-variant/30 rounded-xl p-5">
+            <h4 class="font-headline-sm text-base font-bold text-on-surface mb-2 select-none">Tạo nhanh tài khoản</h4>
+            <p class="font-body-md text-xs text-on-surface-variant mb-4 select-none">Điền thông tin bên dưới để đăng ký nhanh tài khoản giảng viên hoặc sinh viên.</p>
+
+            <form asp-controller="Admin" asp-action="CreateUser" method="post" class="space-y-4">
+                @Html.AntiForgeryToken()
+
+                <div class="space-y-1">
+                    <label for="FullName" class="block text-label-md font-bold text-on-surface-variant text-[11px]">Họ và tên</label>
+                    <input type="text" id="FullName" name="FullName" class="bg-surface border border-outline-variant/50 rounded-lg px-3 py-2 text-on-surface placeholder:text-outline/40 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary w-full text-xs" placeholder="e.g. Nguyen Van A" required />
                 </div>
-                <div class="card-body d-flex align-items-center" style="min-height: 380px;">
-                    <canvas id="resourcesChart" style="max-height: 340px; width: 100%;"></canvas>
+
+                <div class="space-y-1">
+                    <label for="Email" class="block text-label-md font-bold text-on-surface-variant text-[11px]">Địa chỉ Email</label>
+                    <input type="email" id="Email" name="Email" class="bg-surface border border-outline-variant/50 rounded-lg px-3 py-2 text-on-surface placeholder:text-outline/40 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary w-full text-xs" placeholder="e.g. anv@lmsai.com" required />
                 </div>
-            </div>
-        </div>
-        
-        <!-- Quick Account Creation Form -->
-        <div class="col-lg-4">
-            <div class="card shadow-sm border-0 h-100" style="border-radius: 12px;">
-                <div class="card-header bg-white fw-bold border-0 pt-3" style="color: #0f172a;">
-                    Quick Account Creation
+
+                <div class="space-y-1">
+                    <label for="UserCode" class="block text-label-md font-bold text-on-surface-variant text-[11px]">Mã định danh (User Code)</label>
+                    <input type="text" id="UserCode" name="UserCode" class="bg-surface border border-outline-variant/50 rounded-lg px-3 py-2 text-on-surface placeholder:text-outline/40 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary w-full text-xs" placeholder="e.g. HE170123" required />
                 </div>
-                <div class="card-body">
-                    <p class="text-muted small mb-3">Create and automatically notify a new student, lecturer, or admin account.</p>
-                    
-                    <form asp-controller="Admin" asp-action="CreateUser" method="post">
-                        @Html.AntiForgeryToken()
-                        
-                        <div class="mb-3">
-                            <label for="FullName" class="form-label fw-semibold text-secondary small mb-1">Full Name</label>
-                            <input type="text" id="FullName" name="FullName" class="form-control form-control-sm" placeholder="e.g., John Doe" required style="border-radius: 8px;" />
-                        </div>
-                        
-                        <div class="mb-3">
-                            <label for="Email" class="form-label fw-semibold text-secondary small mb-1">Email Address</label>
-                            <input type="email" id="Email" name="Email" class="form-control form-control-sm" placeholder="e.g., john@lmsai.com" required style="border-radius: 8px;" />
-                        </div>
-                        
-                        <div class="mb-3">
-                            <label for="UserCode" class="form-label fw-semibold text-secondary small mb-1">User Code (ID)</label>
-                            <input type="text" id="UserCode" name="UserCode" class="form-control form-control-sm" placeholder="e.g., STU12345" required style="border-radius: 8px;" />
-                        </div>
-                        
-                        <div class="mb-3">
-                            <label for="Role" class="form-label fw-semibold text-secondary small mb-1">Role</label>
-                            <select id="Role" name="Role" class="form-select form-select-sm" required style="border-radius: 8px;">
-                                <option value="2">Student</option>
-                                <option value="1">Lecturer</option>
-                                <option value="0">Admin</option>
-                            </select>
-                        </div>
-                        
-                        <button type="submit" class="btn btn-sm btn-primary w-100 py-2 fw-semibold mt-2" style="background-color: #4f46e5; border-color: #4f46e5; border-radius: 8px;">
-                            Create & Send Notification
-                        </button>
-                    </form>
+
+                <div class="space-y-1">
+                    <label for="Role" class="block text-label-md font-bold text-on-surface-variant text-[11px]">Vai trò</label>
+                    <select id="Role" name="Role" class="bg-surface border border-outline-variant/50 rounded-lg px-3 py-2 text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary w-full text-xs" required>
+                        <option value="Student">Sinh viên</option>
+                        <option value="Lecturer">Giảng viên</option>
+                        <option value="Admin">Quản trị viên</option>
+                    </select>
                 </div>
-            </div>
+
+                <button type="submit" class="w-full bg-primary hover:bg-primary/95 text-on-primary font-bold py-2.5 px-4 rounded-lg shadow-md transition-all duration-200 flex items-center justify-center gap-2 text-xs font-semibold hover:scale-[1.01] mt-6">
+                    <span>Đăng ký tài khoản</span>
+                    <span class="material-symbols-outlined text-[16px]">person_add</span>
+                </button>
+            </form>
         </div>
     </div>
 </div>
@@ -150,29 +154,57 @@
             var resourcesChart = new Chart(ctx, {
                 type: 'bar',
                 data: {
-                    labels: ['Users', 'Documents', 'Chunks'],
+                    labels: ['Người dùng', 'Tài liệu', 'AI Chunks'],
                     datasets: [{
-                        label: 'Count',
+                        label: 'Số lượng',
                         data: [@Model.TotalUsers, @Model.TotalDocuments, @Model.TotalDocumentChunks],
                         backgroundColor: [
-                            'rgba(13, 110, 253, 0.7)',
-                            'rgba(25, 135, 84, 0.7)',
-                            'rgba(13, 202, 240, 0.7)'
+                            'rgba(173, 199, 255, 0.8)', // Primary color tint
+                            'rgba(168, 200, 255, 0.6)',
+                            'rgba(109, 221, 129, 0.7)'  // Tertiary green
                         ],
                         borderColor: [
-                            'rgba(13, 110, 253, 1)',
-                            'rgba(25, 135, 84, 1)',
-                            'rgba(13, 202, 240, 1)'
+                            '#adc7ff',
+                            '#a8c8ff',
+                            '#6ddd81'
                         ],
-                        borderWidth: 1
+                        borderWidth: 1,
+                        borderRadius: 6
                     }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
                     scales: {
                         y: {
-                            beginAtZero: true
+                            beginAtZero: true,
+                            grid: {
+                                color: 'rgba(65, 71, 84, 0.3)'
+                            },
+                            ticks: {
+                                color: '#c1c6d6',
+                                font: {
+                                    family: 'Be Vietnam Pro',
+                                    size: 11
+                                }
+                            }
+                        },
+                        x: {
+                            grid: {
+                                display: false
+                            },
+                            ticks: {
+                                color: '#c1c6d6',
+                                font: {
+                                    family: 'Be Vietnam Pro',
+                                    size: 11
+                                }
+                            }
                         }
                     }
                 }

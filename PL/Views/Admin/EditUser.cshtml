@@ -1,53 +1,60 @@
 @model Core.DTOs.Admin.UserEditDto
 @using Core.Entities
 @{
-    ViewData["Title"] = "Edit User";
+    ViewData["Title"] = "Chỉnh sửa tài khoản";
 }
 
-<div class="container py-4" style="max-width: 600px;">
-    <div class="mb-4">
-        <a asp-action="Users" class="btn btn-sm btn-outline-secondary">&larr; Back to Users</a>
+<div class="max-w-xl mx-auto space-y-6 select-none animate-fade-in">
+    <div>
+        <a asp-action="Users" class="inline-flex items-center gap-2 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high px-4 py-2 rounded-lg transition-colors text-xs font-semibold border border-outline-variant/30">
+            <span class="material-symbols-outlined text-[16px]">arrow_back</span>
+            Quay lại danh sách
+        </a>
     </div>
 
-    <div class="card shadow-sm border-0" style="border-radius: 16px;">
-        <div class="card-body p-4">
-            <h2 class="fw-bold mb-2" style="color: #1a1f36;">Edit User</h2>
-            <p class="text-muted mb-4">Modify user account details, role, or active status.</p>
+    <div class="bg-surface-container-low border border-outline-variant/30 rounded-2xl p-6 md:p-8 shadow-xl">
+        <h2 class="font-headline-md text-headline-md font-bold text-on-surface mb-2">Chỉnh sửa người dùng</h2>
+        <p class="font-body-md text-xs text-on-surface-variant mb-6 leading-relaxed">Cập nhật thông tin tài khoản người dùng, thay đổi vai trò hoặc thiết lập trạng thái hoạt động.</p>
 
-            <form asp-action="EditUser" method="post">
-                @Html.AntiForgeryToken()
-                <input type="hidden" asp-for="Id" />
-                <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+        <form asp-action="EditUser" method="post" class="space-y-4">
+            @Html.AntiForgeryToken()
+            <input type="hidden" asp-for="Id" />
+            
+            <div asp-validation-summary="ModelOnly" class="bg-error-container/20 border border-error-container/30 text-error p-3 rounded-xl text-xs flex items-start gap-2 mb-4">
+                <span class="material-symbols-outlined text-[18px]">error</span>
+                <span>Vui lòng kiểm tra lại thông tin nhập vào.</span>
+            </div>
 
-                <div class="mb-3">
-                    <label asp-for="FullName" class="form-label fw-semibold">Full Name</label>
-                    <input asp-for="FullName" class="form-control" placeholder="e.g., John Doe" required />
-                    <span asp-validation-for="FullName" class="text-danger"></span>
-                </div>
+            <div class="space-y-1">
+                <label asp-for="FullName" class="block text-label-md font-bold text-on-surface-variant text-[11px] uppercase tracking-wider">Họ và tên</label>
+                <input asp-for="FullName" class="bg-surface-container-lowest border border-outline-variant/60 rounded-xl px-4 py-3 text-on-surface placeholder:text-outline-variant/50 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary w-full text-xs transition-all" placeholder="e.g. Nguyễn Văn A" required />
+                <span asp-validation-for="FullName" class="text-error text-[10px] block mt-1"></span>
+            </div>
 
-                <div class="mb-3">
-                    <label asp-for="Role" class="form-label fw-semibold">Role</label>
-                    <select asp-for="Role" class="form-select" required>
-                        <option value="@UserRole.Student">Student</option>
-                        <option value="@UserRole.Lecturer">Lecturer</option>
-                        <option value="@UserRole.Admin">Admin</option>
-                    </select>
-                    <span asp-validation-for="Role" class="text-danger"></span>
-                </div>
+            <div class="space-y-1">
+                <label asp-for="Role" class="block text-label-md font-bold text-on-surface-variant text-[11px] uppercase tracking-wider">Vai trò</label>
+                <select asp-for="Role" class="bg-surface-container-lowest border border-outline-variant/60 rounded-xl px-4 py-3 text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary w-full text-xs transition-all" required>
+                    <option value="@UserRole.Student">Sinh viên (Student)</option>
+                    <option value="@UserRole.Lecturer">Giảng viên (Lecturer)</option>
+                    <option value="@UserRole.Admin">Quản trị viên (Admin)</option>
+                </select>
+                <span asp-validation-for="Role" class="text-error text-[10px] block mt-1"></span>
+            </div>
 
-                <div class="mb-4">
-                    <label asp-for="Status" class="form-label fw-semibold">Status</label>
-                    <select asp-for="Status" class="form-select" required>
-                        <option value="@UserStatus.Active">Active</option>
-                        <option value="@UserStatus.Inactive">Inactive / Pending Activation</option>
-                    </select>
-                    <span asp-validation-for="Status" class="text-danger"></span>
-                </div>
+            <div class="space-y-1">
+                <label asp-for="Status" class="block text-label-md font-bold text-on-surface-variant text-[11px] uppercase tracking-wider">Trạng thái hoạt động</label>
+                <select asp-for="Status" class="bg-surface-container-lowest border border-outline-variant/60 rounded-xl px-4 py-3 text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary w-full text-xs transition-all" required>
+                    <option value="@UserStatus.Active">Đang hoạt động (Active)</option>
+                    <option value="@UserStatus.Inactive">Ngưng hoạt động / Chờ kích hoạt (Inactive)</option>
+                </select>
+                <span asp-validation-for="Status" class="text-error text-[10px] block mt-1"></span>
+            </div>
 
-                <button type="submit" class="btn btn-primary w-100 py-2.5 fw-semibold" style="border-radius: 10px; background-color: #4f46e5; border-color: #4f46e5;">
-                    Save Changes
-                </button>
-            </form>
-        </div>
+            <button type="submit" class="w-full bg-primary hover:bg-primary/95 text-on-primary font-bold py-3.5 px-4 rounded-xl shadow-md transition-all duration-200 flex items-center justify-center gap-2 text-xs font-semibold hover:scale-[1.01] mt-6">
+                <span>Lưu thay đổi</span>
+                <span class="material-symbols-outlined text-[16px]">save</span>
+            </button>
+        </form>
     </div>
 </div>
+

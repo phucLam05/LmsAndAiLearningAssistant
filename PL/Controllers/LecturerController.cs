@@ -82,7 +82,7 @@ namespace PL.Controllers
                 Id = d.Id,
                 SubjectId = d.SubjectId?.ToString() ?? string.Empty,
                 FileName = d.FileName,
-                FileSizeStr = "N/A", // File size not stored currently
+                FileSizeStr = FormatFileSize(d.FileSize),
                 Status = d.Status.ToString(),
                 StoredBy = d.UploaderName ?? "System",
                 CreatedAt = d.CreatedAt
@@ -138,7 +138,7 @@ namespace PL.Controllers
                 Id = docDto.Id,
                 SubjectId = docDto.SubjectId?.ToString() ?? string.Empty,
                 FileName = docDto.FileName,
-                FileSizeStr = "N/A",
+                FileSizeStr = FormatFileSize(docDto.FileSize),
                 Status = docDto.Status.ToString(),
                 StoredBy = docDto.UploaderName ?? "Lecturer",
                 CreatedAt = docDto.CreatedAt
@@ -162,6 +162,21 @@ namespace PL.Controllers
         {
             var value = User.FindFirstValue(ClaimTypes.NameIdentifier);
             return Guid.TryParse(value, out var userId) ? userId : null;
+        }
+
+        private static string FormatFileSize(long bytes)
+        {
+            if (bytes <= 0) return "0 Bytes";
+            string[] suffixes = { "Bytes", "KB", "MB", "GB" };
+            int counter = 0;
+            double number = bytes;
+            while (Math.Round(number / 1024) >= 1)
+            {
+                number = number / 1024;
+                counter++;
+                if (counter >= suffixes.Length - 1) break;
+            }
+            return $"{number:F1} {suffixes[counter]}";
         }
     }
 }

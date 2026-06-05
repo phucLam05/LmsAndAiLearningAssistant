@@ -21,12 +21,18 @@ namespace PL.Controllers
         private readonly IAdminService _adminService;
         private readonly IUserService _userService;
         private readonly IAuthService _authService;
+        private readonly IDocumentService _documentService;
 
-        public AdminController(IAdminService adminService, IUserService userService, IAuthService authService)
+        public AdminController(
+            IAdminService adminService, 
+            IUserService userService, 
+            IAuthService authService,
+            IDocumentService documentService)
         {
             _adminService = adminService;
             _userService = userService;
             _authService = authService;
+            _documentService = documentService;
         }
 
         public class MockUser
@@ -45,6 +51,13 @@ namespace PL.Controllers
         {
             var stats = await _adminService.GetDashboardStatsAsync();
             return View(stats);
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> Documents()
+        {
+            var documents = await _documentService.GetAllDocumentsAsync();
+            return View(documents);
         }
 
         [HttpGet]

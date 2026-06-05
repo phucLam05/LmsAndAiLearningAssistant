@@ -1,168 +1,205 @@
 @model Core.DTOs.Subject.SubjectDto
+@using Core.Entities
+@inject BLL.Interfaces.IDocumentService DocumentService
 @{
-    ViewData["Title"] = $"{Model.SubjectCode} AI Assistant";
+    ViewData["Title"] = $"{Model.SubjectCode} - Trợ lý AI";
+    var docs = await DocumentService.GetDocumentsBySubjectIdAsync(Model.Id);
 }
 
-<style>
-    .chat-layout {
-        display: grid;
-        grid-template-columns: 280px minmax(0, 1fr);
-        gap: 1.5rem;
-        height: calc(100vh - 160px);
-        min-height: 500px;
+@functions {
+    public static string FormatFileSize(long bytes)
+    {
+        if (bytes <= 0) return "0 Bytes";
+        string[] suffixes = { "Bytes", "KB", "MB", "GB" };
+        int counter = 0;
+        double number = bytes;
+        while (Math.Round(number / 1024) >= 1)
+        {
+            number = number / 1024;
+            counter++;
+            if (counter >= suffixes.Length - 1) break;
+        }
+        return $"{number:F1} {suffixes[counter]}";
     }
-    .chat-sidebar {
-        background: #f8fafc;
-        border: 1px solid #e2e8f0;
-        border-radius: 16px;
-        padding: 1.5rem;
-        display: flex;
-        flex-direction: column;
-        justify-content: space-between;
-    }
-    .chat-main {
-        background: #ffffff;
-        border: 1px solid #e2e8f0;
-        border-radius: 16px;
-        display: flex;
-        flex-direction: column;
-        overflow: hidden;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
-    }
-    .chat-messages {
-        flex: 1;
-        overflow-y: auto;
-        padding: 1.5rem;
-        display: flex;
-        flex-direction: column;
-        gap: 1rem;
-        background: #fdfdfd;
-    }
-    .chat-bubble {
-        max-width: 75%;
-        padding: 1rem 1.25rem;
-        border-radius: 16px;
-        font-size: 0.95rem;
-        line-height: 1.5;
-        position: relative;
-    }
-    .chat-bubble-ai {
-        align-self: flex-start;
-        background: #ffffff;
-        color: #1e293b;
-        border: 1px solid #e2e8f0;
-        border-top-left-radius: 4px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.02);
-    }
-    .chat-bubble-user {
-        align-self: flex-end;
-        background: #4f46e5;
-        color: #ffffff;
-        border-top-right-radius: 4px;
-        box-shadow: 0 4px 10px rgba(79, 70, 229, 0.15);
-    }
-    .chat-bubble-ai p:last-child,
-    .chat-bubble-user p:last-child {
-        margin-bottom: 0;
-    }
-    .chat-input-area {
-        padding: 1.25rem 1.5rem;
-        border-top: 1px solid #e2e8f0;
-        background: #ffffff;
-    }
-    .chat-input-wrapper {
-        display: flex;
-        gap: 0.75rem;
-        background: #f1f5f9;
-        padding: 0.4rem;
-        border-radius: 12px;
-        border: 1px solid #cbd5e1;
-    }
-    .chat-input {
-        flex: 1;
-        border: 0;
-        background: transparent;
-        padding: 0.5rem 0.75rem;
-        outline: none;
-        font-size: 0.95rem;
-        color: #1e293b;
-    }
-    .chat-send-btn {
-        background: #4f46e5;
-        color: #ffffff;
-        border: 0;
-        padding: 0.5rem 1.25rem;
-        border-radius: 8px;
-        font-weight: 600;
-        transition: background 0.15s ease;
-    }
-    .chat-send-btn:hover {
-        background: #4338ca;
-    }
-    .typing-indicator {
-        display: flex;
-        align-items: center;
-        gap: 4px;
-        padding: 0.5rem;
-    }
-    .typing-dot {
-        width: 6px;
-        height: 6px;
-        background: #64748b;
-        border-radius: 50%;
-        animation: typingBounce 1.4s infinite ease-in-out both;
-    }
-    .typing-dot:nth-child(1) { animation-delay: -0.32s; }
-    .typing-dot:nth-child(2) { animation-delay: -0.16s; }
+}
 
-    @@keyframes typingBounce {
-        0%, 80%, 100% { transform: scale(0); }
-        40% { transform: scale(1); }
-    }
-</style>
-
-<div class="container py-4">
-    <div class="chat-layout">
-        <!-- Sidebar -->
-        <div class="chat-sidebar">
-            <div>
-                <a asp-action="Index" class="btn btn-sm btn-outline-secondary mb-4">&larr; Back to Subjects</a>
-                <span class="badge bg-indigo text-indigo-700 bg-opacity-10 mb-2" style="color: #4f46e5; background: #e0e7ff; padding: 0.35rem 0.75rem;">
-                    @Model.SubjectCode
-                </span>
-                <h4 class="fw-bold" style="color: #0f172a; margin-top: 0.5rem;">@Model.Name</h4>
-                <p class="text-muted mt-2" style="font-size: 0.85rem;">
-                    The AI Assistant searches course materials for this subject and answers using RAG (Retrieval-Augmented Generation).
-                </p>
-            </div>
+<div class="h-[calc(100vh-120px)] flex flex-col md:flex-row gap-6 overflow-hidden">
+    
+    <!-- Left Sidebar: Sources Panel (NotebookLM Inspired) -->
+    <aside class="w-full md:w-[280px] bg-surface-container-low border border-outline-variant/30 rounded-2xl p-5 flex flex-col shrink-0 select-none">
+        <div class="mb-5">
+            @{
+                var userRoleClaim = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value ?? "Student";
+                Enum.TryParse<UserRole>(userRoleClaim, out var uRole);
+                string backAction = uRole == UserRole.Admin ? "Index" : 
+                                    uRole == UserRole.Lecturer ? "MySubjects" : 
+                                    "Browse";
+            }
+            <a asp-action="@backAction" class="inline-flex items-center gap-1 text-on-surface-variant hover:text-on-surface text-xs transition-colors mb-4">
+                <span class="material-symbols-outlined text-[16px]">arrow_back</span>
+                Danh sách môn học
+            </a>
             
-            <div class="border-top pt-3 text-secondary" style="font-size: 0.82rem;">
-                Lecturer: <strong>@(Model.LecturerName ?? "Unassigned")</strong>
+            <span class="bg-primary/10 text-primary border border-primary/20 px-2.5 py-0.5 rounded-lg text-xs font-mono font-bold tracking-tight">
+                @Model.SubjectCode
+            </span>
+            <h4 class="font-headline-sm text-headline-sm font-bold text-on-surface mt-2 truncate" title="@Model.Name">@Model.Name</h4>
+            <p class="font-body-md text-xs text-on-surface-variant mt-1 leading-relaxed line-clamp-3">
+                @(string.IsNullOrEmpty(Model.Description) ? "Môn học chưa được cập nhật mô tả chi tiết." : Model.Description)
+            </p>
+        </div>
+
+        <!-- Sources Section -->
+        <div class="flex-1 flex flex-col min-h-0">
+            <div class="flex justify-between items-center mb-3">
+                <span class="font-label-md text-label-md uppercase tracking-wider text-outline font-bold text-[10px]">Tài liệu học tập (@docs.Count)</span>
+                @if (docs.Any(d => d.Status == DocumentStatus.Success))
+                {
+                    <button id="toggleSelectAll" onclick="toggleSelectAll()" class="text-[10px] text-primary hover:text-primary-fixed font-semibold transition-colors cursor-pointer select-none">
+                        Chọn tất cả
+                    </button>
+                }
+            </div>
+
+
+            <div class="flex-1 overflow-y-auto space-y-2 pr-1">
+                @if (!docs.Any())
+                {
+                    <div class="text-center py-6 text-on-surface-variant text-xs border border-dashed border-outline-variant/30 rounded-xl bg-surface/20">
+                        <span class="material-symbols-outlined text-[24px] text-outline mb-1">description_off</span>
+                        <p class="px-3">Chưa có tài liệu học tập nào được upload cho môn học này.</p>
+                    </div>
+                }
+                else
+                {
+                    @foreach (var doc in docs)
+                    {
+                        var ext = System.IO.Path.GetExtension(doc.FileName).ToLower().TrimStart('.');
+                        var icon = ext switch
+                        {
+                            "pdf" => "picture_as_pdf",
+                            "docx" or "doc" => "description",
+                            "pptx" or "ppt" => "slideshow",
+                            "xlsx" or "xls" => "table_chart",
+                            _ => "text_snippet"
+                        };
+                        var iconColor = ext switch
+                        {
+                            "pdf" => "text-error",
+                            "docx" or "doc" => "text-primary",
+                            "pptx" or "ppt" => "text-secondary",
+                            "xlsx" or "xls" => "text-tertiary",
+                            _ => "text-outline"
+                        };
+                        bool isReady = doc.Status == DocumentStatus.Success;
+
+                        <label class="flex items-center gap-2.5 rounded-xl p-2.5 transition-all border select-none @(isReady ? "bg-surface/40 hover:bg-surface border-outline-variant/20 cursor-pointer doc-card" : "bg-surface/10 border-outline-variant/10 opacity-50 cursor-not-allowed")" title="@doc.FileName">
+                            <span class="material-symbols-outlined text-[20px] @iconColor flex-shrink-0" style="font-variation-settings: 'FILL' 1;">@icon</span>
+                            <div class="min-w-0 flex-1">
+                                <span class="text-xs font-semibold text-on-surface truncate block">@doc.FileName</span>
+                                <div class="flex items-center gap-1.5 mt-0.5">
+                                    <span class="w-1.5 h-1.5 rounded-full @(doc.Status == DocumentStatus.Success ? "bg-tertiary" : doc.Status == DocumentStatus.Failed ? "bg-error" : "bg-yellow-500")"></span>
+                                    <span class="text-[9px] text-outline">@(doc.Status == DocumentStatus.Success ? "Đã Index" : doc.Status == DocumentStatus.Failed ? "Failed" : "Đang xử lý")</span>
+                                    <span class="text-[9px] text-outline">&bull;</span>
+                                    <span class="text-[9px] text-outline">@FormatFileSize(doc.FileSize)</span>
+                                </div>
+                            </div>
+                            @if (isReady)
+                            {
+                                <input type="checkbox" class="doc-checkbox w-4.5 h-4.5 rounded border border-outline/30 bg-surface-container-high checked:bg-primary checked:border-primary cursor-pointer flex-shrink-0 appearance-none flex items-center justify-center after:content-['✓'] after:text-on-primary after:text-[11px] after:font-black after:hidden checked:after:block focus:outline-none transition-all"
+                                       value="@doc.Id" checked onchange="onDocCheckboxChange()" />
+                            }
+                            else
+                            {
+                                <span class="w-4.5 h-4.5 flex-shrink-0"></span>
+                            }
+                        </label>
+                    }
+                }
             </div>
         </div>
 
-        <!-- Chat Area -->
-        <div class="chat-main">
-            <!-- Messages Container -->
-            <div class="chat-messages" id="chatMessages">
-                <!-- Welcome Message -->
-                <div class="chat-bubble chat-bubble-ai">
-                    Hi! I am your AI Learning Assistant for <strong>@Model.SubjectCode - @Model.Name</strong>. Ask me anything related to the course materials uploaded for this subject!
+        <div class="border-t border-outline-variant/30 pt-4 mt-4 text-[11px] text-on-surface-variant flex items-center gap-1.5">
+            <span class="material-symbols-outlined text-[16px]">person</span>
+            <span>Giảng viên: <strong>@(Model.LecturerName ?? "Chưa phân công")</strong></span>
+        </div>
+    </aside>
+
+    <!-- Right Chat Workspace -->
+    <section class="flex-grow bg-surface border border-outline-variant/30 rounded-2xl flex flex-col justify-between overflow-hidden shadow-sm h-full">
+        <!-- Messages Area -->
+        <div class="flex-1 overflow-y-auto p-5 space-y-4 bg-surface-dim/30" id="chatMessages">
+            
+            <!-- Welcome Bot Message -->
+            <div class="flex flex-col items-start w-full gap-1">
+                <div class="flex items-center gap-2 px-1 select-none">
+                    <span class="material-symbols-outlined text-tertiary text-[16px] filled">smart_toy</span>
+                    <span class="font-label-md text-label-md text-on-surface-variant text-[10px]">Trợ lý Học tập AI</span>
+                </div>
+                <div class="bg-surface text-on-surface font-body-md text-sm px-4 py-3 rounded-2xl rounded-tl-sm max-w-[85%] border border-outline-variant shadow-sm leading-relaxed">
+                    <p>Xin chào! Tôi là Trợ lý Học tập AI của bạn cho môn học <strong>@Model.SubjectCode - @Model.Name</strong>. Tôi đã sẵn sàng để trả lời bất kỳ câu hỏi nào của bạn dựa trên học liệu được upload ở bảng bên trái. Hãy bắt đầu hỏi nhé!</p>
                 </div>
             </div>
+            
+        </div>
 
-            <!-- Input Area -->
-            <div class="chat-input-area">
-                <form id="chatForm" class="m-0">
-                    @Html.AntiForgeryToken()
-                    <div class="chat-input-wrapper">
-                        <input type="text" id="userInput" class="chat-input" placeholder="Ask a question about the course materials..." autocomplete="off" required />
-                        <button type="submit" class="chat-send-btn" id="sendBtn">Send</button>
+        <!-- Input Area sticky bottom -->
+        <div class="p-4 bg-surface-container-low border-t border-outline-variant/40">
+            <!-- Suggested prompt chips -->
+            <div class="flex gap-2 mb-3 overflow-x-auto pb-1 select-none whitespace-nowrap scrollbar-none" style="scrollbar-width: none;">
+                <button onclick="setQuery('Tóm tắt tài liệu môn học này')" class="font-label-md text-[11px] px-3.5 py-1.5 rounded-full border border-outline-variant text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest hover:border-outline transition-all duration-150">
+                    Tóm tắt tài liệu môn học này
+                </button>
+                <button onclick="setQuery('Những khái niệm cốt lõi nào cần nắm vững?')" class="font-label-md text-[11px] px-3.5 py-1.5 rounded-full border border-outline-variant text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest hover:border-outline transition-all duration-150">
+                    Những khái niệm cốt lõi nào cần nắm vững?
+                </button>
+                <button onclick="setQuery('Liệt kê tài liệu tham khảo')" class="font-label-md text-[11px] px-3.5 py-1.5 rounded-full border border-outline-variant text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest hover:border-outline transition-all duration-150">
+                    Liệt kê tài liệu tham khảo
+                </button>
+            </div>
+
+            <!-- Model Selector + Chat Form -->
+            <form id="chatForm" class="m-0">
+                @Html.AntiForgeryToken()
+                <!-- Model Selector Row -->
+                <div class="flex items-center justify-between mb-2.5">
+                    <div class="flex items-center gap-2">
+                        <span class="material-symbols-outlined text-[14px] text-outline">psychology</span>
+                        <span class="font-label-md text-[10px] text-outline uppercase tracking-wider">Model AI</span>
                     </div>
-                </form>
+                    <div class="relative">
+                        <select id="modelSelector"
+                                class="appearance-none bg-surface-container-highest border border-outline-variant/60 text-on-surface font-body-md text-xs rounded-lg pl-3 pr-7 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary transition-all cursor-pointer">
+                            <option value="gemini-2.5-flash" selected>⚡ Gemini 2.5 Flash</option>
+                            <option value="gemini-2.5-flash-lite">🪶 Gemini 2.5 Flash Lite</option>
+                            <option value="gemini-2.0-flash">🔵 Gemini 2.0 Flash</option>
+                            <option value="gemini-3.1-flash-lite">⚡⚡ Gemini 3.1 Flash Lite</option>
+                            <option value="gemini-3.5-flash">✨ Gemini 3.5 Flash</option>
+                        </select>
+                        <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
+                            <span class="material-symbols-outlined text-[14px] text-outline">expand_more</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="relative flex items-end bg-surface-container-highest border border-outline-variant rounded-xl focus-within:ring-1 focus-within:ring-primary focus-within:border-primary transition-all">
+                    <button type="button" class="p-3 text-on-surface-variant hover:text-primary transition-colors flex items-center justify-center select-none">
+                        <span class="material-symbols-outlined text-[20px]">add_circle</span>
+                    </button>
+                    
+                    <textarea id="userInput" class="flex-1 bg-transparent border-none focus:ring-0 text-on-surface font-body-md text-sm resize-none py-3 px-0 placeholder-outline/50 max-h-32 min-h-[44px]" placeholder="Hỏi Trợ lý AI về học liệu môn học..." rows="1" autocomplete="off" required></textarea>
+                    
+                    <button type="submit" class="p-3 text-tertiary hover:text-tertiary-fixed-dim transition-colors flex items-center justify-center" id="sendBtn">
+                        <span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">send</span>
+                    </button>
+                </div>
+            </form>
+            <div class="text-center mt-2 select-none">
+                <span class="font-label-md text-[10px] text-outline">AI có thể đưa ra câu trả lời không chính xác. Hãy kiểm tra các nguồn thông tin.</span>
             </div>
         </div>
-    </div>
+    </section>
+    
 </div>
 
 @section Scripts {
@@ -172,7 +209,56 @@
         const userInput = document.getElementById('userInput');
         const chatMessages = document.getElementById('chatMessages');
         const sendBtn = document.getElementById('sendBtn');
+        const modelSelector = document.getElementById('modelSelector');
         const subjectId = '@Model.Id';
+
+        // Auto resize textarea
+        userInput.addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = (this.scrollHeight) + 'px';
+        });
+
+        // Submit form on Enter key (without Shift)
+        userInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                chatForm.dispatchEvent(new Event('submit'));
+            }
+        });
+
+        function setQuery(text) {
+            userInput.value = text;
+            userInput.focus();
+            // Trigger height update
+            userInput.style.height = 'auto';
+            userInput.style.height = (userInput.scrollHeight) + 'px';
+        }
+
+        // --- Document selection helpers ---
+        function getSelectedDocIds() {
+            return Array.from(document.querySelectorAll('.doc-checkbox:checked'))
+                        .map(cb => cb.value);
+        }
+
+        function onDocCheckboxChange() {
+            const selected = getSelectedDocIds();
+            const total = document.querySelectorAll('.doc-checkbox').length;
+            const toggleBtn = document.getElementById('toggleSelectAll');
+
+            if (toggleBtn) {
+                toggleBtn.textContent = selected.length === total ? 'Bỏ chọn tất cả' : 'Chọn tất cả';
+            }
+        }
+
+        function toggleSelectAll() {
+            const checkboxes = document.querySelectorAll('.doc-checkbox');
+            const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+            checkboxes.forEach(cb => cb.checked = !allChecked);
+            onDocCheckboxChange();
+        }
+
+        // Init badge state
+        onDocCheckboxChange();
 
         chatForm.addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -184,6 +270,7 @@
             userInput.value = '';
             userInput.disabled = true;
             sendBtn.disabled = true;
+            userInput.style.height = 'auto'; // Reset height
 
             // Append User message
             appendMessage(query, 'user');
@@ -197,6 +284,12 @@
                 // Get verification token
                 const token = document.querySelector('input[name="__RequestVerificationToken"]').value;
 
+                // Get selected model
+                const selectedModel = modelSelector ? modelSelector.value : 'gemini-2.5-flash';
+
+                // Get selected document IDs (empty = use all docs)
+                const selectedDocIds = getSelectedDocIds().join(',');
+
                 // Send AJAX POST
                 const response = await fetch('/Subject/SendMessage', {
                     method: 'POST',
@@ -204,7 +297,7 @@
                         'Content-Type': 'application/x-www-form-urlencoded',
                         'RequestVerificationToken': token
                     },
-                    body: `subjectId=${encodeURIComponent(subjectId)}&message=${encodeURIComponent(query)}`
+                    body: `subjectId=${encodeURIComponent(subjectId)}&message=${encodeURIComponent(query)}&model=${encodeURIComponent(selectedModel)}&documentIds=${encodeURIComponent(selectedDocIds)}`
                 });
 
                 const data = await response.json();
@@ -213,11 +306,11 @@
                 if (data.success) {
                     appendMessage(data.reply, 'ai');
                 } else {
-                    appendMessage(`Error: ${data.message}`, 'ai');
+                    appendMessage(`Lỗi hệ thống: ${data.message}`, 'ai');
                 }
             } catch (err) {
                 removeTypingIndicator(typingIndicatorId);
-                appendMessage(`System error: Could not contact AI assistant. ${err.message}`, 'ai');
+                appendMessage(`Lỗi đường truyền: Không thể kết nối tới Trợ lý AI. ${err.message}`, 'ai');
             } finally {
                 userInput.disabled = false;
                 sendBtn.disabled = false;
@@ -227,36 +320,60 @@
         });
 
         function appendMessage(text, sender) {
-            const bubble = document.createElement('div');
-            bubble.classList.add('chat-bubble');
-            bubble.classList.add(sender === 'user' ? 'chat-bubble-user' : 'chat-bubble-ai');
+            const messageWrapper = document.createElement('div');
+            messageWrapper.classList.add('flex', 'flex-col', sender === 'user' ? 'items-end' : 'items-start', 'w-full', 'gap-1');
 
-            if (sender === 'user') {
-                bubble.textContent = text;
+            if (sender === 'ai') {
+                messageWrapper.innerHTML = `
+                    <div class="flex items-center gap-2 px-1 select-none">
+                        <span class="material-symbols-outlined text-tertiary text-[16px] filled">smart_toy</span>
+                        <span class="font-label-md text-label-md text-on-surface-variant text-[10px]">Trợ lý Học tập AI</span>
+                    </div>
+                    <div class="bg-surface text-on-surface font-body-md text-sm px-4 py-3 rounded-2xl rounded-tl-sm w-full border border-outline-variant shadow-sm leading-relaxed markdown-body">
+                        ${marked.parse(text)}
+                    </div>
+                `;
             } else {
-                // Render markdown for AI
-                bubble.innerHTML = marked.parse(text);
+                messageWrapper.innerHTML = `
+                    <div class="bg-surface-container-highest border border-outline-variant text-on-surface font-body-md text-sm px-4 py-2.5 rounded-2xl rounded-tr-sm max-w-[75%] leading-relaxed shadow-sm">
+                        ${escapeHtml(text)}
+                    </div>
+                `;
             }
 
-            chatMessages.appendChild(bubble);
+            chatMessages.appendChild(messageWrapper);
+        }
+
+        function escapeHtml(string) {
+            return String(string).replace(/[&<>"']/g, function (s) {
+                return {
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    '"': '&quot;',
+                    "'": '&#39;'
+                }[s];
+            });
         }
 
         function appendTypingIndicator() {
             const id = 'typing-' + Date.now();
-            const bubble = document.createElement('div');
-            bubble.id = id;
-            bubble.classList.add('chat-bubble', 'chat-bubble-ai');
-
-            const indicator = document.createElement('div');
-            indicator.classList.add('typing-indicator');
-            indicator.innerHTML = `
-                <div class="typing-dot"></div>
-                <div class="typing-dot"></div>
-                <div class="typing-dot"></div>
+            const messageWrapper = document.createElement('div');
+            messageWrapper.id = id;
+            messageWrapper.classList.add('flex', 'flex-col', 'items-start', 'w-full', 'gap-1');
+            
+            messageWrapper.innerHTML = `
+                <div class="flex items-center gap-2 px-1 select-none">
+                    <span class="material-symbols-outlined text-tertiary text-[16px] filled">smart_toy</span>
+                </div>
+                <div class="bg-surface text-on-surface font-body-md text-sm px-4 py-3 rounded-2xl rounded-tl-sm border border-outline-variant flex gap-1 items-center h-10 w-16 shadow-sm select-none">
+                    <div class="w-1.5 h-1.5 bg-tertiary rounded-full animate-bounce" style="animation-delay: 0ms"></div>
+                    <div class="w-1.5 h-1.5 bg-tertiary rounded-full animate-bounce" style="animation-delay: 150ms"></div>
+                    <div class="w-1.5 h-1.5 bg-tertiary rounded-full animate-bounce" style="animation-delay: 300ms"></div>
+                </div>
             `;
 
-            bubble.appendChild(indicator);
-            chatMessages.appendChild(bubble);
+            chatMessages.appendChild(messageWrapper);
             return id;
         }
 

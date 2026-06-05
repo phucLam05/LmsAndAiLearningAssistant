@@ -1,56 +1,62 @@
 @model Core.DTOs.Admin.UserCreateDto
 @using Core.Entities
 @{
-    ViewData["Title"] = "Create User";
+    ViewData["Title"] = "Tạo tài khoản";
 }
 
-<div class="container py-4" style="max-width: 600px;">
-    <div class="mb-4">
-        <a asp-action="Users" class="btn btn-sm btn-outline-secondary">&larr; Back to Users</a>
+<div class="max-w-xl mx-auto space-y-6 select-none animate-fade-in">
+    <div>
+        <a asp-action="Users" class="inline-flex items-center gap-2 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high px-4 py-2 rounded-lg transition-colors text-xs font-semibold border border-outline-variant/30">
+            <span class="material-symbols-outlined text-[16px]">arrow_back</span>
+            Quay lại danh sách
+        </a>
     </div>
 
-    <div class="card shadow-sm border-0" style="border-radius: 16px;">
-        <div class="card-body p-4">
-            <h2 class="fw-bold mb-2" style="color: #1a1f36;">Create User</h2>
-            <p class="text-muted mb-4">Manually register a new lecturer, student, or administrator account.</p>
+    <div class="bg-surface-container-low border border-outline-variant/30 rounded-2xl p-6 md:p-8 shadow-xl">
+        <h2 class="font-headline-md text-headline-md font-bold text-on-surface mb-2">Tạo người dùng mới</h2>
+        <p class="font-body-md text-xs text-on-surface-variant mb-6 leading-relaxed">Đăng ký thủ công tài khoản giảng viên, sinh viên hoặc quản trị viên mới trên hệ thống.</p>
 
-            <form asp-action="CreateUser" method="post">
-                @Html.AntiForgeryToken()
-                <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+        <form asp-action="CreateUser" method="post" class="space-y-4">
+            @Html.AntiForgeryToken()
+            <div asp-validation-summary="ModelOnly" class="bg-error-container/20 border border-error-container/30 text-error p-3 rounded-xl text-xs flex items-start gap-2 mb-4">
+                <span class="material-symbols-outlined text-[18px]">error</span>
+                <span>Vui lòng kiểm tra lại thông tin nhập vào.</span>
+            </div>
 
-                <div class="mb-3">
-                    <label asp-for="FullName" class="form-label fw-semibold">Full Name</label>
-                    <input asp-for="FullName" class="form-control" placeholder="e.g., John Doe" required />
-                    <span asp-validation-for="FullName" class="text-danger"></span>
-                </div>
+            <div class="space-y-1">
+                <label asp-for="FullName" class="block text-label-md font-bold text-on-surface-variant text-[11px] uppercase tracking-wider">Họ và tên</label>
+                <input asp-for="FullName" class="bg-surface-container-lowest border border-outline-variant/60 rounded-xl px-4 py-3 text-on-surface placeholder:text-outline-variant/50 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary w-full text-xs transition-all" placeholder="e.g. Nguyễn Văn A" required />
+                <span asp-validation-for="FullName" class="text-error text-[10px] block mt-1"></span>
+            </div>
 
-                <div class="mb-3">
-                    <label asp-for="Email" class="form-label fw-semibold">Email Address</label>
-                    <input asp-for="Email" class="form-control" placeholder="e.g., johndoe@lmsai.com" required />
-                    <span asp-validation-for="Email" class="text-danger"></span>
-                </div>
+            <div class="space-y-1">
+                <label asp-for="Email" class="block text-label-md font-bold text-on-surface-variant text-[11px] uppercase tracking-wider">Địa chỉ Email</label>
+                <input asp-for="Email" class="bg-surface-container-lowest border border-outline-variant/60 rounded-xl px-4 py-3 text-on-surface placeholder:text-outline-variant/50 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary w-full text-xs transition-all" placeholder="e.g. anv@lmsai.com" required />
+                <span asp-validation-for="Email" class="text-error text-[10px] block mt-1"></span>
+            </div>
 
-                <div class="mb-3">
-                    <label asp-for="UserCode" class="form-label fw-semibold">User Code (ID)</label>
-                    <input asp-for="UserCode" class="form-control" placeholder="e.g., STU123456 or LEC987" required />
-                    <small class="text-muted">Unique Student ID or Lecturer ID</small>
-                    <span asp-validation-for="UserCode" class="text-danger"></span>
-                </div>
+            <div class="space-y-1">
+                <label asp-for="UserCode" class="block text-label-md font-bold text-on-surface-variant text-[11px] uppercase tracking-wider">Mã định danh (User Code / ID)</label>
+                <input asp-for="UserCode" class="bg-surface-container-lowest border border-outline-variant/60 rounded-xl px-4 py-3 text-on-surface placeholder:text-outline-variant/50 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary w-full text-xs transition-all" placeholder="e.g. HE170123 hoặc LEC001" required />
+                <span class="text-[10px] text-outline block">Mã số sinh viên (MSSV) hoặc mã giảng viên duy nhất.</span>
+                <span asp-validation-for="UserCode" class="text-error text-[10px] block mt-1"></span>
+            </div>
 
-                <div class="mb-4">
-                    <label asp-for="Role" class="form-label fw-semibold">Role</label>
-                    <select asp-for="Role" class="form-select" required>
-                        <option value="@UserRole.Student">Student</option>
-                        <option value="@UserRole.Lecturer">Lecturer</option>
-                        <option value="@UserRole.Admin">Admin</option>
-                    </select>
-                    <span asp-validation-for="Role" class="text-danger"></span>
-                </div>
+            <div class="space-y-1">
+                <label asp-for="Role" class="block text-label-md font-bold text-on-surface-variant text-[11px] uppercase tracking-wider">Vai trò</label>
+                <select asp-for="Role" class="bg-surface-container-lowest border border-outline-variant/60 rounded-xl px-4 py-3 text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary w-full text-xs transition-all" required>
+                    <option value="@UserRole.Student">Sinh viên (Student)</option>
+                    <option value="@UserRole.Lecturer">Giảng viên (Lecturer)</option>
+                    <option value="@UserRole.Admin">Quản trị viên (Admin)</option>
+                </select>
+                <span asp-validation-for="Role" class="text-error text-[10px] block mt-1"></span>
+            </div>
 
-                <button type="submit" class="btn btn-primary w-100 py-2.5 fw-semibold" style="border-radius: 10px; background-color: #4f46e5; border-color: #4f46e5;">
-                    Create User & Send Notification
-                </button>
-            </form>
-        </div>
+            <button type="submit" class="w-full bg-primary hover:bg-primary/95 text-on-primary font-bold py-3.5 px-4 rounded-xl shadow-md transition-all duration-200 flex items-center justify-center gap-2 text-xs font-semibold hover:scale-[1.01] mt-6">
+                <span>Tạo tài khoản &amp; Gửi thông báo</span>
+                <span class="material-symbols-outlined text-[16px]">person_add</span>
+            </button>
+        </form>
     </div>
 </div>
+

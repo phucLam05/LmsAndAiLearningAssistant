@@ -4,12 +4,10 @@ using Core.DTOs.Common;
 using Core.DTOs.Documents;
 using Core.Entities;
 using DAL.Interfaces;
-using DAL.Data;
 using Hangfire;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Configuration;
-using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -26,9 +24,9 @@ namespace BLL.Services
     {
         private readonly IDocumentRepository _documentRepository;
         private readonly ISubjectRepository _subjectRepository;
+        private readonly IUserRepository _userRepository;
         private readonly IDocumentChunkRepository _documentChunkRepository;
         private readonly ISupabaseStorageProvider _storageService;
-        private readonly ApplicationDbContext _dbContext;
         private readonly UploadOptions _uploadOptions;
         private readonly ILogger<DocumentService> _logger;
         private readonly IBackgroundJobClient _backgroundJobs;
@@ -38,9 +36,9 @@ namespace BLL.Services
         public DocumentService(
             IDocumentRepository documentRepository,
             ISubjectRepository subjectRepository,
+            IUserRepository userRepository,
             IDocumentChunkRepository documentChunkRepository,
             ISupabaseStorageProvider storageService,
-            ApplicationDbContext dbContext,
             IOptions<UploadOptions> uploadOptions,
             ILogger<DocumentService> logger,
             IBackgroundJobClient backgroundJobs,
@@ -48,9 +46,9 @@ namespace BLL.Services
         {
             _documentRepository = documentRepository;
             _subjectRepository = subjectRepository;
+            _userRepository = userRepository;
             _documentChunkRepository = documentChunkRepository;
             _storageService = storageService;
-            _dbContext = dbContext;
             _uploadOptions = uploadOptions.Value;
             _logger = logger;
             _backgroundJobs = backgroundJobs;
@@ -139,7 +137,7 @@ namespace BLL.Services
                 return Result<DocumentDto>.Failure(validationError);
             }
 
-            var subject = await _dbContext.Subjects.FindAsync(uploadDto.SubjectId);
+            var subject = await _subjectRepository.GetByIdAsync(uploadDto.SubjectId);
             if (subject == null)
             {
                 return Result<DocumentDto>.Failure("Subject does not exist.");
@@ -162,7 +160,13 @@ namespace BLL.Services
 
             try
             {
-                if (subject.LecturerId != uploadDto.UploadedBy)
+                var uploaderUser = await _userRepository.GetByIdAsync(uploadDto.UploadedBy);
+                if (uploaderUser == null)
+                {
+                    return Result<DocumentDto>.Failure("Người dùng không tồn tại.");
+                }
+
+                if (uploaderUser.Role != UserRole.Admin && subject.LecturerId != uploadDto.UploadedBy)
                 {
                     return Result<DocumentDto>.Failure("Bạn không có quyền upload tài liệu cho môn học này.");
                 }
@@ -174,6 +178,7 @@ namespace BLL.Services
                     UploadedBy = uploadDto.UploadedBy,
                     FileName = Path.GetFileName(uploadDto.FileName),
                     FileUrl = storagePath,
+                    FileSize = uploadDto.FileSize,
                     Status = DocumentStatus.Pending,
                     CreatedAt = now,
                     UpdatedAt = now,
@@ -215,7 +220,7 @@ namespace BLL.Services
                     return Result.Failure("Document not found.");
                 }
 
-                var user = await _dbContext.Users.FindAsync(userId);
+                var user = await _userRepository.GetByIdAsync(userId);
                 if (user == null)
                 {
                     return Result.Failure("User not found.");
@@ -256,7 +261,7 @@ namespace BLL.Services
                     return Result.Failure("Document not found.");
                 }
 
-                var user = await _dbContext.Users.FindAsync(userId);
+                var user = await _userRepository.GetByIdAsync(userId);
                 if (user == null)
                 {
                     return Result.Failure("User not found.");
@@ -288,6 +293,13 @@ namespace BLL.Services
                 _logger.LogError(ex, "Failed to retry processing for document {DocumentId}", documentId);
                 return Result.Failure($"Retry processing error: {ex.Message}");
             }
+        }
+
+        public async Task<IReadOnlyList<DocumentDto>> GetAllDocumentsAsync()
+        {
+            var documents = await _documentRepository.GetAllWithDetailsAsync();
+
+            return documents.Select(MapDocument).ToList();
         }
 
         private string ValidateUpload(DocumentUploadDto uploadDto)
@@ -340,6 +352,7 @@ namespace BLL.Services
                 UploadedBy = document.UploadedBy,
                 FileName = document.FileName,
                 FileUrl = GetAbsoluteStorageUrl(document.FileUrl),
+                FileSize = document.FileSize,
                 Status = document.Status,
                 CreatedAt = document.CreatedAt,
                 UpdatedAt = document.UpdatedAt,

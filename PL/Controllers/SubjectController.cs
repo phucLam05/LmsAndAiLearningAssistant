@@ -49,17 +49,19 @@ namespace PL.Controllers
         {
             ViewBag.UserRole = GetUserRole();
             var subjects = await _subjectService.GetAllSubjectsAsync();
+            
+            var users = await _adminService.GetAllUsersAsync();
+            var lecturers = users.Where(u => u.Role == UserRole.Lecturer).ToList();
+            ViewBag.Lecturers = new SelectList(lecturers, "Id", "FullName");
+            
             return View(subjects);
         }
 
         [Authorize(Roles = "Admin")]
         [HttpGet]
-        public async Task<IActionResult> Create()
+        public IActionResult Create()
         {
-            var users = await _adminService.GetAllUsersAsync();
-            var lecturers = users.Where(u => u.Role == UserRole.Lecturer).ToList();
-            ViewBag.Lecturers = new SelectList(lecturers, "Id", "FullName");
-            return View();
+            return RedirectToAction(nameof(Index));
         }
 
         [Authorize(Roles = "Admin")]
@@ -67,8 +69,16 @@ namespace PL.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create(CreateSubjectDto dto)
         {
+            var isAjax = Request.Headers["X-Requested-With"] == "XMLHttpRequest";
+
             if (!ModelState.IsValid)
             {
+                var errors = string.Join(" ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage));
+                if (isAjax)
+                {
+                    return Json(new { success = false, error = errors });
+                }
+
                 var users = await _adminService.GetAllUsersAsync();
                 var lecturers = users.Where(u => u.Role == UserRole.Lecturer).ToList();
                 ViewBag.Lecturers = new SelectList(lecturers, "Id", "FullName", dto.LecturerId);
@@ -78,11 +88,22 @@ namespace PL.Controllers
             var (success, error) = await _subjectService.CreateSubjectAsync(dto);
             if (!success)
             {
+                if (isAjax)
+                {
+                    return Json(new { success = false, error = error ?? "Failed to create subject." });
+                }
+
                 ModelState.AddModelError(string.Empty, error ?? "Failed to create subject.");
                 var users = await _adminService.GetAllUsersAsync();
                 var lecturers = users.Where(u => u.Role == UserRole.Lecturer).ToList();
                 ViewBag.Lecturers = new SelectList(lecturers, "Id", "FullName", dto.LecturerId);
                 return View(dto);
+            }
+
+            if (isAjax)
+            {
+                TempData["SuccessMessage"] = "Môn học đã được tạo thành công.";
+                return Json(new { success = true });
             }
 
             TempData["SuccessMessage"] = "Subject created successfully.";
@@ -91,28 +112,9 @@ namespace PL.Controllers
 
         [Authorize(Roles = "Admin")]
         [HttpGet]
-        public async Task<IActionResult> Edit(Guid id)
+        public IActionResult Edit(Guid id)
         {
-            var subject = await _subjectService.GetSubjectByIdAsync(id);
-            if (subject == null)
-            {
-                TempData["ErrorMessage"] = "Subject not found.";
-                return RedirectToAction(nameof(Index));
-            }
-
-            var dto = new UpdateSubjectDto
-            {
-                Id = subject.Id,
-                Name = subject.Name,
-                Description = subject.Description,
-                LecturerId = subject.LecturerId,
-                Status = subject.Status
-            };
-
-            var users = await _adminService.GetAllUsersAsync();
-            var lecturers = users.Where(u => u.Role == UserRole.Lecturer).ToList();
-            ViewBag.Lecturers = new SelectList(lecturers, "Id", "FullName", dto.LecturerId);
-            return View(dto);
+            return RedirectToAction(nameof(Index));
         }
 
         [Authorize(Roles = "Admin")]
@@ -120,8 +122,22 @@ namespace PL.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Edit(UpdateSubjectDto dto)
         {
+            var isAjax = Request.Headers["X-Requested-With"] == "XMLHttpRequest";
+
             if (!ModelState.IsValid)
             {
+                var errors = string.Join(" ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage));
+                if (isAjax)
+                {
+                    return Json(new { success = false, error = errors });
+                }
+
+                var subject = await _subjectService.GetSubjectByIdAsync(dto.Id);
+                if (subject != null)
+                {
+                    dto.SubjectCode = subject.SubjectCode;
+                }
+
                 var users = await _adminService.GetAllUsersAsync();
                 var lecturers = users.Where(u => u.Role == UserRole.Lecturer).ToList();
                 ViewBag.Lecturers = new SelectList(lecturers, "Id", "FullName", dto.LecturerId);
@@ -131,11 +147,28 @@ namespace PL.Controllers
             var (success, error) = await _subjectService.UpdateSubjectAsync(dto);
             if (!success)
             {
+                if (isAjax)
+                {
+                    return Json(new { success = false, error = error ?? "Failed to update subject." });
+                }
+
+                var subject = await _subjectService.GetSubjectByIdAsync(dto.Id);
+                if (subject != null)
+                {
+                    dto.SubjectCode = subject.SubjectCode;
+                }
+
                 ModelState.AddModelError(string.Empty, error ?? "Failed to update subject.");
                 var users = await _adminService.GetAllUsersAsync();
                 var lecturers = users.Where(u => u.Role == UserRole.Lecturer).ToList();
                 ViewBag.Lecturers = new SelectList(lecturers, "Id", "FullName", dto.LecturerId);
                 return View(dto);
+            }
+
+            if (isAjax)
+            {
+                TempData["SuccessMessage"] = "Môn học đã được cập nhật thành công.";
+                return Json(new { success = true });
             }
 
             TempData["SuccessMessage"] = "Subject updated successfully.";
@@ -213,12 +246,24 @@ namespace PL.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> SendMessage(Guid subjectId, string message)
+        public async Task<IActionResult> SendMessage(Guid subjectId, string message, string? model = null, string? documentIds = null)
         {
             if (string.IsNullOrWhiteSpace(message))
                 return Json(new { success = false, message = "Message cannot be empty." });
 
-            var answer = await _chatService.ChatWithSubjectAsync(subjectId, message);
+            // Parse comma-separated document IDs sent from the chat UI
+            List<Guid>? selectedDocIds = null;
+            if (!string.IsNullOrWhiteSpace(documentIds))
+            {
+                selectedDocIds = documentIds
+                    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                    .Select(s => Guid.TryParse(s, out var g) ? g : (Guid?)null)
+                    .Where(g => g.HasValue)
+                    .Select(g => g!.Value)
+                    .ToList();
+            }
+
+            var answer = await _chatService.ChatWithSubjectAsync(subjectId, message, model, selectedDocIds);
             return Json(new { success = true, reply = answer });
         }
     }

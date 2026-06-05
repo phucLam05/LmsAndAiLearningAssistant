@@ -13,8 +13,8 @@ using Pgvector;
 namespace DAL.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20260605122344_UpdateModels")]
-    partial class UpdateModels
+    [Migration("20260605214822_RefactorRepositoryPattern")]
+    partial class RefactorRepositoryPattern
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -46,6 +46,12 @@ namespace DAL.Migrations
                         .HasMaxLength(255)
                         .HasColumnType("character varying(255)")
                         .HasColumnName("file_name");
+
+                    b.Property<long>("FileSize")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasDefaultValue(0L)
+                        .HasColumnName("file_size");
 
                     b.Property<string>("FileUrl")
                         .IsRequired()
@@ -119,9 +125,19 @@ namespace DAL.Migrations
                         .HasColumnType("vector(3072)")
                         .HasColumnName("embedding");
 
+                    b.Property<int?>("PageNumber")
+                        .HasColumnType("integer")
+                        .HasColumnName("page_number");
+
                     b.Property<Guid?>("SubjectId")
                         .HasColumnType("uuid")
                         .HasColumnName("subject_id");
+
+                    b.Property<int>("TokenCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("token_count");
 
                     b.HasKey("Id");
 

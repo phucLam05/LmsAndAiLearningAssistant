@@ -13,7 +13,7 @@ namespace PL.Controllers
             {
                 var role = User.FindFirstValue(ClaimTypes.Role);
                 if (role == "Admin") return RedirectToAction("Index", "Admin");
-                if (role == "Lecturer") return RedirectToAction("Portal", "Lecturer");
+                if (role == "Lecturer") return RedirectToAction("MySubjects", "Subject");
                 if (role == "Student") return RedirectToAction("Browse", "Subject");
                 return RedirectToAction("Index", "Subject");
             }

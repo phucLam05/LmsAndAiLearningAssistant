@@ -19,6 +19,9 @@ namespace Core.DTOs.Subject
 
         public string? Description { get; set; }
 
+        /// <summary>SubjectCode is read-only on update but included for view rendering.</summary>
+        public string SubjectCode { get; set; } = string.Empty;
+
         /// <summary>Assign exactly 1 lecturer. Set to null to un-assign.</summary>
         public Guid? LecturerId { get; set; }
 

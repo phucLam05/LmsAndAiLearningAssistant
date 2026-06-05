@@ -1,14 +1,18 @@
 @{
-    ViewData["Title"] = "Access Denied";
+    ViewData["Title"] = "Từ chối truy cập";
 }
 
-<div class="container mt-5">
-    <div class="row justify-content-center">
-        <div class="col-md-6 text-center">
-            <h1 class="display-1 text-danger"><i class="bi bi-exclamation-triangle"></i></h1>
-            <h2 class="mb-4">Access Denied</h2>
-            <p class="lead">You do not have permission to access the requested resource.</p>
-            <a href="@Url.Action("Index", "Home")" class="btn btn-primary mt-3">Return to Home</a>
-        </div>
+<div class="max-w-md mx-auto bg-surface-container-low border border-outline-variant/30 rounded-2xl p-8 text-center select-none shadow-xl flex flex-col items-center justify-center animate-fade-in my-12">
+    <div class="w-16 h-16 rounded-full bg-error-container/20 border border-error/30 text-error flex items-center justify-center mb-4">
+        <span class="material-symbols-outlined text-[36px] filled">gpp_bad</span>
     </div>
+    
+    <h2 class="font-headline-md text-headline-md font-bold text-on-surface mb-2">Truy cập bị từ chối</h2>
+    <p class="text-xs text-on-surface-variant max-w-xs mb-6 leading-relaxed">Bạn không có quyền hạn truy cập vào tài nguyên hoặc đường dẫn được yêu cầu này. Vui lòng liên hệ quản trị viên nếu có thắc mắc.</p>
+    
+    <a href="@Url.Action("Index", "Home")" class="bg-primary hover:bg-primary/95 text-on-primary font-bold py-2.5 px-5 rounded-xl shadow-md transition-all duration-200 flex items-center gap-2 text-xs font-semibold hover:scale-[1.01]">
+        <span class="material-symbols-outlined text-[16px]">home</span>
+        Quay lại trang chủ
+    </a>
 </div>
+

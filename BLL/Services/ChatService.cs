@@ -1,11 +1,9 @@
 using BLL.Interfaces;
 using Core.Entities;
-using DAL.Data;
 using DAL.Interfaces;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using Pgvector.EntityFrameworkCore;
+using Pgvector;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -22,7 +20,7 @@ namespace BLL.Services
     /// </summary>
     public class ChatService : IChatService
     {
-        private readonly ApplicationDbContext _dbContext;
+        private readonly IDocumentChunkRepository _documentChunkRepository;
         private readonly IGeminiEmbeddingProvider _embeddingProvider;
         private readonly HttpClient _httpClient;
         private readonly string _apiKey;
@@ -30,13 +28,13 @@ namespace BLL.Services
         private readonly ILogger<ChatService> _logger;
 
         public ChatService(
-            ApplicationDbContext dbContext,
+            IDocumentChunkRepository documentChunkRepository,
             IGeminiEmbeddingProvider embeddingProvider,
             HttpClient httpClient,
             IConfiguration configuration,
             ILogger<ChatService> logger)
         {
-            _dbContext = dbContext;
+            _documentChunkRepository = documentChunkRepository;
             _embeddingProvider = embeddingProvider;
             _httpClient = httpClient;
             _apiKey = configuration["GeminiSettings:ApiKey"] ?? string.Empty;
@@ -44,7 +42,18 @@ namespace BLL.Services
             _logger = logger;
         }
 
-        public async Task<string> ChatWithSubjectAsync(Guid subjectId, string query, CancellationToken cancellationToken = default)
+        // Supported Gemini generation models – verified via ListModels API (v1beta, generateContent).
+        private static readonly HashSet<string> AllowedModels = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "gemini-2.5-flash",       // Gemini 2.5 Flash      – 5 RPM, 20 RPD
+            "gemini-2.5-flash-lite",  // Gemini 2.5 Flash Lite – 10 RPM, 20 RPD
+            "gemini-2.0-flash",       // Gemini 2.0 Flash      – stable
+            "gemini-3.1-flash-lite",  // Gemini 3.1 Flash Lite – 15 RPM, 500 RPD
+            "gemini-3.5-flash",       // Gemini 3.5 Flash      – 5 RPM, 20 RPD
+        };
+        private const string DefaultModel = "gemini-2.5-flash";
+
+        public async Task<string> ChatWithSubjectAsync(Guid subjectId, string query, string? model = null, List<Guid>? documentIds = null, CancellationToken cancellationToken = default)
         {
             if (string.IsNullOrWhiteSpace(query))
             {
@@ -55,22 +64,22 @@ namespace BLL.Services
             {
                 _logger.LogInformation("Generating embedding for student query: {Query}", query);
                 var queryEmbedding = await _embeddingProvider.GetEmbeddingAsync(query, cancellationToken);
-                var pgVector = new Pgvector.Vector(queryEmbedding);
 
                 _logger.LogInformation("Performing similarity search for SubjectId: {SubjectId}", subjectId);
 
-                // Perform vector search using cosine distance
-                var matchedChunks = await _dbContext.DocumentChunks
-                    .Where(c => c.SubjectId == subjectId && c.Embedding != null)
-                    .OrderBy(c => c.Embedding!.CosineDistance(pgVector))
-                    .Take(5)
-                    .Include(c => c.Document)
-                    .Select(c => new { c.Content, FileName = c.Document != null ? c.Document.FileName : "Unknown Document" })
-                    .ToListAsync(cancellationToken);
+                var matchedChunks = await _documentChunkRepository.SearchSimilarChunksAsync(
+                    subjectId,
+                    new Vector(queryEmbedding),
+                    limit: 5,
+                    documentIds: documentIds,
+                    cancellationToken: cancellationToken);
 
                 if (!matchedChunks.Any())
                 {
-                    return "Sorry, I could not find any documents or materials uploaded for this subject to answer your question. Please ask your lecturer to upload course materials.";
+                    bool hasDocumentFilter = documentIds != null && documentIds.Count > 0;
+                    return hasDocumentFilter
+                        ? "Xin lỗi, các tài liệu bạn đã chọn chưa được xử lý hoặc không có nội dung phù hợp. Vui lòng chọn thêm tài liệu hoặc đặt câu hỏi khác."
+                        : "Sorry, I could not find any documents or materials uploaded for this subject to answer your question. Please ask your lecturer to upload course materials.";
                 }
 
                 // Construct prompt
@@ -86,8 +95,13 @@ namespace BLL.Services
                 
                 var prompt = $"System context:\n{systemPrompt}\n\nCourse materials context:\n{contextBuilder}\n\nStudent's Question: {query}\n\nAnswer:";
 
-                _logger.LogInformation("Sending request to Gemini API for text generation.");
-                var answer = await GenerateTextAsync(prompt, cancellationToken);
+                // Validate and resolve model
+                var resolvedModel = (!string.IsNullOrWhiteSpace(model) && AllowedModels.Contains(model))
+                    ? model
+                    : DefaultModel;
+
+                _logger.LogInformation("Sending request to Gemini API using model: {Model}", resolvedModel);
+                var answer = await GenerateTextAsync(prompt, resolvedModel, cancellationToken);
                 return answer;
             }
             catch (Exception ex)
@@ -97,14 +111,13 @@ namespace BLL.Services
             }
         }
 
-        private async Task<string> GenerateTextAsync(string prompt, CancellationToken cancellationToken)
+        private async Task<string> GenerateTextAsync(string prompt, string model, CancellationToken cancellationToken)
         {
             if (string.IsNullOrWhiteSpace(_apiKey))
             {
                 throw new InvalidOperationException("Gemini API key is not configured.");
             }
 
-            var model = "gemini-1.5-flash";
             var url = $"{_baseUrl.TrimEnd('/')}/models/{model}:generateContent?key={_apiKey}";
 
             var requestBody = new

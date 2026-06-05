@@ -1,22 +1,74 @@
 # Data Access Layer (DAL)
 
-The `DAL` project is a class library responsible for all database interactions.
+The `DAL` project is a class library responsible for all data persistence and external infrastructure interactions. It depends only on `Core`.
+
+---
 
 ## Responsibilities
-- **Database Context**: Contains the `ApplicationDbContext` which inherits from `DbContext` (Entity Framework Core). This file defines the tables and relationships (using Fluent API).
-- **Repositories**: Implements the Repository pattern. Repositories abstract the data source so that the Business Logic Layer doesn't need to know whether the data comes from a database or an API. Repositories are split tightly by domain (e.g., `DocumentRepository` for metadata, and `DocumentChunkRepository` for vector chunks).
-- **Providers**: Classes that encapsulate external API or storage interactions, such as `SupabaseStorageProvider` (for Supabase Storage) and `GeminiEmbeddingProvider` (for Gemini API calls).
-- **Interfaces**: Contracts for the repositories and providers to ensure loose coupling.
-- **Migrations**: Stores EF Core migration scripts that track changes to the database schema over time.
 
-## Key Configurations
-- **PostgreSQL**: The project uses `Npgsql.EntityFrameworkCore.PostgreSQL`.
-- **Pgvector**: For AI-powered vector similarity search, `Pgvector.EntityFrameworkCore` is installed, and the `ApplicationDbContext` enables the `vector` extension.
+| Folder | Contents |
+|--------|----------|
+| `Data/` | `ApplicationDbContext` (EF Core DbContext), `AuditInterceptor` |
+| `Repositories/` | Concrete EF Core implementations of repository interfaces |
+| `Interfaces/` | Repository and Provider contracts consumed by BLL |
+| `Providers/` | External infrastructure clients (Supabase Storage, Gemini Embedding) |
+| `Migrations/` | EF Core migration history files |
+| `DependencyInjection.cs` | Extension method `AddDataAccessLayer()` for `Program.cs` |
+
+---
+
+## Repositories
+
+All repositories implement their corresponding interface from `DAL/Interfaces/` and use `ApplicationDbContext` internally. The BLL never accesses `ApplicationDbContext` directly — it always goes through an interface.
+
+| Repository | Interface | Responsibility |
+|------------|-----------|----------------|
+| `UserRepository` | `IUserRepository` | User CRUD, email hash lookup, role management |
+| `SubjectRepository` | `ISubjectRepository` | Subject CRUD, lecturer's subject list |
+| `DocumentRepository` | `IDocumentRepository` | Document metadata, status updates, all-docs admin view |
+| `DocumentChunkRepository` | `IDocumentChunkRepository` | Chunk insert/update/delete, pgvector cosine similarity search |
+
+### Notable repository methods
+
+- **`IDocumentChunkRepository.SearchSimilarChunksAsync`** — performs a pgvector cosine distance search filtered by subject and optionally by selected document IDs. Used by `ChatService` for RAG retrieval.
+- **`IDocumentRepository.GetAllWithDetailsAsync`** — returns all documents across all subjects with `Subject` and `Uploader` navigation properties eagerly loaded. Used by `AdminService`.
+- **`IDocumentChunkRepository.CountAllAsync`** — returns the total chunk count across the entire database. Used by `AdminService` for the dashboard stats widget.
+
+---
+
+## Providers
+
+| Provider | Interface | Responsibility |
+|----------|-----------|----------------|
+| `SupabaseStorageProvider` | `ISupabaseStorageProvider` | Upload, download, delete, signed URL for Supabase Storage |
+| `GeminiEmbeddingProvider` | `IGeminiEmbeddingProvider` | Calls Gemini `text-embedding-004` API and returns `float[]` vectors |
+
+---
+
+## Database Context
+
+`ApplicationDbContext` configures:
+- `pgvector` extension enablement on model creation
+- Fluent API mappings for all entities (snake_case column names, indexes, foreign keys)
+- `AuditInterceptor` to automatically set `CreatedAt` / `UpdatedAt` on save
+
+---
 
 ## Running Migrations
-When entities in the `Core` project are modified, a new migration should be created.
-Run this from the solution root:
+
+From the solution root directory:
+
 ```bash
-dotnet ef migrations add <MigrationName> --project DAL\DAL.csproj --startup-project PL\PL.csproj
-dotnet ef database update --project DAL\DAL.csproj --startup-project PL\PL.csproj
+# Add a new migration after modifying Core entities
+dotnet ef migrations add <MigrationName> --project DAL/DAL.csproj --startup-project PL/PL.csproj
+
+# Apply pending migrations to the database
+dotnet ef database update --project DAL/DAL.csproj --startup-project PL/PL.csproj
 ```
+
+---
+
+## Architectural Rule
+
+> DAL depends only on `Core`.  
+> BLL communicates with DAL **exclusively through interfaces** (`IUserRepository`, `IDocumentRepository`, etc.) — never through `ApplicationDbContext` directly.

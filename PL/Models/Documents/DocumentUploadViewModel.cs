@@ -9,9 +9,9 @@ namespace PL.Models.Documents
     /// </summary>
     public class DocumentUploadViewModel
     {
-        [Required(ErrorMessage = "Please select a file to upload.")]
-        [Display(Name = "File")]
-        public IFormFile? File { get; set; }
+        [Required(ErrorMessage = "Please select one or more files to upload.")]
+        [Display(Name = "Files")]
+        public System.Collections.Generic.List<IFormFile> Files { get; set; } = new System.Collections.Generic.List<IFormFile>();
 
         [Required]
         public Guid SubjectId { get; set; }

@@ -1,29 +1,91 @@
 # Presentation Layer (PL)
 
-The `PL` project is an ASP.NET Core 10.0 MVC application. It serves as the main entry point of the LmsAndAiLearningAssistant solution.
+The `PL` project is an **ASP.NET Core 10.0 MVC** application. It serves as the entry point of the LmsAndAiLearningAssistant solution, handling all HTTP requests and rendering views for the user interface.
+
+---
 
 ## Responsibilities
-- **Controllers**: Handle incoming HTTP requests, interact with the Business Logic Layer (BLL), and return responses or views.
-- **Views**: Razor views (`.cshtml`) that provide the user interface.
-- **Models**: View Models specifically designed for data transfer between Controllers and Views.
-- **Configuration**: Contains `appsettings.json` for database connection strings and security keys.
-- **Dependency Injection**: Wires up services from the BLL and repositories from the DAL in `Program.cs`.
 
-### Controllers
-- **AuthController**: Handles user authentication, registration, login/logout using cookie-based authentication.
-- **DocumentController**: Manages file uploads, listing user documents, and triggering background jobs via Hangfire. Now leverages the `Result` pattern from the BLL to gracefully handle errors without throwing HTTP 500 exceptions.
+| Folder | Contents |
+|--------|----------|
+| `Controllers/` | HTTP request handlers — interact with BLL via injected interfaces only |
+| `Views/` | Razor `.cshtml` views organized by controller |
+| `Models/` | View models for data binding between Controllers and Views |
+| `wwwroot/` | Static assets (CSS, JavaScript, fonts, images) |
+| `Properties/` | `launchSettings.json` for dev server configuration |
 
-### Dependencies
-- **Hangfire**: Used for background job processing (document chunking and embedding). Resumption logic ensures that if a background job fails, retrying from the UI will smartly pick up from the point of failure.
+---
+
+## Controllers
+
+| Controller | Accessible by | Responsibility |
+|------------|--------------|----------------|
+| `AuthController` | Anonymous | Login, logout, registration |
+| `HomeController` | All authenticated | Root redirect based on role |
+| `SubjectController` | Lecturer, Admin | Subject CRUD, document listing, AI chat interface |
+| `DocumentController` | Lecturer, Admin | Upload, delete, retry processing, download, chunk viewer |
+| `AdminController` | Admin only | Dashboard stats, user management, document oversight |
+| `LecturerController` | Lecturer | Lecturer-specific utilities (portal redirect removed) |
+
+> **Architecture rule:** Controllers must only inject **BLL interfaces** (e.g., `IDocumentService`, `ISubjectService`). Direct use of `ApplicationDbContext`, DAL repositories, or provider classes in Controllers is **not permitted**.
+
+---
+
+## Role-based Routing
+
+| Role | Login redirect |
+|------|---------------|
+| Admin | `Admin/Index` (Dashboard) |
+| Lecturer | `Subject/MySubjects` (Subject list) |
+| Student | `Subject/Index` (Subject list) |
+
+---
 
 ## Key Files
-- `Program.cs`: Application startup, DI container registration, Options binding (`UploadOptions`), middleware pipeline configuration, and Hangfire setup for background jobs.
-- `appsettings.json`: Stores configuration variables such as `ConnectionStrings:DefaultConnection`, `Security:EncryptionKey`, and `Upload` block (for MaxFileSize and AllowedMimeTypes).
+
+| File | Purpose |
+|------|---------|
+| `Program.cs` | Application startup: DI wiring (`AddDataAccessLayer`, `AddBusinessLogicLayer`), cookie auth, Hangfire, middleware pipeline |
+| `appsettings.json` | Connection strings, security keys, Supabase config, Gemini API key, upload options |
+| `DbSeeder.cs` | Startup utility that seeds initial Admin user if none exists |
+
+---
+
+## Dependency Injection
+
+Services are registered via extension methods in `Program.cs`:
+
+```csharp
+builder.Services.AddDataAccessLayer(builder.Configuration);  // DAL repositories + providers
+builder.Services.AddBusinessLogicLayer();                     // BLL services
+```
+
+This keeps DI configuration organized and each layer self-contained.
+
+---
 
 ## Background Jobs (Hangfire)
-- The Presentation Layer integrates **Hangfire** backed by PostgreSQL to process long-running tasks asynchronously (like document chunking). The Hangfire dashboard is mapped to `/hangfire`.
+
+Hangfire is backed by PostgreSQL and processes:
+- **`ChunkingService.ProcessFileChunkingAsync`** — triggered when a document is uploaded
+- **`DocumentEmbeddingService.ProcessEmbeddingsAsync`** — continuation job after chunking completes
+
+The Hangfire dashboard is available at `/hangfire` (requires Admin role).
+
+---
+
+## Authentication
+
+Cookie-based authentication with roles (`Admin`, `Lecturer`, `Student`). Session expires after 30 days (sliding). Unauthorized access is redirected to `/Auth/Login`.
+
+---
 
 ## Getting Started
-To run this project:
-1. Ensure the PostgreSQL database is configured correctly in `appsettings.json`.
-2. Run the project using Visual Studio, Rider, or `dotnet run` in this directory.
+
+```bash
+# Ensure appsettings.json is configured (DB, Supabase, Gemini keys)
+# Then from the solution root:
+dotnet run --project PL/PL.csproj
+```
+
+Default dev URL: `https://localhost:5001` (see `launchSettings.json`).

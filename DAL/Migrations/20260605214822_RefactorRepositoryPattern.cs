@@ -7,7 +7,7 @@ using Pgvector;
 namespace DAL.Migrations
 {
     /// <inheritdoc />
-    public partial class InitialCreate : Migration
+    public partial class RefactorRepositoryPattern : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -26,7 +26,7 @@ namespace DAL.Migrations
                     full_name = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: false),
                     password_hash = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: false),
                     role = table.Column<short>(type: "smallint", nullable: false),
-                    status = table.Column<short>(type: "smallint", nullable: false),
+                    status = table.Column<short>(type: "smallint", nullable: false, defaultValue: (short)1),
                     created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false, defaultValueSql: "CURRENT_TIMESTAMP"),
                     updated_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false, defaultValueSql: "CURRENT_TIMESTAMP")
                 },
@@ -44,7 +44,7 @@ namespace DAL.Migrations
                     name = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: false),
                     description = table.Column<string>(type: "text", nullable: true),
                     lecturer_id = table.Column<Guid>(type: "uuid", nullable: true),
-                    status = table.Column<short>(type: "smallint", nullable: false),
+                    status = table.Column<short>(type: "smallint", nullable: false, defaultValue: (short)1),
                     created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false, defaultValueSql: "CURRENT_TIMESTAMP"),
                     updated_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false, defaultValueSql: "CURRENT_TIMESTAMP"),
                     updated_by = table.Column<Guid>(type: "uuid", nullable: true)
@@ -75,6 +75,7 @@ namespace DAL.Migrations
                     uploaded_by = table.Column<Guid>(type: "uuid", nullable: true),
                     file_name = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: false),
                     file_url = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: false),
+                    file_size = table.Column<long>(type: "bigint", nullable: false, defaultValue: 0L),
                     status = table.Column<short>(type: "smallint", nullable: false, defaultValue: (short)0),
                     created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false, defaultValueSql: "CURRENT_TIMESTAMP"),
                     updated_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false, defaultValueSql: "CURRENT_TIMESTAMP"),
@@ -112,6 +113,8 @@ namespace DAL.Migrations
                     subject_id = table.Column<Guid>(type: "uuid", nullable: true),
                     chunk_index = table.Column<int>(type: "integer", nullable: false),
                     content = table.Column<string>(type: "text", nullable: false),
+                    token_count = table.Column<int>(type: "integer", nullable: false, defaultValue: 0),
+                    page_number = table.Column<int>(type: "integer", nullable: true),
                     embedding = table.Column<Vector>(type: "vector(3072)", nullable: true),
                     created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false, defaultValueSql: "CURRENT_TIMESTAMP")
                 },

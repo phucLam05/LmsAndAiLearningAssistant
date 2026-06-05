@@ -107,6 +107,84 @@
     </div>
 
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
+
+    <script>
+        function showNotification(message, type = 'info') {
+            let container = document.getElementById('notification-container');
+            if (!container) {
+                container = document.createElement('div');
+                container.id = 'notification-container';
+                container.className = 'fixed top-6 right-6 z-[9999] flex flex-col gap-3 max-w-sm w-full pointer-events-none';
+                document.body.appendChild(container);
+            }
+
+            const toast = document.createElement('div');
+            toast.className = 'flex items-start gap-3 p-4 rounded-xl shadow-2xl border transition-all duration-300 transform translate-x-12 opacity-0 pointer-events-auto select-none ';
+            
+            let bgColor, icon;
+            if (type === 'success') {
+                bgColor = 'bg-[#142718] border-tertiary text-tertiary';
+                icon = 'check_circle';
+            } else if (type === 'error') {
+                bgColor = 'bg-[#2c1516] border-error text-error';
+                icon = 'error';
+            } else if (type === 'warning') {
+                bgColor = 'bg-[#2a2214] border-yellow-500 text-yellow-400';
+                icon = 'warning';
+            } else {
+                bgColor = 'bg-[#141b2b] border-primary text-primary';
+                icon = 'info';
+            }
+
+            toast.className += `${bgColor}`;
+            
+            toast.innerHTML = `
+                <span class="material-symbols-outlined text-[20px] shrink-0 filled">${icon}</span>
+                <div class="flex-1 min-w-0">
+                    <p class="text-xs font-semibold leading-relaxed break-words">${message}</p>
+                </div>
+                <button class="text-current opacity-60 hover:opacity-100 shrink-0 cursor-pointer" onclick="this.parentElement.remove()">
+                    <span class="material-symbols-outlined text-[16px]">close</span>
+                </button>
+            `;
+
+            container.appendChild(toast);
+
+            requestAnimationFrame(() => {
+                toast.classList.remove('translate-x-12', 'opacity-0');
+                toast.classList.add('translate-x-0', 'opacity-100');
+            });
+
+            setTimeout(() => {
+                toast.classList.remove('translate-x-0', 'opacity-100');
+                toast.classList.add('translate-x-12', 'opacity-0');
+                setTimeout(() => toast.remove(), 300);
+            }, 4000);
+        }
+
+        // Override default window.alert
+        window.alert = function (message) {
+            showNotification(message, 'warning');
+        };
+    </script>
+
+    @if (TempData["SuccessMessage"] != null)
+    {
+        <script>
+            document.addEventListener('DOMContentLoaded', () => {
+                showNotification('@Html.Raw(System.Text.Encodings.Web.JavaScriptEncoder.Default.Encode(TempData["SuccessMessage"] as string ?? ""))', 'success');
+            });
+        </script>
+    }
+    @if (TempData["ErrorMessage"] != null)
+    {
+        <script>
+            document.addEventListener('DOMContentLoaded', () => {
+                showNotification('@Html.Raw(System.Text.Encodings.Web.JavaScriptEncoder.Default.Encode(TempData["ErrorMessage"] as string ?? ""))', 'error');
+            });
+        </script>
+    }
+
     @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>

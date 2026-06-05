@@ -1,11 +1,14 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Core.Entities;
 using DAL.Data;
 using DAL.Interfaces;
 using Microsoft.EntityFrameworkCore;
+using Pgvector;
+using Pgvector.EntityFrameworkCore;
 
 namespace DAL.Repositories
 {
@@ -23,6 +26,13 @@ namespace DAL.Repositories
 
         public async Task BulkInsertChunksAsync(IEnumerable<DocumentChunk> chunks)
         {
+            foreach (var chunk in chunks)
+            {
+                if (chunk.Content != null)
+                {
+                    chunk.Content = chunk.Content.Replace("\0", string.Empty);
+                }
+            }
             await _context.DocumentChunks.AddRangeAsync(chunks);
             await _context.SaveChangesAsync();
         }
@@ -47,6 +57,13 @@ namespace DAL.Repositories
 
         public async Task UpdateChunksAsync(IEnumerable<DocumentChunk> chunks)
         {
+            foreach (var chunk in chunks)
+            {
+                if (chunk.Content != null)
+                {
+                    chunk.Content = chunk.Content.Replace("\0", string.Empty);
+                }
+            }
             _context.DocumentChunks.UpdateRange(chunks);
             await _context.SaveChangesAsync();
         }
@@ -54,6 +71,36 @@ namespace DAL.Repositories
         public async Task<bool> HasChunksAsync(Guid documentId)
         {
             return await _context.DocumentChunks.AnyAsync(c => c.DocumentId == documentId);
+        }
+
+        public async Task<IReadOnlyList<(string Content, string FileName)>> SearchSimilarChunksAsync(
+            Guid subjectId,
+            Vector queryEmbedding,
+            int limit,
+            List<Guid>? documentIds = null,
+            CancellationToken cancellationToken = default)
+        {
+            var query = _context.DocumentChunks
+                .Where(c => c.SubjectId == subjectId && c.Embedding != null);
+
+            if (documentIds != null && documentIds.Count > 0)
+            {
+                query = query.Where(c => c.DocumentId != null && documentIds.Contains(c.DocumentId!.Value));
+            }
+
+            var results = await query
+                .OrderBy(c => c.Embedding!.CosineDistance(queryEmbedding))
+                .Take(limit)
+                .Include(c => c.Document)
+                .Select(c => new { c.Content, FileName = c.Document != null ? c.Document.FileName : "Unknown Document" })
+                .ToListAsync(cancellationToken);
+
+            return results.Select(r => (r.Content, r.FileName)).ToList();
+        }
+
+        public async Task<int> CountAllAsync()
+        {
+            return await _context.DocumentChunks.CountAsync();
         }
     }
 }

@@ -94,6 +94,26 @@ namespace BLL.Services
                 using var stream = await _storageProvider.DownloadAsync(document.FileUrl, cancellationToken);
                 string extension = Path.GetExtension(document.FileName).ToLowerInvariant();
 
+                if (extension == ".docx")
+                {
+                    _logger.LogInformation("Extracting text from DOCX using DocumentFormat.OpenXml");
+                    var fileContent = new Microsoft.KernelMemory.DataFormats.FileContent("application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+
+                    using var doc = DocumentFormat.OpenXml.Packaging.WordprocessingDocument.Open(stream, false);
+                    var body = doc.MainDocumentPart?.Document?.Body;
+                    if (body != null)
+                    {
+                        var paragraphs = body.Descendants<DocumentFormat.OpenXml.Wordprocessing.Paragraph>()
+                                             .Select(p => p.InnerText)
+                                             .Where(txt => !string.IsNullOrWhiteSpace(txt));
+                        
+                        var text = string.Join("\n\n", paragraphs);
+                        var chunk = new Microsoft.KernelMemory.DataFormats.Chunk(text, 1);
+                        fileContent.Sections.Add(chunk);
+                    }
+                    return fileContent;
+                }
+
                 Microsoft.KernelMemory.DataFormats.IContentDecoder decoder = extension switch
                 {
                     ".pdf" => new Microsoft.KernelMemory.DataFormats.Pdf.PdfDecoder(),
@@ -139,9 +159,9 @@ namespace BLL.Services
                         DocumentId = documentId,
                         SubjectId = subjectId,
                         ChunkIndex = index++,
-                        Content = p,
+                        Content = p.Replace("\0", string.Empty),
                         TokenCount = p.Length / 4, // Rough estimation since we don't have a tokenizer here
-                        PageNumber = section.PageNumber,
+                        PageNumber = section.Number,
                         CreatedAt = DateTime.UtcNow
                     };
                 }

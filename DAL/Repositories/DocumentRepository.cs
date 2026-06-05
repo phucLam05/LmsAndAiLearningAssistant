@@ -50,7 +50,10 @@ namespace DAL.Repositories
 
         public async Task<Document?> GetByIdAsync(Guid id)
         {
-            return await _context.Documents.FindAsync(id);
+            return await _context.Documents
+                .Include(d => d.Subject)
+                .Include(d => d.Uploader)
+                .FirstOrDefaultAsync(d => d.Id == id);
         }
 
         public async Task<Document> AddAsync(Document document)
@@ -95,6 +98,16 @@ namespace DAL.Repositories
         public void ClearTracker()
         {
             _context.ChangeTracker.Clear();
+        }
+
+        public async Task<IReadOnlyList<Document>> GetAllWithDetailsAsync()
+        {
+            return await _context.Documents
+                .AsNoTracking()
+                .Include(d => d.Subject)
+                .Include(d => d.Uploader)
+                .OrderByDescending(d => d.CreatedAt)
+                .ToListAsync();
         }
     }
 }
