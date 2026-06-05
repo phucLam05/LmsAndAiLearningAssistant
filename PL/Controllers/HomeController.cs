@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using PL.Models;
 using System.Diagnostics;
+using System.Security.Claims;
 
 namespace PL.Controllers
 {
@@ -10,9 +11,18 @@ namespace PL.Controllers
         {
             if (User.Identity != null && User.Identity.IsAuthenticated)
             {
-                return RedirectToAction("Subjects", "Drive");
+                var role = User.FindFirstValue(ClaimTypes.Role);
+                if (role == "Admin") return RedirectToAction("Index", "Admin");
+                if (role == "Lecturer") return RedirectToAction("Portal", "Lecturer");
+                if (role == "Student") return RedirectToAction("Browse", "Subject");
+                return RedirectToAction("Index", "Subject");
             }
             return RedirectToAction("Login", "Auth");
+        }
+
+        public IActionResult AccessDenied()
+        {
+            return View();
         }
 
         public IActionResult Privacy()

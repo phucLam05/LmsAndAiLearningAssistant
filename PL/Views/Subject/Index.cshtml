@@ -1,0 +1,268 @@
+@model IEnumerable<Core.DTOs.Subject.SubjectDto>
+@using Core.Entities
+@{
+    ViewData["Title"] = "Subjects";
+    var userRole = (UserRole)ViewBag.UserRole;
+}
+
+<style>
+    .subject-page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2rem;
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+    .subject-title-area h1 {
+        font-size: 2.25rem;
+        font-weight: 800;
+        color: #1a1f36;
+        margin: 0;
+        letter-spacing: -0.02em;
+    }
+    .subject-title-area p {
+        color: #4f566b;
+        margin: 0.25rem 0 0 0;
+        font-size: 1rem;
+    }
+    .subject-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+        gap: 1.5rem;
+        margin-top: 1.5rem;
+    }
+    .subject-card {
+        background: #ffffff;
+        border: 1px solid #e3e8ee;
+        border-radius: 16px;
+        padding: 1.5rem;
+        transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        position: relative;
+        overflow: hidden;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+    }
+    .subject-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 12px 24px rgba(0, 0, 0, 0.06);
+        border-color: #a5b4fc;
+    }
+    .subject-badge {
+        font-size: 0.75rem;
+        font-weight: 700;
+        padding: 0.25rem 0.75rem;
+        border-radius: 9999px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        display: inline-block;
+    }
+    .badge-active {
+        background-color: #ecfdf5;
+        color: #059669;
+    }
+    .badge-inactive {
+        background-color: #fef2f2;
+        color: #dc2626;
+    }
+    .subject-code {
+        font-family: monospace;
+        font-size: 0.875rem;
+        color: #6366f1;
+        font-weight: 700;
+        background: #e0e7ff;
+        padding: 0.15rem 0.5rem;
+        border-radius: 6px;
+        display: inline-block;
+        margin-bottom: 0.75rem;
+    }
+    .subject-name {
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: #1f2937;
+        margin: 0 0 0.5rem 0;
+        line-height: 1.3;
+    }
+    .subject-desc {
+        font-size: 0.9rem;
+        color: #4b5563;
+        margin: 0 0 1.25rem 0;
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        height: 4.05em;
+    }
+    .subject-lecturer {
+        font-size: 0.85rem;
+        color: #6b7280;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        border-top: 1px solid #f3f4f6;
+        padding-top: 0.75rem;
+        margin-top: auto;
+    }
+    .subject-actions {
+        display: flex;
+        gap: 0.5rem;
+        margin-top: 1rem;
+    }
+    .subject-btn {
+        flex: 1;
+        padding: 0.5rem 1rem;
+        font-size: 0.875rem;
+        font-weight: 600;
+        text-align: center;
+        border-radius: 8px;
+        text-decoration: none;
+        transition: background 0.15s ease;
+    }
+    .btn-action-primary {
+        background: #4f46e5;
+        color: #ffffff;
+    }
+    .btn-action-primary:hover {
+        background: #4338ca;
+        color: #ffffff;
+    }
+    .btn-action-secondary {
+        background: #f3f4f6;
+        color: #374151;
+        border: 1px solid #d1d5db;
+    }
+    .btn-action-secondary:hover {
+        background: #e5e7eb;
+        color: #111827;
+    }
+    .btn-create {
+        background: #4f46e5;
+        color: #ffffff;
+        font-weight: 600;
+        padding: 0.75rem 1.5rem;
+        border-radius: 10px;
+        text-decoration: none;
+        transition: all 0.15s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    .btn-create:hover {
+        background: #4338ca;
+        color: #ffffff;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(79, 70, 229, 0.25);
+    }
+</style>
+
+<div class="container py-4">
+    @if (TempData["SuccessMessage"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show document-alert mb-4" role="alert">
+            @TempData["SuccessMessage"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
+    @if (TempData["ErrorMessage"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show document-alert mb-4" role="alert">
+            @TempData["ErrorMessage"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
+
+    <div class="subject-page-header">
+        <div class="subject-title-area">
+            <h1>Course Subjects</h1>
+            @if (userRole == UserRole.Admin)
+            {
+                <p>Manage courses, subjects, and assign lecturers.</p>
+            }
+            else if (userRole == UserRole.Lecturer)
+            {
+                <p>View your assigned subjects and manage learning documents.</p>
+            }
+            else
+            {
+                <p>Select a subject to start chatting with the AI Learning Assistant.</p>
+            }
+        </div>
+        @if (userRole == UserRole.Admin)
+        {
+            <a asp-action="Create" class="btn btn-create">
+                <span>+</span> Create New Subject
+            </a>
+        }
+    </div>
+
+    @if (!Model.Any())
+    {
+        <div class="card text-center p-5 border-dashed" style="border: 2px dashed #d1d5db; border-radius: 16px; background: #fafafa;">
+            <div class="my-4">
+                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+                    <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+                </svg>
+            </div>
+            <h3 class="fw-bold">No Subjects Available</h3>
+            <p class="text-muted">There are no subjects registered in the system at the moment.</p>
+        </div>
+    }
+    else
+    {
+        <div class="subject-grid">
+            @foreach (var subject in Model)
+            {
+                <div class="subject-card">
+                    <div>
+                        <div class="d-flex justify-content-between align-items-start">
+                            <span class="subject-code">@subject.SubjectCode</span>
+                            <span class="subject-badge @(subject.Status == SubjectStatus.Active ? "badge-active" : "badge-inactive")">
+                                @subject.Status.ToString()
+                            </span>
+                        </div>
+                        <h2 class="subject-name">@subject.Name</h2>
+                        <p class="subject-desc">@(string.IsNullOrEmpty(subject.Description) ? "No description provided for this subject." : subject.Description)</p>
+                    </div>
+
+                    <div>
+                        <div class="subject-lecturer">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                                <circle cx="12" cy="7" r="4"></circle>
+                            </svg>
+                            <span>Lecturer: <strong>@(!string.IsNullOrEmpty(subject.LecturerName) ? subject.LecturerName : "Unassigned")</strong></span>
+                        </div>
+
+                        <div class="subject-actions">
+                            @if (userRole == UserRole.Admin)
+                            {
+                                <a asp-action="Edit" asp-route-id="@subject.Id" class="subject-btn btn-action-secondary">Edit</a>
+                                <a asp-action="Details" asp-route-id="@subject.Id" class="subject-btn btn-action-primary">View Docs</a>
+                                <form asp-action="Delete" asp-route-id="@subject.Id" method="post" class="d-inline flex-fill" onsubmit="return confirm('Are you sure you want to delete this subject? All related documents and chat vector embeddings will be permanently removed.');">
+                                    @Html.AntiForgeryToken()
+                                    <button type="submit" class="subject-btn btn-action-secondary w-100 text-danger" style="border-color: #fee2e2;">Delete</button>
+                                </form>
+                            }
+                            else if (userRole == UserRole.Lecturer)
+                            {
+                                <a asp-action="Details" asp-route-id="@subject.Id" class="subject-btn btn-action-primary">Upload & Manage Docs</a>
+                            }
+                            else // Student
+                            {
+                                <a asp-action="Chat" asp-route-subjectId="@subject.Id" class="subject-btn btn-action-primary d-flex align-items-center justify-content-center gap-2">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                                    </svg>
+                                    Chat with AI
+                                </a>
+                            }
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>

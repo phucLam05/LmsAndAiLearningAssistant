@@ -14,12 +14,6 @@ namespace DAL.Data
         public DbSet<Document> Documents { get; set; }
         public DbSet<DocumentChunk> DocumentChunks { get; set; }
 
-        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-        {
-            optionsBuilder.AddInterceptors(new AuditInterceptor());
-            base.OnConfiguring(optionsBuilder);
-        }
-
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -38,6 +32,7 @@ namespace DAL.Data
 
                 entity.Property(e => e.EmailEncrypt).HasColumnName("email_encrypt").HasMaxLength(255);
                 entity.Property(e => e.EmailHash).HasColumnName("email_hash").HasMaxLength(255);
+                entity.HasIndex(e => e.EmailHash).IsUnique();
                 
                 entity.Property(e => e.FullName).HasColumnName("full_name").IsRequired().HasMaxLength(255);
                 entity.Property(e => e.PasswordHash).HasColumnName("password_hash").IsRequired().HasMaxLength(255);

@@ -43,7 +43,7 @@ namespace BLL.Services
         {
             var totalUsers = await _dbContext.Users.CountAsync();
             var totalDocuments = await _dbContext.Documents.CountAsync();
-            var totalStorage = await _dbContext.Documents.SumAsync(d => (long?)d.FileSize) ?? 0;
+            var totalStorage = 0L; // FileSize is no longer stored in the new Document schema
             var totalChunks = await _dbContext.DocumentChunks.CountAsync();
 
             return new DashboardStatsDto

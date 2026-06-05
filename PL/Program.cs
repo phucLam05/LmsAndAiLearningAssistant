@@ -15,6 +15,7 @@ namespace PL
             // Add services to the container.
             builder.Services.Configure<Core.Configuration.UploadOptions>(builder.Configuration.GetSection("Upload"));
             builder.Services.AddControllersWithViews();
+            builder.Services.AddHttpContextAccessor();
 
             builder.Services.AddDataAccessLayer(builder.Configuration);
             builder.Services.AddBusinessLogicLayer();
@@ -23,7 +24,7 @@ namespace PL
                 {
                     options.LoginPath = "/Auth/Login";
                     options.LogoutPath = "/Auth/Logout";
-                    options.AccessDeniedPath = "/Auth/Login";
+                    options.AccessDeniedPath = "/Home/AccessDenied";
                 });
 
             builder.Services.AddHangfire(configuration => configuration

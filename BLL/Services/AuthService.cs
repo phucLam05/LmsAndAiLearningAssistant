@@ -1,5 +1,6 @@
 using BLL.Interfaces;
 using Core.DTOs.Auth;
+using Core.DTOs.Common;
 using Core.Entities;
 using DAL.Interfaces;
 using Microsoft.Extensions.Configuration;
@@ -68,6 +69,7 @@ namespace BLL.Services
                 EmailHash = emailHash,
                 EmailEncrypt = emailEncrypt,
                 PasswordHash = passwordHash,
+                Role = registerDto.Role,
                 CreatedAt = DateTime.UtcNow
             };
 
@@ -117,6 +119,28 @@ namespace BLL.Services
             }
 
             return user;
+        }
+
+        public async Task<Result> ActivateAccountAsync(Guid userId, string temporaryPassword, string newPassword)
+        {
+            var user = await _userRepository.GetByIdAsync(userId);
+            if (user == null)
+            {
+                return Result.Failure("User not found.");
+            }
+
+            bool isPasswordValid = BCrypt.Net.BCrypt.Verify(temporaryPassword, user.PasswordHash);
+            if (!isPasswordValid)
+            {
+                return Result.Failure("Invalid temporary password.");
+            }
+
+            user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
+            user.Status = UserStatus.Active;
+            user.UpdatedAt = DateTime.UtcNow;
+
+            await _userRepository.UpdateAsync(user);
+            return Result.Success();
         }
 
         /// <summary>
@@ -197,5 +221,7 @@ namespace BLL.Services
                 throw new InvalidOperationException("Decryption failed.");
             }
         }
+
+
     }
 }

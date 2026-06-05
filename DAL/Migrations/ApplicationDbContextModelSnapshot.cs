@@ -28,110 +28,100 @@ namespace DAL.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("ChunkingJobId")
-                        .HasColumnType("text");
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
 
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
-                        .HasDefaultValueSql("NOW()");
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
-                    b.Property<string>("EmbeddingJobId")
-                        .HasColumnType("text");
-
-                    b.Property<long>("FileSize")
-                        .HasColumnType("bigint");
-
-                    b.Property<string>("FileType")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
-
-                    b.Property<Guid>("FolderId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("MimeType")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
-                    b.Property<string>("OriginalFileName")
+                    b.Property<string>("FileName")
                         .IsRequired()
                         .HasMaxLength(255)
-                        .HasColumnType("character varying(255)");
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("file_name");
 
-                    b.Property<int>("ProcessingStatus")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("StoragePath")
+                    b.Property<string>("FileUrl")
                         .IsRequired()
                         .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("file_url");
 
-                    b.Property<string>("StorageUrl")
-                        .IsRequired()
-                        .HasColumnType("text");
+                    b.Property<short>("Status")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("smallint")
+                        .HasDefaultValue((short)0)
+                        .HasColumnName("status");
 
-                    b.Property<string>("StoredFileName")
-                        .IsRequired()
-                        .HasMaxLength(255)
-                        .HasColumnType("character varying(255)");
-
-                    b.Property<string>("Title")
-                        .IsRequired()
-                        .HasMaxLength(255)
-                        .HasColumnType("character varying(255)");
+                    b.Property<Guid?>("SubjectId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("subject_id");
 
                     b.Property<DateTime>("UpdatedAt")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
-                        .HasDefaultValueSql("NOW()");
+                        .HasColumnName("updated_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
-                    b.Property<DateTime>("UploadedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("timestamp with time zone")
-                        .HasDefaultValueSql("NOW()");
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("updated_by");
 
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uuid");
+                    b.Property<Guid?>("UploadedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("uploaded_by");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("FolderId");
+                    b.HasIndex("SubjectId");
 
-                    b.HasIndex("UserId");
+                    b.HasIndex("UpdatedBy");
 
-                    b.ToTable("Documents");
+                    b.HasIndex("UploadedBy");
+
+                    b.ToTable("documents", (string)null);
                 });
 
             modelBuilder.Entity("Core.Entities.DocumentChunk", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
 
                     b.Property<int>("ChunkIndex")
-                        .HasColumnType("integer");
+                        .HasColumnType("integer")
+                        .HasColumnName("chunk_index");
 
                     b.Property<string>("Content")
                         .IsRequired()
-                        .HasColumnType("text");
+                        .HasColumnType("text")
+                        .HasColumnName("content");
 
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
-                        .HasDefaultValueSql("NOW()");
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
-                    b.Property<Guid>("DocumentId")
-                        .HasColumnType("uuid");
+                    b.Property<Guid?>("DocumentId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("document_id");
 
                     b.Property<Vector>("Embedding")
-                        .HasColumnType("vector(3072)");
+                        .HasColumnType("vector(3072)")
+                        .HasColumnName("embedding");
 
                     b.Property<int?>("PageNumber")
                         .HasColumnType("integer");
+
+                    b.Property<Guid?>("SubjectId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("subject_id");
 
                     b.Property<int>("TokenCount")
                         .HasColumnType("integer");
@@ -140,158 +130,164 @@ namespace DAL.Migrations
 
                     b.HasIndex("DocumentId");
 
-                    b.ToTable("DocumentChunks");
+                    b.HasIndex("SubjectId");
+
+                    b.ToTable("document_chunks", (string)null);
                 });
 
-            modelBuilder.Entity("Core.Entities.DocumentTag", b =>
+            modelBuilder.Entity("Core.Entities.Subject", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("Color")
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
 
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
-                        .HasDefaultValueSql("NOW()");
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("text")
+                        .HasColumnName("description");
+
+                    b.Property<Guid?>("LecturerId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("lecturer_id");
 
                     b.Property<string>("Name")
                         .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("name");
 
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uuid");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("UserId");
-
-                    b.ToTable("DocumentTags");
-                });
-
-            modelBuilder.Entity("Core.Entities.DocumentTagMapping", b =>
-                {
-                    b.Property<Guid>("DocumentId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("TagId")
-                        .HasColumnType("uuid");
-
-                    b.HasKey("DocumentId", "TagId");
-
-                    b.HasIndex("TagId");
-
-                    b.ToTable("DocumentTagMappings");
-                });
-
-            modelBuilder.Entity("Core.Entities.Folder", b =>
-                {
-                    b.Property<Guid>("Id")
+                    b.Property<short>("Status")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("smallint")
+                        .HasDefaultValue((short)1)
+                        .HasColumnName("status");
 
-                    b.Property<string>("Color")
+                    b.Property<string>("SubjectCode")
+                        .IsRequired()
                         .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("timestamp with time zone")
-                        .HasDefaultValueSql("NOW()");
-
-                    b.Property<string>("Icon")
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
-                    b.Property<Guid?>("ParentFolderId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("subject_code");
 
                     b.Property<DateTime>("UpdatedAt")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
-                        .HasDefaultValueSql("NOW()");
+                        .HasColumnName("updated_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uuid");
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("updated_by");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ParentFolderId");
+                    b.HasIndex("LecturerId");
 
-                    b.HasIndex("UserId");
+                    b.HasIndex("SubjectCode")
+                        .IsUnique();
 
-                    b.ToTable("Folders");
+                    b.HasIndex("UpdatedBy");
+
+                    b.ToTable("subjects", (string)null);
                 });
 
             modelBuilder.Entity("Core.Entities.User", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
 
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
-                        .HasDefaultValueSql("NOW()");
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
                     b.Property<string>("EmailEncrypt")
-                        .IsRequired()
                         .HasMaxLength(255)
-                        .HasColumnType("character varying(255)");
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("email_encrypt");
 
                     b.Property<string>("EmailHash")
-                        .IsRequired()
                         .HasMaxLength(255)
-                        .HasColumnType("character varying(255)");
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("email_hash");
 
                     b.Property<string>("FullName")
                         .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("full_name");
 
                     b.Property<string>("PasswordHash")
                         .IsRequired()
-                        .HasColumnType("text");
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("password_hash");
 
-                    b.Property<int>("Role")
+                    b.Property<short>("Role")
+                        .HasColumnType("smallint")
+                        .HasColumnName("role");
+
+                    b.Property<short>("Status")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("integer")
-                        .HasDefaultValue(0);
+                        .HasColumnType("smallint")
+                        .HasDefaultValue((short)1)
+                        .HasColumnName("status");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<string>("UserCode")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("user_code");
 
                     b.HasKey("Id");
 
                     b.HasIndex("EmailHash")
                         .IsUnique();
 
-                    b.ToTable("Users");
+                    b.HasIndex("UserCode")
+                        .IsUnique();
+
+                    b.ToTable("users", (string)null);
                 });
 
             modelBuilder.Entity("Core.Entities.Document", b =>
                 {
-                    b.HasOne("Core.Entities.Folder", "Folder")
+                    b.HasOne("Core.Entities.Subject", "Subject")
                         .WithMany("Documents")
-                        .HasForeignKey("FolderId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .HasForeignKey("SubjectId")
+                        .OnDelete(DeleteBehavior.Cascade);
 
-                    b.HasOne("Core.Entities.User", "User")
+                    b.HasOne("Core.Entities.User", "Updater")
                         .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .HasForeignKey("UpdatedBy")
+                        .OnDelete(DeleteBehavior.SetNull);
 
-                    b.Navigation("Folder");
+                    b.HasOne("Core.Entities.User", "Uploader")
+                        .WithMany()
+                        .HasForeignKey("UploadedBy")
+                        .OnDelete(DeleteBehavior.SetNull);
 
-                    b.Navigation("User");
+                    b.Navigation("Subject");
+
+                    b.Navigation("Updater");
+
+                    b.Navigation("Uploader");
                 });
 
             modelBuilder.Entity("Core.Entities.DocumentChunk", b =>
@@ -299,77 +295,50 @@ namespace DAL.Migrations
                     b.HasOne("Core.Entities.Document", "Document")
                         .WithMany("Chunks")
                         .HasForeignKey("DocumentId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Cascade);
 
-                    b.Navigation("Document");
-                });
-
-            modelBuilder.Entity("Core.Entities.DocumentTag", b =>
-                {
-                    b.HasOne("Core.Entities.User", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("User");
-                });
-
-            modelBuilder.Entity("Core.Entities.DocumentTagMapping", b =>
-                {
-                    b.HasOne("Core.Entities.Document", "Document")
-                        .WithMany("TagMappings")
-                        .HasForeignKey("DocumentId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("Core.Entities.DocumentTag", "Tag")
-                        .WithMany("TagMappings")
-                        .HasForeignKey("TagId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                    b.HasOne("Core.Entities.Subject", "Subject")
+                        .WithMany("DocumentChunks")
+                        .HasForeignKey("SubjectId")
+                        .OnDelete(DeleteBehavior.Cascade);
 
                     b.Navigation("Document");
 
-                    b.Navigation("Tag");
+                    b.Navigation("Subject");
                 });
 
-            modelBuilder.Entity("Core.Entities.Folder", b =>
+            modelBuilder.Entity("Core.Entities.Subject", b =>
                 {
-                    b.HasOne("Core.Entities.Folder", "ParentFolder")
-                        .WithMany("SubFolders")
-                        .HasForeignKey("ParentFolderId")
-                        .OnDelete(DeleteBehavior.Restrict);
+                    b.HasOne("Core.Entities.User", "Lecturer")
+                        .WithMany("AssignedSubjects")
+                        .HasForeignKey("LecturerId")
+                        .OnDelete(DeleteBehavior.SetNull);
 
-                    b.HasOne("Core.Entities.User", "User")
+                    b.HasOne("Core.Entities.User", "Updater")
                         .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .HasForeignKey("UpdatedBy")
+                        .OnDelete(DeleteBehavior.SetNull);
 
-                    b.Navigation("ParentFolder");
+                    b.Navigation("Lecturer");
 
-                    b.Navigation("User");
+                    b.Navigation("Updater");
                 });
 
             modelBuilder.Entity("Core.Entities.Document", b =>
                 {
                     b.Navigation("Chunks");
-
-                    b.Navigation("TagMappings");
                 });
 
-            modelBuilder.Entity("Core.Entities.DocumentTag", b =>
+            modelBuilder.Entity("Core.Entities.Subject", b =>
                 {
-                    b.Navigation("TagMappings");
-                });
+                    b.Navigation("DocumentChunks");
 
-            modelBuilder.Entity("Core.Entities.Folder", b =>
-                {
                     b.Navigation("Documents");
+                });
 
-                    b.Navigation("SubFolders");
+            modelBuilder.Entity("Core.Entities.User", b =>
+                {
+                    b.Navigation("AssignedSubjects");
                 });
 #pragma warning restore 612, 618
         }
