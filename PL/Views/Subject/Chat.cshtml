@@ -1,4 +1,4 @@
-@model Core.Entities.Subject
+@model Core.DTOs.Subject.SubjectDto
 @{
     ViewData["Title"] = $"{Model.SubjectCode} AI Assistant";
 }
@@ -137,7 +137,7 @@
             </div>
             
             <div class="border-top pt-3 text-secondary" style="font-size: 0.82rem;">
-                Lecturer: <strong>@(Model.Lecturer != null ? Model.Lecturer.FullName : "Unassigned")</strong>
+                Lecturer: <strong>@(Model.LecturerName ?? "Unassigned")</strong>
             </div>
         </div>
 

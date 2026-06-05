@@ -14,12 +14,6 @@ namespace DAL.Data
         public DbSet<Document> Documents { get; set; }
         public DbSet<DocumentChunk> DocumentChunks { get; set; }
 
-        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-        {
-            optionsBuilder.AddInterceptors(new AuditInterceptor());
-            base.OnConfiguring(optionsBuilder);
-        }
-
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -44,7 +38,7 @@ namespace DAL.Data
                 entity.Property(e => e.PasswordHash).HasColumnName("password_hash").IsRequired().HasMaxLength(255);
                 
                 entity.Property(e => e.Role).HasColumnName("role").HasConversion<short>().IsRequired();
-                entity.Property(e => e.Status).HasColumnName("status").HasConversion<short>();
+                entity.Property(e => e.Status).HasColumnName("status").HasConversion<short>().HasDefaultValue(UserStatus.Active);
                 
                 entity.Property(e => e.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("CURRENT_TIMESTAMP");
                 entity.Property(e => e.UpdatedAt).HasColumnName("updated_at").HasDefaultValueSql("CURRENT_TIMESTAMP");
@@ -64,7 +58,7 @@ namespace DAL.Data
                 entity.Property(e => e.Description).HasColumnName("description").HasColumnType("text");
                 
                 entity.Property(e => e.LecturerId).HasColumnName("lecturer_id");
-                entity.Property(e => e.Status).HasColumnName("status").HasConversion<short>();
+                entity.Property(e => e.Status).HasColumnName("status").HasConversion<short>().HasDefaultValue(SubjectStatus.Active);
                 
                 entity.Property(e => e.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("CURRENT_TIMESTAMP");
                 entity.Property(e => e.UpdatedAt).HasColumnName("updated_at").HasDefaultValueSql("CURRENT_TIMESTAMP");

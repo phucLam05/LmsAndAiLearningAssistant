@@ -1,21 +1,17 @@
 using BLL.Interfaces;
+using Core.DTOs.Subject;
 using Core.DTOs.Common;
-using Core.DTOs.Documents;
 using Core.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Security.Claims;
 using System.Threading.Tasks;
 
 namespace PL.Controllers
 {
-    /// <summary>
-    /// Controller for managing Subjects, listing documents, and interacting with the RAG Chatbot.
-    /// </summary>
     [Authorize]
     public class SubjectController : Controller
     {
@@ -48,26 +44,10 @@ namespace PL.Controllers
             return Enum.TryParse<UserRole>(roleString, out var role) ? role : UserRole.Student;
         }
 
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Index()
         {
-            var role = GetUserRole();
-            var userId = GetUserId();
-            IEnumerable<Subject> subjects;
-
-            if (role == UserRole.Admin)
-            {
-                subjects = await _subjectService.GetAllSubjectsAsync();
-            }
-            else if (role == UserRole.Lecturer)
-            {
-                subjects = await _subjectService.GetSubjectsByLecturerAsync(userId);
-            }
-            else // Student
-            {
-                subjects = await _subjectService.GetActiveSubjectsAsync();
-            }
-
-            ViewBag.UserRole = role;
+            var subjects = await _subjectService.GetAllSubjectsAsync();
             return View(subjects);
         }
 
@@ -84,25 +64,24 @@ namespace PL.Controllers
         [Authorize(Roles = "Admin")]
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create(string subjectCode, string name, string? description, Guid? lecturerId)
+        public async Task<IActionResult> Create(CreateSubjectDto dto)
         {
-            if (string.IsNullOrWhiteSpace(subjectCode) || string.IsNullOrWhiteSpace(name))
+            if (!ModelState.IsValid)
             {
-                ModelState.AddModelError(string.Empty, "Subject Code and Name are required.");
                 var users = await _adminService.GetAllUsersAsync();
                 var lecturers = users.Where(u => u.Role == UserRole.Lecturer).ToList();
-                ViewBag.Lecturers = new SelectList(lecturers, "Id", "FullName", lecturerId);
-                return View();
+                ViewBag.Lecturers = new SelectList(lecturers, "Id", "FullName", dto.LecturerId);
+                return View(dto);
             }
 
-            var result = await _subjectService.CreateSubjectAsync(subjectCode, name, description, lecturerId);
-            if (!result.IsSuccess)
+            var (success, error) = await _subjectService.CreateSubjectAsync(dto);
+            if (!success)
             {
-                ModelState.AddModelError(string.Empty, result.ErrorMessage);
+                ModelState.AddModelError(string.Empty, error ?? "Failed to create subject.");
                 var users = await _adminService.GetAllUsersAsync();
                 var lecturers = users.Where(u => u.Role == UserRole.Lecturer).ToList();
-                ViewBag.Lecturers = new SelectList(lecturers, "Id", "FullName", lecturerId);
-                return View();
+                ViewBag.Lecturers = new SelectList(lecturers, "Id", "FullName", dto.LecturerId);
+                return View(dto);
             }
 
             TempData["SuccessMessage"] = "Subject created successfully.";
@@ -116,38 +95,46 @@ namespace PL.Controllers
             var subject = await _subjectService.GetSubjectByIdAsync(id);
             if (subject == null)
             {
-                return NotFound();
+                TempData["ErrorMessage"] = "Subject not found.";
+                return RedirectToAction(nameof(Index));
             }
+
+            var dto = new UpdateSubjectDto
+            {
+                Id = subject.Id,
+                Name = subject.Name,
+                Description = subject.Description,
+                LecturerId = subject.LecturerId,
+                Status = subject.Status
+            };
 
             var users = await _adminService.GetAllUsersAsync();
             var lecturers = users.Where(u => u.Role == UserRole.Lecturer).ToList();
-            ViewBag.Lecturers = new SelectList(lecturers, "Id", "FullName", subject.LecturerId);
-            return View(subject);
+            ViewBag.Lecturers = new SelectList(lecturers, "Id", "FullName", dto.LecturerId);
+            return View(dto);
         }
 
         [Authorize(Roles = "Admin")]
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(Guid id, string subjectCode, string name, string? description, Guid? lecturerId, SubjectStatus status)
+        public async Task<IActionResult> Edit(UpdateSubjectDto dto)
         {
-            if (string.IsNullOrWhiteSpace(subjectCode) || string.IsNullOrWhiteSpace(name))
+            if (!ModelState.IsValid)
             {
-                ModelState.AddModelError(string.Empty, "Subject Code and Name are required.");
                 var users = await _adminService.GetAllUsersAsync();
                 var lecturers = users.Where(u => u.Role == UserRole.Lecturer).ToList();
-                ViewBag.Lecturers = new SelectList(lecturers, "Id", "FullName", lecturerId);
-                return View();
+                ViewBag.Lecturers = new SelectList(lecturers, "Id", "FullName", dto.LecturerId);
+                return View(dto);
             }
 
-            var userId = GetUserId();
-            var result = await _subjectService.UpdateSubjectAsync(id, subjectCode, name, description, lecturerId, status, userId);
-            if (!result.IsSuccess)
+            var (success, error) = await _subjectService.UpdateSubjectAsync(dto);
+            if (!success)
             {
-                ModelState.AddModelError(string.Empty, result.ErrorMessage);
+                ModelState.AddModelError(string.Empty, error ?? "Failed to update subject.");
                 var users = await _adminService.GetAllUsersAsync();
                 var lecturers = users.Where(u => u.Role == UserRole.Lecturer).ToList();
-                ViewBag.Lecturers = new SelectList(lecturers, "Id", "FullName", lecturerId);
-                return View();
+                ViewBag.Lecturers = new SelectList(lecturers, "Id", "FullName", dto.LecturerId);
+                return View(dto);
             }
 
             TempData["SuccessMessage"] = "Subject updated successfully.";
@@ -157,39 +144,59 @@ namespace PL.Controllers
         [Authorize(Roles = "Admin")]
         [HttpPost]
         [ValidateAntiForgeryToken]
+        public async Task<IActionResult> AssignLecturer(AssignLecturerDto dto)
+        {
+            var (success, error) = await _subjectService.AssignLecturerAsync(dto);
+            if (!success)
+                TempData["ErrorMessage"] = error ?? "Failed to assign lecturer.";
+            else
+                TempData["SuccessMessage"] = dto.LecturerId.HasValue ? "Lecturer assigned successfully." : "Lecturer removed from subject.";
+            return RedirectToAction(nameof(Index));
+        }
+
+        [Authorize(Roles = "Admin")]
+        [HttpPost]
+        [ValidateAntiForgeryToken]
         public async Task<IActionResult> Delete(Guid id)
         {
-            var result = await _subjectService.DeleteSubjectAsync(id);
-            if (!result.IsSuccess)
-            {
-                TempData["ErrorMessage"] = result.ErrorMessage;
-            }
+            var (success, error) = await _subjectService.DeleteSubjectAsync(id);
+            if (!success)
+                TempData["ErrorMessage"] = error ?? "Failed to delete subject.";
             else
-            {
                 TempData["SuccessMessage"] = "Subject deleted successfully.";
-            }
             return RedirectToAction(nameof(Index));
+        }
+
+        [Authorize(Roles = "Lecturer")]
+        public async Task<IActionResult> MySubjects()
+        {
+            var lecturerId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var subjects = await _subjectService.GetSubjectsByLecturerAsync(lecturerId);
+            return View(subjects);
+        }
+
+        [Authorize(Roles = "Student")]
+        public async Task<IActionResult> Browse()
+        {
+            var subjects = await _subjectService.GetActiveSubjectsAsync();
+            return View(subjects);
         }
 
         public async Task<IActionResult> Details(Guid id)
         {
             var subject = await _subjectService.GetSubjectByIdAsync(id);
             if (subject == null)
-            {
                 return NotFound();
-            }
 
             var role = GetUserRole();
             ViewBag.UserRole = role;
 
             if (role == UserRole.Student)
-            {
                 return RedirectToAction(nameof(Chat), new { subjectId = id });
-            }
 
             var documents = await _documentService.GetDocumentsBySubjectIdAsync(id);
             ViewBag.Documents = documents;
-            return View(subject);
+            return View(subject); 
         }
 
         [HttpGet]
@@ -197,10 +204,7 @@ namespace PL.Controllers
         {
             var subject = await _subjectService.GetSubjectByIdAsync(subjectId);
             if (subject == null)
-            {
                 return NotFound();
-            }
-
             return View(subject);
         }
 
@@ -209,9 +213,7 @@ namespace PL.Controllers
         public async Task<IActionResult> SendMessage(Guid subjectId, string message)
         {
             if (string.IsNullOrWhiteSpace(message))
-            {
                 return Json(new { success = false, message = "Message cannot be empty." });
-            }
 
             var answer = await _chatService.ChatWithSubjectAsync(subjectId, message);
             return Json(new { success = true, reply = answer });

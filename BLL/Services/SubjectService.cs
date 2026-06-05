@@ -1,8 +1,7 @@
 using BLL.Interfaces;
-using Core.DTOs.Common;
+using Core.DTOs.Subject;
 using Core.Entities;
-using DAL.Data;
-using Microsoft.EntityFrameworkCore;
+using DAL.Interfaces;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -10,118 +9,126 @@ using System.Threading.Tasks;
 
 namespace BLL.Services
 {
+    /// <summary>
+    /// Business logic implementation for Subject management.
+    /// Enforces the 1-lecturer-per-subject constraint and role-based data access.
+    /// </summary>
     public class SubjectService : ISubjectService
     {
-        private readonly ApplicationDbContext _dbContext;
+        private readonly ISubjectRepository _subjectRepo;
 
-        public SubjectService(ApplicationDbContext dbContext)
+        public SubjectService(ISubjectRepository subjectRepo)
         {
-            _dbContext = dbContext;
+            _subjectRepo = subjectRepo;
         }
 
-        public async Task<IEnumerable<Subject>> GetAllSubjectsAsync()
+        // ── ADMIN ────────────────────────────────────────────────────────────────
+
+        /// <inheritdoc/>
+        public async Task<IEnumerable<SubjectDto>> GetAllSubjectsAsync()
         {
-            return await _dbContext.Subjects
-                .Include(s => s.Lecturer)
-                .Include(s => s.Documents)
-                .OrderBy(s => s.SubjectCode)
-                .ToListAsync();
+            var subjects = await _subjectRepo.GetAllAsync();
+            return subjects.Select(MapToDto);
         }
 
-        public async Task<IEnumerable<Subject>> GetSubjectsByLecturerAsync(Guid lecturerId)
+        /// <inheritdoc/>
+        public async Task<SubjectDto?> GetSubjectByIdAsync(Guid id)
         {
-            return await _dbContext.Subjects
-                .Include(s => s.Documents)
-                .Where(s => s.LecturerId == lecturerId)
-                .OrderBy(s => s.SubjectCode)
-                .ToListAsync();
+            var subject = await _subjectRepo.GetByIdAsync(id);
+            return subject == null ? null : MapToDto(subject);
         }
 
-        public async Task<IEnumerable<Subject>> GetActiveSubjectsAsync()
+        /// <inheritdoc/>
+        public async Task<(bool Success, string? Error)> CreateSubjectAsync(CreateSubjectDto dto)
         {
-            return await _dbContext.Subjects
-                .Include(s => s.Documents)
-                .Where(s => s.Status == SubjectStatus.Active)
-                .OrderBy(s => s.SubjectCode)
-                .ToListAsync();
-        }
-
-        public async Task<Subject?> GetSubjectByIdAsync(Guid id)
-        {
-            return await _dbContext.Subjects
-                .Include(s => s.Lecturer)
-                .Include(s => s.Documents)
-                .FirstOrDefaultAsync(s => s.Id == id);
-        }
-
-        public async Task<Result<Subject>> CreateSubjectAsync(string code, string name, string? description, Guid? lecturerId)
-        {
-            var normalizedCode = code.Trim().ToUpperInvariant();
-            var exists = await _dbContext.Subjects.AnyAsync(s => s.SubjectCode == normalizedCode);
-            if (exists)
-            {
-                return Result<Subject>.Failure("Subject code already exists.");
-            }
+            // Validate unique subject code
+            if (await _subjectRepo.ExistsAsync(dto.SubjectCode))
+                return (false, $"Subject code '{dto.SubjectCode}' already exists.");
 
             var subject = new Subject
             {
                 Id = Guid.NewGuid(),
-                SubjectCode = normalizedCode,
-                Name = name.Trim(),
-                Description = description?.Trim(),
-                LecturerId = lecturerId,
-                Status = SubjectStatus.Active,
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow
+                SubjectCode = dto.SubjectCode.Trim().ToUpper(),
+                Name = dto.Name.Trim(),
+                Description = dto.Description?.Trim(),
+                LecturerId = dto.LecturerId,   // 1 lecturer or null
+                Status = SubjectStatus.Active
             };
 
-            await _dbContext.Subjects.AddAsync(subject);
-            await _dbContext.SaveChangesAsync();
-
-            return Result<Subject>.Success(subject);
+            await _subjectRepo.CreateAsync(subject);
+            return (true, null);
         }
 
-        public async Task<Result> UpdateSubjectAsync(Guid id, string code, string name, string? description, Guid? lecturerId, SubjectStatus status, Guid updatedBy)
+        /// <inheritdoc/>
+        public async Task<(bool Success, string? Error)> UpdateSubjectAsync(UpdateSubjectDto dto)
         {
-            var subject = await _dbContext.Subjects.FindAsync(id);
+            var subject = await _subjectRepo.GetByIdAsync(dto.Id);
             if (subject == null)
-            {
-                return Result.Failure("Subject not found.");
-            }
+                return (false, "Subject not found.");
 
-            var normalizedCode = code.Trim().ToUpperInvariant();
-            var codeExists = await _dbContext.Subjects.AnyAsync(s => s.SubjectCode == normalizedCode && s.Id != id);
-            if (codeExists)
-            {
-                return Result.Failure("Subject code already exists on another subject.");
-            }
+            subject.Name = dto.Name.Trim();
+            subject.Description = dto.Description?.Trim();
+            subject.LecturerId = dto.LecturerId;   // enforce exactly 1 or null
+            subject.Status = dto.Status;
 
-            subject.SubjectCode = normalizedCode;
-            subject.Name = name.Trim();
-            subject.Description = description?.Trim();
-            subject.LecturerId = lecturerId;
-            subject.Status = status;
-            subject.UpdatedBy = updatedBy;
-            subject.UpdatedAt = DateTime.UtcNow;
-
-            _dbContext.Subjects.Update(subject);
-            await _dbContext.SaveChangesAsync();
-
-            return Result.Success();
+            await _subjectRepo.UpdateAsync(subject);
+            return (true, null);
         }
 
-        public async Task<Result> DeleteSubjectAsync(Guid id)
+        /// <inheritdoc/>
+        public async Task<(bool Success, string? Error)> DeleteSubjectAsync(Guid id)
         {
-            var subject = await _dbContext.Subjects.FindAsync(id);
-            if (subject == null)
-            {
-                return Result.Failure("Subject not found.");
-            }
-
-            _dbContext.Subjects.Remove(subject);
-            await _dbContext.SaveChangesAsync();
-
-            return Result.Success();
+            var deleted = await _subjectRepo.DeleteAsync(id);
+            return deleted
+                ? (true, null)
+                : (false, "Subject not found.");
         }
+
+        /// <inheritdoc/>
+        public async Task<(bool Success, string? Error)> AssignLecturerAsync(AssignLecturerDto dto)
+        {
+            var subject = await _subjectRepo.GetByIdAsync(dto.SubjectId);
+            if (subject == null)
+                return (false, "Subject not found.");
+
+            // Core business rule: exactly 1 lecturer per subject (or null to remove)
+            subject.LecturerId = dto.LecturerId;
+
+            await _subjectRepo.UpdateAsync(subject);
+            return (true, null);
+        }
+
+        // ── LECTURER ─────────────────────────────────────────────────────────────
+
+        /// <inheritdoc/>
+        public async Task<IEnumerable<SubjectDto>> GetSubjectsByLecturerAsync(Guid lecturerId)
+        {
+            var subjects = await _subjectRepo.GetByLecturerIdAsync(lecturerId);
+            return subjects.Select(MapToDto);
+        }
+
+        // ── STUDENT ──────────────────────────────────────────────────────────────
+
+        /// <inheritdoc/>
+        public async Task<IEnumerable<SubjectDto>> GetActiveSubjectsAsync()
+        {
+            var subjects = await _subjectRepo.GetActiveAsync();
+            return subjects.Select(MapToDto);
+        }
+
+        // ── HELPERS ──────────────────────────────────────────────────────────────
+
+        private static SubjectDto MapToDto(Subject s) => new SubjectDto
+        {
+            Id = s.Id,
+            SubjectCode = s.SubjectCode,
+            Name = s.Name,
+            Description = s.Description,
+            LecturerId = s.LecturerId,
+            LecturerName = s.Lecturer?.FullName,
+            Status = s.Status,
+            CreatedAt = s.CreatedAt,
+            UpdatedAt = s.UpdatedAt
+        };
     }
 }
