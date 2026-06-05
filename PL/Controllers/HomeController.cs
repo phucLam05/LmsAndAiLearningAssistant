@@ -10,7 +10,12 @@ namespace PL.Controllers
         {
             if (User.Identity != null && User.Identity.IsAuthenticated)
             {
-                return RedirectToAction("Index", "Subject");
+                if (User.IsInRole("Admin"))
+                    return RedirectToAction("Index", "Subject");
+                if (User.IsInRole("Lecturer"))
+                    return RedirectToAction("MySubjects", "Subject");
+                
+                return RedirectToAction("Browse", "Subject");
             }
             return RedirectToAction("Login", "Auth");
         }

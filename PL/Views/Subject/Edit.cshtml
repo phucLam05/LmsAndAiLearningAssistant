@@ -1,4 +1,4 @@
-@model Core.Entities.Subject
+@model Core.DTOs.Subject.UpdateSubjectDto
 @using Core.Entities
 @{
     ViewData["Title"] = "Edit Subject";
@@ -21,7 +21,7 @@
 
                 <div class="mb-3">
                     <label asp-for="SubjectCode" class="form-label fw-semibold">Subject Code</label>
-                    <input type="text" name="subjectCode" id="SubjectCode" asp-for="SubjectCode" class="form-control" placeholder="e.g., PRN222" required />
+                    <input type="text" name="subjectCode" id="SubjectCode" asp-for="SubjectCode" class="form-control" placeholder="e.g., PRN222" required readonly />
                     <span asp-validation-for="SubjectCode" class="text-danger"></span>
                 </div>
 

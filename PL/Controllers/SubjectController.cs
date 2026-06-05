@@ -48,6 +48,7 @@ namespace PL.Controllers
         public async Task<IActionResult> Index()
         {
             var subjects = await _subjectService.GetAllSubjectsAsync();
+            ViewBag.UserRole = GetUserRole();
             return View(subjects);
         }
 
@@ -102,6 +103,7 @@ namespace PL.Controllers
             var dto = new UpdateSubjectDto
             {
                 Id = subject.Id,
+                SubjectCode = subject.SubjectCode,
                 Name = subject.Name,
                 Description = subject.Description,
                 LecturerId = subject.LecturerId,
@@ -172,14 +174,16 @@ namespace PL.Controllers
         {
             var lecturerId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
             var subjects = await _subjectService.GetSubjectsByLecturerAsync(lecturerId);
-            return View(subjects);
+            ViewBag.UserRole = GetUserRole();
+            return View("Index", subjects);
         }
 
         [Authorize(Roles = "Student")]
         public async Task<IActionResult> Browse()
         {
             var subjects = await _subjectService.GetActiveSubjectsAsync();
-            return View(subjects);
+            ViewBag.UserRole = GetUserRole();
+            return View("Index", subjects);
         }
 
         public async Task<IActionResult> Details(Guid id)
