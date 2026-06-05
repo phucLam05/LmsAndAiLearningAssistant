@@ -1,6 +1,9 @@
+<<<<<<< Updated upstream:DAL/Providers/SupabaseStorageProvider.cs
 using Core.Configuration;
 using DAL.Interfaces;
 using Microsoft.Extensions.Configuration;
+=======
+>>>>>>> Stashed changes:BLL/Services/SupabaseStorageService.cs
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
@@ -172,6 +175,45 @@ namespace DAL.Providers
         private static string NormalizeContentType(string contentType)
         {
             return string.IsNullOrWhiteSpace(contentType) ? "application/octet-stream" : contentType.Trim();
+        }
+
+        /// <summary>
+        /// Generates a signed download URL for a private storage object path.
+        /// </summary>
+        public async Task<string> GetSignedUrlAsync(string storagePath, int expiresInSeconds = 3600, CancellationToken cancellationToken = default)
+        {
+            EnsureConfigured();
+
+            var encodedPath = string.Join("/", NormalizeStoragePath(storagePath).Split('/').Select(Uri.EscapeDataString));
+            var signUri = new Uri($"{GetSupabaseOrigin()}/storage/v1/object/sign/{Uri.EscapeDataString(NormalizeBucket(_options.Bucket))}/{encodedPath}");
+
+            using var request = new HttpRequestMessage(HttpMethod.Post, signUri);
+            AddAuthHeaders(request);
+            request.Content = new StringContent(
+                JsonSerializer.Serialize(new { expiresIn = expiresInSeconds }),
+                Encoding.UTF8,
+                "application/json");
+
+            using var response = await _httpClient.SendAsync(request, cancellationToken);
+            if (!response.IsSuccessStatusCode)
+            {
+                var body = await response.Content.ReadAsStringAsync(cancellationToken);
+                throw new InvalidOperationException($"Supabase sign URL failed: {(int)response.StatusCode} {body}");
+            }
+
+            var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
+            using var doc = JsonDocument.Parse(responseBody);
+            
+            if (doc.RootElement.TryGetProperty("signedURL", out var signedUrlProperty) || doc.RootElement.TryGetProperty("signedUrl", out signedUrlProperty))
+            {
+                var relativeUrl = signedUrlProperty.GetString() ?? string.Empty;
+                if (relativeUrl.StartsWith("/"))
+                {
+                    return GetSupabaseOrigin() + relativeUrl;
+                }
+                return relativeUrl;
+            }
+            throw new InvalidOperationException("Failed to parse signed URL from Supabase response.");
         }
     }
 }

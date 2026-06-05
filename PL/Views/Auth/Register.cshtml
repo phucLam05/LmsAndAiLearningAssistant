@@ -10,10 +10,54 @@
         <p class="text-body-md text-outline mt-1">Tạo một tài khoản mới để bắt đầu học tập cùng AI.</p>
     </div>
 
+<<<<<<< Updated upstream
     <form asp-action="Register" method="post" class="space-y-4">
         <div asp-validation-summary="ModelOnly" class="bg-error-container/20 border border-error-container/40 text-error p-3 rounded-xl text-body-md flex items-start gap-2">
             <span class="material-symbols-outlined text-[20px]">error</span>
             <span>Đăng ký thất bại. Vui lòng kiểm tra lại thông tin.</span>
+=======
+                    <div class="form-group mb-3">
+                        <label asp-for="FullName" class="control-label"></label>
+                        <input asp-for="FullName" class="form-control" placeholder="John Doe" />
+                        <span asp-validation-for="FullName" class="text-danger"></span>
+                    </div>
+
+                    <div class="form-group mb-3">
+                        <label asp-for="Email" class="control-label"></label>
+                        <input asp-for="Email" class="form-control" placeholder="name@example.com" />
+                        <span asp-validation-for="Email" class="text-danger"></span>
+                    </div>
+
+                    <div class="form-group mb-3">
+                        <label asp-for="Password" class="control-label"></label>
+                        <input asp-for="Password" class="form-control" placeholder="••••••••" />
+                        <span asp-validation-for="Password" class="text-danger"></span>
+                    </div>
+
+                    <div class="form-group mb-4">
+                        <label asp-for="ConfirmPassword" class="control-label">Confirm Password</label>
+                        <input asp-for="ConfirmPassword" class="form-control" placeholder="••••••••" />
+                        <span asp-validation-for="ConfirmPassword" class="text-danger"></span>
+                    </div>
+
+                    <div class="form-group mb-4">
+                        <label asp-for="Role" class="control-label">I am a</label>
+                        <select asp-for="Role" class="form-select">
+                            <option value="Student">Student</option>
+                            <option value="Lecturer">Lecturer</option>
+                        </select>
+                        <span asp-validation-for="Role" class="text-danger"></span>
+                    </div>
+
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary">Register</button>
+                    </div>
+                </form>
+            </div>
+            <div class="card-footer text-center">
+                <p class="mb-0">Already have an account? <a asp-action="Login">Login here</a></p>
+            </div>
+>>>>>>> Stashed changes
         </div>
 
         <div class="space-y-1">

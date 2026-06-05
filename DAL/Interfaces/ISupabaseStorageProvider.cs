@@ -14,5 +14,7 @@ namespace DAL.Interfaces
         Task<Stream> DownloadAsync(string storagePath, CancellationToken cancellationToken = default);
 
         Task DeleteAsync(string storagePath, CancellationToken cancellationToken = default);
+
+        Task<string> GetSignedUrlAsync(string storagePath, int expiresInSeconds = 3600, CancellationToken cancellationToken = default);
     }
 }

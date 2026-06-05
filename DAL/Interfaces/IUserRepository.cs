@@ -22,5 +22,25 @@ namespace DAL.Interfaces
         /// <param name="user">The user entity to add.</param>
         /// <returns>The created user.</returns>
         Task<User> AddUserAsync(User user);
+
+        /// <summary>
+        /// Retrieves a user by their ID.
+        /// </summary>
+        Task<User?> GetUserByIdAsync(Guid id);
+
+        /// <summary>
+        /// Updates a user's details.
+        /// </summary>
+        Task UpdateUserAsync(User user);
+
+        /// <summary>
+        /// Deletes a user.
+        /// </summary>
+        Task DeleteUserAsync(User user);
+
+        /// <summary>
+        /// Retrieves all users in the system.
+        /// </summary>
+        Task<System.Collections.Generic.List<User>> GetAllUsersAsync();
     }
 }

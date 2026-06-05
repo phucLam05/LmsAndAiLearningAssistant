@@ -1,0 +1,446 @@
+@model List<PL.Controllers.LecturerController.MockLecturerDoc>
+@{
+    ViewData["Title"] = "Lecturer Portal";
+    var subjects = ViewBag.Subjects as List<PL.Controllers.LecturerController.MockSubject> ?? new();
+    var selectedSubjectId = ViewBag.SelectedSubjectId as string;
+    var selectedSubject = ViewBag.SelectedSubject as PL.Controllers.LecturerController.MockSubject;
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <div class="document-eyebrow">Lecturer Administration</div>
+        <h1 class="document-title mb-0">Lecturer Workspace</h1>
+    </div>
+</div>
+
+<div class="notebooklm-shell">
+    <!-- Left Sidebar: Subjects Division -->
+    <aside class="notebooklm-sidebar">
+        <div>
+            <div class="notebooklm-sidebar-title">
+                <span>Assigned Subjects</span>
+                <span class="badge bg-secondary rounded-pill">@subjects.Count</span>
+            </div>
+            <p class="text-muted small mb-3">Select a subject to view resources and manage learning materials.</p>
+            
+            <div class="d-flex flex-column gap-1">
+                @foreach (var subject in subjects)
+                {
+                    <a asp-action="Portal" asp-route-selectedSubjectId="@subject.Id" 
+                       class="subject-item @(subject.Id == selectedSubjectId ? "active" : "")">
+                        <div class="d-flex align-items-center gap-2">
+                            <i class="bi bi-folder-fill text-warning"></i>
+                            <span class="text-truncate" style="max-width: 170px;" title="@subject.Name">@subject.Code - @subject.Name</span>
+                        </div>
+                        <span class="subject-badge">@subject.DocumentCount</span>
+                    </a>
+                }
+            </div>
+        </div>
+
+        <div class="border-top pt-3 mt-auto">
+            <div class="notebooklm-sidebar-title">
+                <span>Syllabus Verification</span>
+            </div>
+            <p class="text-muted" style="font-size:0.75rem;">
+                Uploaded files must be relevant to the course content. AI will validate documents for chunk accuracy.
+            </p>
+        </div>
+    </aside>
+
+    <!-- Center/Right Panel: Subject Workspace & File Upload -->
+    <section class="notebooklm-workspace">
+        @if (selectedSubject != null)
+        {
+            <div class="border-bottom pb-3">
+                <div class="d-flex align-items-center gap-2 mb-1">
+                    <span class="badge bg-primary">@selectedSubject.Code</span>
+                    <h3 class="fw-bold mb-0 text-dark">@selectedSubject.Name</h3>
+                </div>
+                <p class="text-muted small mb-0">Use this workspace to upload lectures, slides, and syllabus content for RAG embedding.</p>
+            </div>
+
+            <!-- Drag & Drop Upload Zone -->
+            <div>
+                <h5 class="fw-bold text-dark mb-2">Upload Source Document</h5>
+                <div class="notebooklm-upload-zone" id="docDropzone">
+                    <i class="bi bi-cloud-arrow-up notebooklm-upload-icon"></i>
+                    <h6 class="fw-bold mb-1">Drag and drop file here, or click to browse</h6>
+                    <p class="text-muted mb-0" style="font-size:0.8rem;">PDF, DOCX, PPTX, XLSX, TXT - Maximum size 50MB</p>
+                    <input type="file" id="docFileInput" accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt" class="visually-hidden" />
+                </div>
+
+                <!-- Live Upload Progress -->
+                <div id="uploadProgressCard" class="mt-3 p-3 border rounded-3 bg-light" style="display:none;">
+                    <div class="d-flex align-items-center justify-content-between mb-1.5">
+                        <div class="d-flex align-items-center gap-2">
+                            <i class="bi bi-file-earmark-arrow-up text-primary fs-5" id="uploadFileIcon"></i>
+                            <div>
+                                <strong id="uploadFileName" class="small text-dark d-block">lecture_file.pdf</strong>
+                                <span id="uploadFileSize" class="text-muted" style="font-size:0.7rem;">4.2 MB</span>
+                            </div>
+                        </div>
+                        <span class="small font-monospace text-primary fw-semibold" id="uploadPercent">0%</span>
+                    </div>
+                    <div class="upload-progress-container mb-1">
+                        <div class="upload-progress-bar" id="uploadProgressBar"></div>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center mt-1">
+                        <span class="small text-muted" id="uploadStatusText" style="font-size:0.72rem;">Uploading to Supabase Storage bucket...</span>
+                        <span class="pulse-indicator" id="uploadPulse" style="display:none;"></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Document Processing Tracker Table -->
+            <div class="mt-4">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h5 class="fw-bold text-dark mb-0">Document Tracker</h5>
+                    <span class="small text-muted">Showing @Model.Count document@(Model.Count == 1 ? "" : "s")</span>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="notebooklm-table" id="trackerTable">
+                        <thead>
+                            <tr>
+                                <th>Resource Name</th>
+                                <th>Size</th>
+                                <th>Uploader</th>
+                                <th>Processing Status</th>
+                                <th>Created Date</th>
+                                <th class="text-end">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="trackerTableBody">
+                            @if (!Model.Any())
+                            {
+                                <tr id="emptyTrackerRow">
+                                    <td colspan="6" class="text-center py-5 text-muted">
+                                        <i class="bi bi-file-earmark-text fs-1 d-block mb-2 text-secondary"></i>
+                                        No documents uploaded for this subject yet.
+                                    </td>
+                                </tr>
+                            }
+                            else
+                            {
+                                @foreach (var doc in Model)
+                                {
+                                    var fileExtension = doc.FileName.Split('.').Last().ToLower();
+                                    var iconClass = fileExtension switch
+                                    {
+                                        "pdf" => "bi-file-earmark-pdf text-danger",
+                                        "docx" or "doc" => "bi-file-earmark-word text-primary",
+                                        "pptx" or "ppt" => "bi-file-earmark-slides text-warning",
+                                        "xlsx" or "xls" => "bi-file-earmark-excel text-success",
+                                        _ => "bi-file-earmark-text text-secondary"
+                                    };
+
+                                    var statusBadgeClass = doc.Status switch
+                                    {
+                                        "Pending" => "badge-pending",
+                                        "Processing" => "badge-processing",
+                                        "Failed" => "badge-danger",
+                                        _ => "badge-success"
+                                    };
+
+                                    <tr data-doc-id="@doc.Id">
+                                        <td>
+                                            <div class="d-flex align-items-center gap-2">
+                                                <i class="bi @iconClass fs-5"></i>
+                                                <span class="fw-semibold text-dark">@doc.FileName</span>
+                                            </div>
+                                        </td>
+                                        <td>@doc.FileSizeStr</td>
+                                        <td>@doc.StoredBy</td>
+                                        <td class="status-cell">
+                                            <span class="app-badge @statusBadgeClass">
+                                                @if (doc.Status == "Processing")
+                                                {
+                                                    <span class="spinner-border spinner-border-sm me-1" role="status" style="width:0.75rem; height:0.75rem;"></span>
+                                                }
+                                                else if (doc.Status == "Pending")
+                                                {
+                                                    <i class="bi bi-clock-history me-1"></i>
+                                                }
+                                                else if (doc.Status == "Success")
+                                                {
+                                                    <i class="bi bi-check2-circle me-1"></i>
+                                                }
+                                                else
+                                                {
+                                                    <i class="bi bi-x-circle me-1"></i>
+                                                }
+                                                @doc.Status
+                                            </span>
+                                        </td>
+                                        <td>@doc.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
+                                        <td class="text-end">
+                                            <div class="d-flex justify-content-end gap-2 align-items-center">
+                                                <a class="btn btn-sm btn-outline-secondary px-2.5 py-1.5" asp-action="ViewOriginal" asp-route-id="@doc.Id" target="_blank" title="View original file from Supabase">
+                                                    <i class="bi bi-file-earmark-arrow-down"></i> Original
+                                                </a>
+                                                
+                                                @if (doc.Status == "Success")
+                                                {
+                                                    <a class="btn btn-sm btn-outline-primary px-2.5 py-1.5" asp-action="DocumentDetails" asp-route-id="@doc.Id" title="View text chunks and vector embeddings">
+                                                        <i class="bi bi-bezier2"></i> Chunks
+                                                    </a>
+                                                }
+                                                else
+                                                {
+                                                    <button class="btn btn-sm btn-outline-primary px-2.5 py-1.5" disabled title="Chunks will be viewable when processing completes">
+                                                        <i class="bi bi-bezier2"></i> Chunks
+                                                    </button>
+                                                }
+                                            </div>
+                                        </td>
+                                    </tr>
+                                }
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="text-center py-5 text-muted">
+                <i class="bi bi-journal-x fs-1 d-block mb-3 text-secondary"></i>
+                <h4 class="fw-bold">No assigned subject selected</h4>
+                <p>Please select a subject from the left sidebar to view resources.</p>
+            </div>
+        }
+    </section>
+</div>
+
+<!-- Anti-forgery Token form for JavaScript posts -->
+<form id="antiForgeryForm">
+    @Html.AntiForgeryToken()
+</form>
+
+@section Scripts {
+    <script>
+        const subjectId = "@selectedSubjectId";
+        const dropzone = document.getElementById('docDropzone');
+        const fileInput = document.getElementById('docFileInput');
+        
+        const progressCard = document.getElementById('uploadProgressCard');
+        const progressBar = document.getElementById('uploadProgressBar');
+        const progressPercent = document.getElementById('uploadPercent');
+        const progressFileName = document.getElementById('uploadFileName');
+        const progressFileSize = document.getElementById('uploadFileSize');
+        const progressStatusText = document.getElementById('uploadStatusText');
+        const progressPulse = document.getElementById('uploadPulse');
+        const uploadFileIcon = document.getElementById('uploadFileIcon');
+
+        // Drag & Drop event bindings
+        dropzone?.addEventListener('click', () => fileInput.click());
+        dropzone?.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropzone.classList.add('dragover');
+        });
+        dropzone?.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+        dropzone?.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropzone.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length) uploadLecturerFile(files[0]);
+        });
+
+        fileInput?.addEventListener('change', (e) => {
+            const files = e.target.files;
+            if (files.length) uploadLecturerFile(files[0]);
+        });
+
+        function uploadLecturerFile(file) {
+            if (file.size > 50 * 1024 * 1024) {
+                alert("File size exceeds 50MB limit.");
+                return;
+            }
+
+            // Set file metadata in progress card
+            progressFileName.textContent = file.name;
+            progressFileSize.textContent = `${(file.size / 1024 / 1024).toFixed(2)} MB`;
+            
+            // Icon swap based on extension
+            const ext = file.name.split('.').pop().toLowerCase();
+            let iconClass = 'bi-file-earmark-arrow-up';
+            if (ext === 'pdf') iconClass = 'bi-file-earmark-pdf text-danger';
+            else if (ext === 'doc' || ext === 'docx') iconClass = 'bi-file-earmark-word text-primary';
+            else if (ext === 'ppt' || ext === 'pptx') iconClass = 'bi-file-earmark-slides text-warning';
+            else if (ext === 'xls' || ext === 'xlsx') iconClass = 'bi-file-earmark-excel text-success';
+            
+            uploadFileIcon.className = `bi ${iconClass} fs-4`;
+            
+            // Reset Progress state
+            progressBar.style.width = '0%';
+            progressPercent.textContent = '0%';
+            progressStatusText.textContent = 'Uploading file to server & Supabase Storage...';
+            progressPulse.style.display = 'none';
+            progressCard.style.display = 'block';
+
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('subjectId', subjectId);
+
+            const token = document.querySelector('#antiForgeryForm input[name="__RequestVerificationToken"]')?.value || '';
+
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', '/Lecturer/UploadLecturerFile', true);
+            xhr.setRequestHeader('RequestVerificationToken', token);
+
+            xhr.upload.onprogress = function(e) {
+                if (e.lengthComputable) {
+                    const percentComplete = Math.round((e.loaded / e.total) * 100);
+                    progressBar.style.width = `${percentComplete}%`;
+                    progressPercent.textContent = `${percentComplete}%`;
+                    if (percentComplete >= 100) {
+                        progressStatusText.textContent = 'Processing and embedding source...';
+                    }
+                }
+            };
+
+            xhr.onload = function() {
+                if (xhr.status === 200) {
+                    const data = JSON.parse(xhr.responseText);
+                    if (data.success) {
+                        progressCard.style.display = 'none';
+                        addDocRowToTracker(data.document);
+                        simulateBackgroundJobs(data.document.id);
+                    } else {
+                        alert("Upload error: " + data.message);
+                        progressCard.style.display = 'none';
+                    }
+                } else {
+                    alert("Upload failed with status code " + xhr.status);
+                    progressCard.style.display = 'none';
+                }
+            };
+
+            xhr.onerror = function() {
+                alert("Network connection error during upload.");
+                progressCard.style.display = 'none';
+            };
+
+            xhr.send(formData);
+        }
+
+        function addDocRowToTracker(doc) {
+            // Remove empty tracker row if exists
+            document.getElementById('emptyTrackerRow')?.remove();
+
+            const tbody = document.getElementById('trackerTableBody');
+            const tr = document.createElement('tr');
+            tr.setAttribute('data-doc-id', doc.id);
+            
+            const ext = doc.fileName.split('.').pop().toLowerCase();
+            let iconClass = 'bi-file-earmark-text text-secondary';
+            if (ext === 'pdf') iconClass = 'bi-file-earmark-pdf text-danger';
+            else if (ext === 'doc' || ext === 'docx') iconClass = 'bi-file-earmark-word text-primary';
+            else if (ext === 'ppt' || ext === 'pptx') iconClass = 'bi-file-earmark-slides text-warning';
+            else if (ext === 'xls' || ext === 'xlsx') iconClass = 'bi-file-earmark-excel text-success';
+
+            // Parse creation date
+            const dateStr = new Date(doc.createdAt).toISOString().replace('T', ' ').slice(0, 16);
+
+            tr.innerHTML = `
+                <td>
+                    <div class="d-flex align-items-center gap-2">
+                        <i class="bi ${iconClass} fs-5"></i>
+                        <span class="fw-semibold text-dark">${doc.fileName}</span>
+                    </div>
+                </td>
+                <td>${doc.fileSizeStr}</td>
+                <td>${doc.storedBy}</td>
+                <td class="status-cell">
+                    <span class="app-badge badge-pending">
+                        <i class="bi bi-clock-history me-1"></i> Pending
+                    </span>
+                </td>
+                <td>${dateStr}</td>
+                <td class="text-end">
+                    <div class="d-flex justify-content-end gap-2 align-items-center">
+                        <a class="btn btn-sm btn-outline-secondary px-2.5 py-1.5" href="/Lecturer/ViewOriginal/${doc.id}" target="_blank" title="View original file from Supabase">
+                            <i class="bi bi-file-earmark-arrow-down"></i> Original
+                        </a>
+                        <button class="btn btn-sm btn-outline-primary px-2.5 py-1.5 btn-chunks-inspect" disabled title="Chunks will be viewable when processing completes" data-id="${doc.id}">
+                            <i class="bi bi-bezier2"></i> Chunks
+                        </button>
+                    </div>
+                </td>
+            `;
+
+            tbody.insertBefore(tr, tbody.firstChild);
+        }
+
+        function simulateBackgroundJobs(docId) {
+            const tr = document.querySelector(`tr[data-doc-id="${docId}"]`);
+            if (!tr) return;
+
+            const statusCell = tr.querySelector('.status-cell');
+
+            // 1. Transition: Pending -> Processing (after 3 seconds)
+            setTimeout(() => {
+                updateDocStatusOnServer(docId, "Processing");
+                statusCell.innerHTML = `
+                    <span class="app-badge badge-processing">
+                        <span class="spinner-border spinner-border-sm me-1" role="status" style="width:0.75rem; height:0.75rem;"></span> Processing
+                    </span>
+                `;
+
+                // 2. Transition: Processing -> Success (after 6 seconds)
+                setTimeout(() => {
+                    const fileName = tr.querySelector('span.fw-semibold').textContent;
+                    const finalStatus = fileName.toLowerCase().includes('failed') || fileName.toLowerCase().includes('error') ? "Failed" : "Success";
+                    
+                    updateDocStatusOnServer(docId, finalStatus);
+
+                    if (finalStatus === "Success") {
+                        statusCell.innerHTML = `
+                            <span class="app-badge badge-success">
+                                <i class="bi bi-check2-circle me-1"></i> Success
+                            </span>
+                        `;
+                        
+                        const actionsDiv = tr.querySelector('.text-end div');
+                        if (actionsDiv) {
+                            actionsDiv.innerHTML = `
+                                <a class="btn btn-sm btn-outline-secondary px-2.5 py-1.5" href="/Lecturer/ViewOriginal/${docId}" target="_blank" title="View original file from Supabase">
+                                    <i class="bi bi-file-earmark-arrow-down"></i> Original
+                                </a>
+                                <a class="btn btn-sm btn-outline-primary px-2.5 py-1.5 animate-pulse" href="/Lecturer/DocumentDetails/${docId}" title="View text chunks and vector embeddings">
+                                    <i class="bi bi-bezier2"></i> Chunks
+                                </a>
+                            `;
+                        }
+                    } else {
+                        statusCell.innerHTML = `
+                            <span class="app-badge badge-danger">
+                                <i class="bi bi-x-circle me-1"></i> Failed
+                            </span>
+                        `;
+                    }
+                }, 5000);
+
+            }, 3000);
+        }
+
+        function updateDocStatusOnServer(docId, status) {
+            const formData = new FormData();
+            formData.append('docId', docId);
+            formData.append('status', status);
+
+            fetch('/Lecturer/UpdateDocumentStatus', {
+                method: 'POST',
+                body: formData
+            })
+            .then(res => res.json())
+            .then(data => {
+                if(!data.success) console.error("Could not update status on database.");
+            })
+            .catch(err => {
+                console.error("Local network sync issue.");
+            });
+        }
+    </script>
+}

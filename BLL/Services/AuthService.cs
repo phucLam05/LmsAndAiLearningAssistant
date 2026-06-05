@@ -68,6 +68,7 @@ namespace BLL.Services
                 EmailHash = emailHash,
                 EmailEncrypt = emailEncrypt,
                 PasswordHash = passwordHash,
+                Role = registerDto.Role,
                 CreatedAt = DateTime.UtcNow
             };
 
@@ -196,6 +197,51 @@ namespace BLL.Services
             {
                 throw new InvalidOperationException("Decryption failed.");
             }
+        }
+
+        public async Task<System.Collections.Generic.List<User>> GetAllUsersAsync()
+        {
+            return await _userRepository.GetAllUsersAsync();
+        }
+
+        public async Task<(bool Success, string ErrorMessage)> UpdateUserAsync(Guid id, string fullName, string email, UserRole role)
+        {
+            var user = await _userRepository.GetUserByIdAsync(id);
+            if (user == null)
+            {
+                return (false, "User not found.");
+            }
+
+            var normalizedEmail = email.Trim().ToLowerInvariant();
+            var emailHash = HashEmail(normalizedEmail);
+
+            if (user.EmailHash != emailHash)
+            {
+                var existing = await _userRepository.GetUserByEmailHashAsync(emailHash);
+                if (existing != null)
+                {
+                    return (false, "Email is already registered by another account.");
+                }
+                user.EmailHash = emailHash;
+                user.EmailEncrypt = EncryptEmail(normalizedEmail);
+            }
+
+            user.FullName = fullName;
+            user.Role = role;
+
+            await _userRepository.UpdateUserAsync(user);
+            return (true, string.Empty);
+        }
+
+        public async Task<bool> DeleteUserAsync(Guid id)
+        {
+            var user = await _userRepository.GetUserByIdAsync(id);
+            if (user == null)
+            {
+                return false;
+            }
+            await _userRepository.DeleteUserAsync(user);
+            return true;
         }
     }
 }

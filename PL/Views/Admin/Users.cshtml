@@ -1,8 +1,13 @@
+<<<<<<< Updated upstream
 @model IEnumerable<Core.Entities.User>
+=======
+@model List<PL.Controllers.AdminController.MockUser>
+>>>>>>> Stashed changes
 @{
     ViewData["Title"] = "User Management";
 }
 
+<<<<<<< Updated upstream
 <div class="container mt-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h2>User Management</h2>
@@ -74,7 +79,551 @@
                         }
                     </tbody>
                 </table>
+=======
+@if (TempData["SuccessMessage"] is string successMessage)
+{
+    <div class="alert alert-success d-flex align-items-center gap-2 mb-3" style="border-radius:12px;">
+        <i class="bi bi-check-circle-fill fs-5"></i>
+        <div>@successMessage</div>
+    </div>
+}
+
+@if (TempData["ErrorMessage"] is string errorMessage)
+{
+    <div class="alert alert-danger d-flex align-items-center gap-2 mb-3" style="border-radius:12px;">
+        <i class="bi bi-exclamation-triangle-fill fs-5"></i>
+        <div>@errorMessage</div>
+    </div>
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <div class="document-eyebrow">Admin Console</div>
+        <h1 class="document-title mb-0">User Management</h1>
+    </div>
+    <button type="button" class="btn btn-primary shadow-sm" data-bs-toggle="modal" data-bs-target="#addUserModal">
+        <i class="bi bi-person-plus-fill"></i> Add User
+    </button>
+</div>
+
+<div class="admin-shell">
+    <!-- Left Panel: User CRUD Table -->
+    <div class="app-card p-4">
+        <div class="d-flex flex-wrap gap-2 justify-content-between align-items-center mb-3">
+            <h4 class="fw-bold mb-0 text-dark">System Accounts</h4>
+            
+            <form asp-action="Users" method="get" class="d-flex gap-2 align-items-center">
+                <div class="input-group input-group-sm" style="width: 220px;">
+                    <span class="input-group-text bg-transparent border-end-0 text-muted"><i class="bi bi-search"></i></span>
+                    <input type="text" name="search" class="form-control border-start-0 ps-0" placeholder="Search users..." value="@ViewBag.Search" />
+                </div>
+                <select name="role" class="form-select form-select-sm" style="width: 120px;" onchange="this.form.submit()">
+                    <option value="" selected="@(string.IsNullOrEmpty(ViewBag.Role) ? "selected" : null)">All Roles</option>
+                    <option value="Admin" selected="@(ViewBag.Role == "Admin" ? "selected" : null)">Admin</option>
+                    <option value="Lecturer" selected="@(ViewBag.Role == "Lecturer" ? "selected" : null)">Lecturer</option>
+                    <option value="Student" selected="@(ViewBag.Role == "Student" ? "selected" : null)">Student</option>
+                </select>
+                @if (!string.IsNullOrEmpty(ViewBag.Search) || !string.IsNullOrEmpty(ViewBag.Role))
+                {
+                    <a asp-action="Users" class="btn btn-sm btn-outline-secondary" title="Clear Filters"><i class="bi bi-x"></i></a>
+                }
+            </form>
+        </div>
+
+        <div class="table-responsive">
+            <table class="notebooklm-table">
+                <thead>
+                    <tr>
+                        <th>User Info</th>
+                        <th>Student Code</th>
+                        <th>Role</th>
+                        <th>Status</th>
+                        <th class="text-end">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (!Model.Any())
+                    {
+                        <tr>
+                            <td colspan="5" class="text-center py-5 text-muted">
+                                <i class="bi bi-people fs-1 d-block mb-2 text-secondary"></i>
+                                No users found matching your search.
+                            </td>
+                        </tr>
+                    }
+                    else
+                    {
+                        @foreach (var user in Model)
+                        {
+                            var roleColor = user.Role switch
+                            {
+                                "Admin" => "badge-danger",
+                                "Lecturer" => "badge-processing",
+                                _ => "badge-success"
+                            };
+
+                            var statusClass = user.Status == "Active" ? "badge-success" : "badge-pending";
+
+                            <tr>
+                                <td>
+                                    <div class="fw-bold text-dark">@user.FullName</div>
+                                    <div class="text-muted small">@user.Email</div>
+                                </td>
+                                <td>
+                                    <span class="font-monospace">@(string.IsNullOrEmpty(user.StudentCode) ? "N/A" : user.StudentCode)</span>
+                                </td>
+                                <td>
+                                    <span class="app-badge @roleColor text-nowrap">@user.Role</span>
+                                </td>
+                                <td>
+                                    <span class="app-badge @statusClass">@user.Status</span>
+                                </td>
+                                <td>
+                                    <div class="d-flex justify-content-end gap-1">
+                                        <button type="button" class="btn btn-sm btn-outline-primary px-2.5 py-1.5" 
+                                                data-bs-toggle="modal" data-bs-target="#editUserModal"
+                                                data-id="@user.Id" data-name="@user.FullName" data-email="@user.Email" 
+                                                data-role="@user.Role" data-code="@user.StudentCode" data-status="@user.Status">
+                                            <i class="bi bi-pencil"></i>
+                                        </button>
+                                        @if (user.Email != User.Identity?.Name)
+                                        {
+                                            <form asp-action="DeleteUser" asp-route-id="@user.Id" method="post" class="d-inline" onsubmit="return confirm('Are you sure you want to delete user @user.FullName?');">
+                                                @Html.AntiForgeryToken()
+                                                <button type="submit" class="btn btn-sm btn-outline-danger px-2.5 py-1.5">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            </form>
+                                        }
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Right Panel: Excel Importer -->
+    <div class="app-card p-4 align-self-start">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h4 class="fw-bold mb-0 text-dark"><i class="bi bi-file-earmark-excel text-success me-1"></i>Bulk Importer</h4>
+            <button class="btn btn-sm btn-outline-success border-0 px-2 py-1" onclick="downloadSampleExcel()" title="Download Excel template">
+                <i class="bi bi-download"></i> Template
+            </button>
+        </div>
+
+        <p class="text-muted small">Import bulk students into the workspace. Inactive accounts will be forced to change password on first login.</p>
+        
+        <!-- Drag & Drop Zone -->
+        <div class="notebooklm-upload-zone my-3 py-4" id="excelDropzone">
+            <i class="bi bi-cloud-arrow-up-fill notebooklm-upload-icon text-success"></i>
+            <h6 class="fw-bold mb-1">Drag and drop student list excel</h6>
+            <p class="text-muted mb-0" style="font-size:0.75rem;">Supports .xlsx or .xls files only</p>
+            <input type="file" id="excelFile" accept=".xlsx, .xls" class="visually-hidden" />
+        </div>
+
+        <!-- Selected Excel Status -->
+        <div id="selectedExcelCard" class="import-status-card success align-items-center justify-content-between px-3 py-2.5" style="display:none !important;">
+            <div class="d-flex align-items-center gap-2">
+                <i class="bi bi-file-earmark-spreadsheet-fill text-success fs-4"></i>
+                <div>
+                    <strong id="excelFileName" class="text-dark small d-block" style="max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">student_list.xlsx</strong>
+                    <span id="excelFileSize" class="text-muted d-block" style="font-size:0.7rem;">12.4 KB</span>
+                </div>
+            </div>
+            <button type="button" class="btn-close" style="font-size:0.75rem;" onclick="resetExcelImport()"></button>
+        </div>
+
+        <!-- Processing Stats & Progress -->
+        <div id="importProgressSection" style="display:none;">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+                <span class="small fw-semibold text-primary" id="progressStatusText">Parsing document...</span>
+                <span class="small font-monospace" id="progressPercent">0%</span>
+            </div>
+            <div class="upload-progress-container mb-3">
+                <div class="upload-progress-bar" id="importProgressBar"></div>
+            </div>
+        </div>
+
+        <!-- Results Table -->
+        <div id="importResultsSection" style="display:none;">
+            <div class="d-flex justify-content-between align-items-center mb-2 mt-4">
+                <h6 class="fw-bold mb-0 text-dark">Upload Feedbacks</h6>
+                <span class="app-badge badge-success text-nowrap" id="importSummaryBadge">5 Success, 0 Failed</span>
+            </div>
+            <div id="importResultsList" style="max-height: 220px; overflow-y: auto; padding-right:4px;">
+                <!-- Dynamically generated validation feedback rows -->
+            </div>
+            <div class="d-grid mt-3">
+                <button type="button" class="btn btn-primary justify-content-center py-2" onclick="saveImportResults()" id="btnSaveImport" disabled>
+                    <i class="bi bi-check2-circle"></i> Save Valid Users
+                </button>
+>>>>>>> Stashed changes
             </div>
         </div>
     </div>
 </div>
+<<<<<<< Updated upstream
+=======
+
+<!-- Modal: Add User -->
+<div class="modal fade" id="addUserModal" tabindex="-1" aria-labelledby="addUserModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <form asp-action="CreateUser" method="post" class="modal-content">
+            @Html.AntiForgeryToken()
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold" id="addUserModalLabel">Create New Account</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="createFullName" class="form-label small fw-semibold text-muted">Full Name</label>
+                    <input type="text" class="form-control" id="createFullName" name="fullName" placeholder="e.g. John Doe" required />
+                </div>
+                <div class="mb-3">
+                    <label for="createEmail" class="form-label small fw-semibold text-muted">Email address</label>
+                    <input type="email" class="form-control" id="createEmail" name="email" placeholder="e.g. john.doe@lms-ai.edu.vn" required />
+                </div>
+                <div class="mb-3">
+                    <label for="createRole" class="form-label small fw-semibold text-muted">Account Role</label>
+                    <select class="form-select" id="createRole" name="role" onchange="toggleStudentCodeField(this, 'createCodeContainer')">
+                        <option value="Student">Student</option>
+                        <option value="Lecturer">Lecturer</option>
+                        <option value="Admin">Admin</option>
+                    </select>
+                </div>
+                <div class="mb-3" id="createCodeContainer">
+                    <label for="createStudentCode" class="form-label small fw-semibold text-muted">Student Code</label>
+                    <input type="text" class="form-control" id="createStudentCode" name="studentCode" placeholder="e.g. HE170123" />
+                </div>
+                <div class="form-check">
+                    <input type="checkbox" class="form-check-input" id="createMustChange" name="mustChangePassword" value="true" checked />
+                    <label class="form-check-label text-muted small" for="createMustChange">Force password reset on first login</label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" class="btn btn-primary">Create User</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal: Edit User -->
+<div class="modal fade" id="editUserModal" tabindex="-1" aria-labelledby="editUserModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <form asp-action="EditUser" method="post" class="modal-content">
+            @Html.AntiForgeryToken()
+            <input type="hidden" id="editUserId" name="id" />
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold" id="editUserModalLabel">Edit User Account</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="editFullName" class="form-label small fw-semibold text-muted">Full Name</label>
+                    <input type="text" class="form-control" id="editFullName" name="fullName" required />
+                </div>
+                <div class="mb-3">
+                    <label for="editEmail" class="form-label small fw-semibold text-muted">Email address</label>
+                    <input type="email" class="form-control" id="editEmail" name="email" required />
+                </div>
+                <div class="mb-3">
+                    <label for="editRole" class="form-label small fw-semibold text-muted">Account Role</label>
+                    <select class="form-select" id="editRole" name="role" onchange="toggleStudentCodeField(this, 'editCodeContainer')">
+                        <option value="Student">Student</option>
+                        <option value="Lecturer">Lecturer</option>
+                        <option value="Admin">Admin</option>
+                    </select>
+                </div>
+                <div class="mb-3" id="editCodeContainer">
+                    <label for="editStudentCode" class="form-label small fw-semibold text-muted">Student Code</label>
+                    <input type="text" class="form-control" id="editStudentCode" name="studentCode" />
+                </div>
+                <div class="mb-3">
+                    <label for="editStatus" class="form-label small fw-semibold text-muted">Status</label>
+                    <select class="form-select" id="editStatus" name="status">
+                        <option value="Active">Active</option>
+                        <option value="Inactive">Inactive</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" class="btn btn-primary">Save Changes</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    <!-- Include SheetJS CDN to parse Excel directly on the client-side for smooth UX -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script>
+        // Modal Data Mapping
+        const editUserModal = document.getElementById('editUserModal');
+        editUserModal?.addEventListener('show.bs.modal', function (e) {
+            const btn = e.relatedTarget;
+            const id = btn.getAttribute('data-id');
+            const name = btn.getAttribute('data-name');
+            const email = btn.getAttribute('data-email');
+            const role = btn.getAttribute('data-role');
+            const code = btn.getAttribute('data-code');
+            const status = btn.getAttribute('data-status');
+
+            document.getElementById('editUserId').value = id;
+            document.getElementById('editFullName').value = name;
+            document.getElementById('editEmail').value = email;
+            
+            const roleSelect = document.getElementById('editRole');
+            roleSelect.value = role;
+            toggleStudentCodeField(roleSelect, 'editCodeContainer');
+
+            document.getElementById('editStudentCode').value = code || '';
+            document.getElementById('editStatus').value = status;
+        });
+
+        function toggleStudentCodeField(selectElem, containerId) {
+            const container = document.getElementById(containerId);
+            if (selectElem.value === 'Student') {
+                container.style.display = 'block';
+            } else {
+                container.style.display = 'none';
+            }
+        }
+
+        // Excel Import Drag and Drop
+        const dropzone = document.getElementById('excelDropzone');
+        const fileInput = document.getElementById('excelFile');
+        let parsedUsersList = [];
+
+        dropzone.addEventListener('click', () => fileInput.click());
+        dropzone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropzone.classList.add('dragover');
+        });
+        dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+        dropzone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropzone.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length) handleExcelFile(files[0]);
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            const files = e.target.files;
+            if (files.length) handleExcelFile(files[0]);
+        });
+
+        function handleExcelFile(file) {
+            const validTypes = ['.xlsx', '.xls'];
+            const fileExtension = file.name.slice(file.name.lastIndexOf('.')).toLowerCase();
+            
+            if (!validTypes.includes(fileExtension)) {
+                alert('Please upload a valid Excel spreadsheet (.xlsx or .xls)');
+                return;
+            }
+
+            // Display file visual block
+            document.getElementById('excelFileName').textContent = file.name;
+            document.getElementById('excelFileSize').textContent = `${(file.size / 1024).toFixed(1)} KB`;
+            document.getElementById('selectedExcelCard').style.setProperty('display', 'flex', 'important');
+            dropzone.style.display = 'none';
+
+            // Start parsing simulation
+            parseExcelData(file);
+        }
+
+        function parseExcelData(file) {
+            const progressSection = document.getElementById('importProgressSection');
+            const progressBar = document.getElementById('importProgressBar');
+            const progressStatusText = document.getElementById('progressStatusText');
+            const progressPercent = document.getElementById('progressPercent');
+
+            progressSection.style.display = 'block';
+            progressBar.style.width = '0%';
+            progressStatusText.textContent = 'Reading excel spreadsheet...';
+            progressPercent.textContent = '0%';
+
+            const reader = new FileReader();
+            
+            // Simulating reading process for visual smoothness
+            setTimeout(() => {
+                reader.onload = function(e) {
+                    progressBar.style.width = '50%';
+                    progressPercent.textContent = '50%';
+                    progressStatusText.textContent = 'Extracting rows...';
+
+                    setTimeout(() => {
+                        try {
+                            const data = new Uint8Array(e.target.result);
+                            const workbook = XLSX.read(data, { type: 'array' });
+                            const firstSheetName = workbook.SheetNames[0];
+                            const worksheet = workbook.Sheets[firstSheetName];
+                            
+                            // Get JSON rows
+                            const rawRows = XLSX.utils.sheet_to_json(worksheet);
+                            
+                            progressBar.style.width = '90%';
+                            progressPercent.textContent = '90%';
+                            progressStatusText.textContent = 'Validating columns...';
+
+                            setTimeout(() => {
+                                progressBar.style.width = '100%';
+                                progressPercent.textContent = '100%';
+                                progressStatusText.textContent = 'Analysis complete!';
+                                
+                                processImportedRows(rawRows);
+                            }, 500);
+
+                        } catch (err) {
+                            alert('Error parsing Excel: ' + err.message);
+                            resetExcelImport();
+                        }
+                    }, 600);
+                };
+                reader.readAsArrayBuffer(file);
+            }, 400);
+        }
+
+        function processImportedRows(rawRows) {
+            const resultsSection = document.getElementById('importResultsSection');
+            const resultsList = document.getElementById('importResultsList');
+            const summaryBadge = document.getElementById('importSummaryBadge');
+            const btnSave = document.getElementById('btnSaveImport');
+
+            resultsList.innerHTML = '';
+            parsedUsersList = [];
+            
+            if (!rawRows || rawRows.length === 0) {
+                resultsList.innerHTML = '<div class="text-center text-muted small py-3">No rows found in Excel sheet.</div>';
+                summaryBadge.textContent = '0 Users Found';
+                summaryBadge.className = 'app-badge badge-danger';
+                btnSave.disabled = true;
+                resultsSection.style.display = 'block';
+                return;
+            }
+
+            let successCount = 0;
+            let failCount = 0;
+
+            rawRows.forEach((row, index) => {
+                // Read typical column names (FullName, Email, StudentCode)
+                const fullName = row.FullName || row['Full Name'] || row['Name'] || '';
+                const email = row.Email || row['Email Address'] || '';
+                const code = row.StudentCode || row['Student Code'] || row['Code'] || '';
+                
+                let isSucceeded = true;
+                let failReason = '';
+
+                if (!fullName || !email) {
+                    isSucceeded = false;
+                    failReason = 'Missing name or email';
+                } else if (!email.includes('@@')) {
+                    isSucceeded = false;
+                    failReason = 'Invalid email structure';
+                }
+
+                const card = document.createElement('div');
+                if (isSucceeded) {
+                    successCount++;
+                    card.className = 'import-status-card success';
+                    card.innerHTML = `
+                        <div>
+                            <div class="fw-bold text-dark small">${fullName}</div>
+                            <div class="text-muted" style="font-size:0.75rem;">${email} &bull; Code: ${code || 'Auto-generated'}</div>
+                        </div>
+                        <span class="app-badge badge-success"><i class="bi bi-check-circle"></i> Ready</span>
+                    `;
+                    parsedUsersList.push({ fullName, email, studentCode: code });
+                } else {
+                    failCount++;
+                    card.className = 'import-status-card failed';
+                    card.innerHTML = `
+                        <div>
+                            <div class="fw-bold text-dark small">${fullName || 'Row ' + (index + 1)}</div>
+                            <div class="text-muted" style="font-size:0.75rem;">${email || 'Empty email'}</div>
+                        </div>
+                        <span class="app-badge badge-danger" title="${failReason}"><i class="bi bi-x-circle"></i> Error</span>
+                    `;
+                }
+                resultsList.appendChild(card);
+            });
+
+            summaryBadge.textContent = `${successCount} Succeeded, ${failCount} Failed`;
+            if (failCount > 0) {
+                summaryBadge.className = 'app-badge badge-danger';
+            } else {
+                summaryBadge.className = 'app-badge badge-success';
+            }
+
+            btnSave.disabled = parsedUsersList.length === 0;
+            resultsSection.style.display = 'block';
+        }
+
+        function resetExcelImport() {
+            document.getElementById('selectedExcelCard').style.setProperty('display', 'none', 'important');
+            dropzone.style.display = 'flex';
+            fileInput.value = '';
+            document.getElementById('importProgressSection').style.display = 'none';
+            document.getElementById('importResultsSection').style.display = 'none';
+            parsedUsersList = [];
+        }
+
+        function saveImportResults() {
+            if (!parsedUsersList.length) return;
+
+            const btnSave = document.getElementById('btnSaveImport');
+            btnSave.disabled = true;
+            btnSave.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Saving users...';
+
+            // Submit JSON array via fetch to mock endpoint
+            fetch('/Admin/BulkImport', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    // Adding AntiForgeryToken in request header
+                    'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value || ''
+                },
+                body: JSON.stringify(parsedUsersList)
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    alert(`Import completed! Successfully added ${data.successCount} student accounts.`);
+                    window.location.reload();
+                } else {
+                    alert('Error saving users: ' + data.message);
+                    btnSave.disabled = false;
+                    btnSave.innerHTML = '<i class="bi bi-check2-circle"></i> Save Valid Users';
+                }
+            })
+            .catch(err => {
+                alert('Connection error. Saving simulated local users instead.');
+                window.location.reload();
+            });
+        }
+
+        // JavaScript helper to download simulated Sample Excel sheet (CSV formatted file download using data URIs)
+        function downloadSampleExcel() {
+            const headers = 'FullName,Email,StudentCode\n';
+            const rows = [
+                'Nguyen Van A,anv.student@lms-ai.edu.vn,HE170123',
+                'Tran Thi B,btt.student@lms-ai.edu.vn,HE170456',
+                'Le Hung Cuong,cuonglh.student@lms-ai.edu.vn,HE170789',
+                'Invalid Row Test,invalid-email,HE170999'
+            ].join('\n');
+            
+            const csvContent = "data:text/csv;charset=utf-8," + encodeURIComponent(headers + rows);
+            const downloadAnchor = document.createElement('a');
+            downloadAnchor.setAttribute("href", csvContent);
+            downloadAnchor.setAttribute("download", "sample_student_list.csv");
+            document.body.appendChild(downloadAnchor);
+            downloadAnchor.click();
+            document.body.removeChild(downloadAnchor);
+        }
+    </script>
+}
+>>>>>>> Stashed changes

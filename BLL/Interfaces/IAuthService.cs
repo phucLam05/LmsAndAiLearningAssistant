@@ -17,11 +17,11 @@ namespace BLL.Interfaces
         /// <returns>A tuple containing a boolean success flag and an error message if any.</returns>
         Task<(bool Success, string ErrorMessage)> RegisterAsync(RegisterDto registerDto);
 
-        /// <summary>
-        /// Authenticates a user based on login credentials.
-        /// </summary>
-        /// <param name="loginDto">The login data.</param>
-        /// <returns>The authenticated user if successful, otherwise null.</returns>
         Task<User?> LoginAsync(LoginDto loginDto);
+
+        string DecryptEmail(string encryptedEmailBase64);
+        Task<System.Collections.Generic.List<User>> GetAllUsersAsync();
+        Task<(bool Success, string ErrorMessage)> UpdateUserAsync(Guid id, string fullName, string email, UserRole role);
+        Task<bool> DeleteUserAsync(Guid id);
     }
 }

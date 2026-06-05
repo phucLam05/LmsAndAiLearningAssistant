@@ -36,6 +36,7 @@ namespace DAL.Data
                 entity.Property(e => e.UserCode).HasColumnName("user_code").IsRequired().HasMaxLength(50);
                 entity.HasIndex(e => e.UserCode).IsUnique();
 
+<<<<<<< Updated upstream
                 entity.Property(e => e.EmailEncrypt).HasColumnName("email_encrypt").HasMaxLength(255);
                 entity.Property(e => e.EmailHash).HasColumnName("email_hash").HasMaxLength(255);
                 
@@ -47,6 +48,27 @@ namespace DAL.Data
                 
                 entity.Property(e => e.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("CURRENT_TIMESTAMP");
                 entity.Property(e => e.UpdatedAt).HasColumnName("updated_at").HasDefaultValueSql("CURRENT_TIMESTAMP");
+=======
+                entity.Property(e => e.EmailHash)
+                    .IsRequired()
+                    .HasMaxLength(255);
+
+                // Add an index to the hashed email for faster lookups during login
+                entity.HasIndex(e => e.EmailHash).IsUnique();
+
+                entity.Property(e => e.PasswordHash)
+                    .IsRequired();
+
+                entity.Property(e => e.FullName)
+                    .IsRequired()
+                    .HasMaxLength(100);
+
+                entity.Property(e => e.CreatedAt)
+                    .HasDefaultValueSql("NOW()"); // PostgreSQL specific current timestamp
+
+                entity.Property(e => e.Role)
+                    .HasDefaultValue(UserRole.Student);
+>>>>>>> Stashed changes
             });
 
             // Subject configuration
@@ -104,7 +126,50 @@ namespace DAL.Data
                     .HasForeignKey(e => e.SubjectId)
                     .OnDelete(DeleteBehavior.Cascade);
 
+<<<<<<< Updated upstream
                 entity.HasOne(e => e.Uploader)
+=======
+                entity.Property(e => e.StoredFileName)
+                    .IsRequired()
+                    .HasMaxLength(255);
+
+                entity.Property(e => e.StoragePath)
+                    .IsRequired()
+                    .HasMaxLength(500);
+
+                entity.Property(e => e.StorageUrl)
+                    .IsRequired();
+
+                entity.Property(e => e.MimeType)
+                    .IsRequired()
+                    .HasMaxLength(100);
+
+                entity.Property(e => e.FileType)
+                    .IsRequired()
+                    .HasMaxLength(20);
+
+                entity.Ignore(e => e.Status);
+
+                entity.Property(e => e.ProcessingStatus)
+                    .HasConversion<int>();
+
+                entity.Property(e => e.UploadedAt)
+                    .HasDefaultValueSql("NOW()");
+
+                entity.Property(e => e.CreatedAt)
+                    .HasDefaultValueSql("NOW()");
+
+                entity.Property(e => e.UpdatedAt)
+                    .HasDefaultValueSql("NOW()");
+
+                entity.Property(e => e.ChunkingJobId)
+                    .HasColumnType("text");
+
+                entity.Property(e => e.EmbeddingJobId)
+                    .HasColumnType("text");
+
+                entity.HasOne(e => e.User)
+>>>>>>> Stashed changes
                     .WithMany()
                     .HasForeignKey(e => e.UploadedBy)
                     .OnDelete(DeleteBehavior.SetNull);

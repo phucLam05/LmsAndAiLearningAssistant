@@ -40,5 +40,11 @@ namespace Core.DTOs.Auth
         [Required(ErrorMessage = "Full Name is required.")]
         [StringLength(100, ErrorMessage = "Full Name cannot exceed 100 characters.")]
         public string FullName { get; set; } = string.Empty;
+
+        /// <summary>
+        /// User's role (e.g., Student, Lecturer).
+        /// </summary>
+        [Required(ErrorMessage = "Role is required.")]
+        public Core.Entities.UserRole Role { get; set; } = Core.Entities.UserRole.Student;
     }
 }

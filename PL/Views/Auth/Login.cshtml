@@ -4,6 +4,7 @@
     Layout = "_AuthLayout";
 }
 
+<<<<<<< Updated upstream
 <div class="bg-surface-container-high/60 backdrop-blur-md border border-outline-variant/40 rounded-2xl p-6 shadow-2xl relative overflow-hidden">
     <div class="mb-6">
         <h3 class="text-headline-md font-bold text-on-surface" style="font-size: 24px;">Đăng nhập</h3>
@@ -15,6 +16,68 @@
         <div class="bg-tertiary-fixed/10 border border-tertiary-fixed/30 text-tertiary p-3 rounded-xl mb-4 text-body-md flex items-start gap-2">
             <span class="material-symbols-outlined text-[20px] text-tertiary" style="font-variation-settings: 'FILL' 1;">check_circle</span>
             <span>@TempData["SuccessMessage"]</span>
+=======
+<div class="row justify-content-center py-5">
+    <div class="col-md-5 col-lg-4">
+        <div class="app-card p-4 mt-3">
+            <div class="text-center mb-4">
+                <div class="d-inline-flex align-items-center justify-content-center bg-primary bg-opacity-10 text-primary p-3 rounded-circle mb-3" style="width: 60px; height: 60px;">
+                    <i class="bi bi-cpu fs-2"></i>
+                </div>
+                <h3 class="fw-bold mb-1">Welcome back</h3>
+                <p class="text-muted small">Sign in to access your RAG learning space</p>
+            </div>
+
+            @if (TempData["SuccessMessage"] != null)
+            {
+                <div class="alert alert-success d-flex align-items-center gap-2" role="alert" style="border-radius: 12px; font-size: 0.9rem;">
+                    <i class="bi bi-check-circle-fill"></i>
+                    <div>@TempData["SuccessMessage"]</div>
+                </div>
+            }
+
+            <form asp-action="Login" method="post" id="loginForm">
+                <input type="hidden" name="returnUrl" value="@ViewData["ReturnUrl"]" />
+                
+                <div asp-validation-summary="ModelOnly" class="text-danger mb-3 small"></div>
+
+                <div class="form-group mb-3">
+                    <label asp-for="Email" class="form-label fw-semibold small text-muted">Email address</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-transparent border-end-0 text-muted"><i class="bi bi-envelope"></i></span>
+                        <input asp-for="Email" class="form-control border-start-0 ps-0" placeholder="name@example.com" />
+                    </div>
+                    <span asp-validation-for="Email" class="text-danger small"></span>
+                </div>
+
+                <div class="form-group mb-3">
+                    <label asp-for="Password" class="form-label fw-semibold small text-muted">Password</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-transparent border-end-0 text-muted"><i class="bi bi-lock"></i></span>
+                        <input asp-for="Password" type="password" class="form-control border-start-0 ps-0" placeholder="••••••••" />
+                    </div>
+                    <span asp-validation-for="Password" class="text-danger small"></span>
+                </div>
+
+                <!-- Simulation Checkbox to simulate first-time login redirection easily -->
+                <div class="form-check mb-4 d-flex align-items-center gap-2">
+                    <input type="checkbox" class="form-check-input" id="simulateFirstTime" name="simulateFirstTime" value="true">
+                    <label class="form-check-label text-muted small" for="simulateFirstTime">
+                        Simulate first-time login (Force Password Change)
+                    </label>
+                </div>
+
+                <div class="d-grid mb-3">
+                    <button type="submit" class="btn btn-primary justify-content-center py-2.5">
+                        <i class="bi bi-box-arrow-in-right"></i> Sign In
+                    </button>
+                </div>
+            </form>
+            
+            <div class="text-center pt-2 border-top">
+                <p class="mb-0 text-muted small">Don't have an account? <a asp-action="Register" class="text-primary fw-semibold text-decoration-none">Register here</a></p>
+            </div>
+>>>>>>> Stashed changes
         </div>
     }
 

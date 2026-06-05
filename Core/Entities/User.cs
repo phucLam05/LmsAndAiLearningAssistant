@@ -14,9 +14,18 @@ namespace Core.Entities
         public UserRole Role { get; set; } = UserRole.Student;
         public UserStatus Status { get; set; } = UserStatus.Active;
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+<<<<<<< Updated upstream
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
         // Navigation properties
         public ICollection<Subject> AssignedSubjects { get; set; } = new List<Subject>();
+=======
+
+        /// <summary>
+        /// Gets or sets the role of the user (e.g., Student, Lecturer, Admin).
+        /// Maps to the 'Role' column in the database.
+        /// </summary>
+        public UserRole Role { get; set; } = UserRole.Student;
+>>>>>>> Stashed changes
     }
 }
