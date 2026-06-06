@@ -1,22 +1,25 @@
 # Data Access Layer (DAL)
 
-The `DAL` project is a class library responsible for all database interactions.
+The `DAL` project handles all interactions with the database and external infrastructure. It only depends on the `Core` library.
 
-## Responsibilities
-- **Database Context**: Contains the `ApplicationDbContext` which inherits from `DbContext` (Entity Framework Core). This file defines the tables and relationships (using Fluent API).
-- **Repositories**: Implements the Repository pattern. Repositories abstract the data source so that the Business Logic Layer doesn't need to know whether the data comes from a database or an API. Repositories are split tightly by domain (e.g., `DocumentRepository` for metadata, and `DocumentChunkRepository` for vector chunks).
-- **Providers**: Classes that encapsulate external API or storage interactions, such as `SupabaseStorageProvider` (for Supabase Storage) and `GeminiEmbeddingProvider` (for Gemini API calls).
-- **Interfaces**: Contracts for the repositories and providers to ensure loose coupling.
-- **Migrations**: Stores EF Core migration scripts that track changes to the database schema over time.
+## Folder Structure
 
-## Key Configurations
-- **PostgreSQL**: The project uses `Npgsql.EntityFrameworkCore.PostgreSQL`.
-- **Pgvector**: For AI-powered vector similarity search, `Pgvector.EntityFrameworkCore` is installed, and the `ApplicationDbContext` enables the `vector` extension.
+- **`Data/`**: Contains the Entity Framework Core database context configuration and interceptors (e.g., automatically updating timestamps).
+- **`Repositories/`**: Contains the concrete implementations of the data access interfaces to perform CRUD operations on the database.
+- **`Interfaces/`**: Defines the data access contracts that the `BLL` will depend on.
+- **`Providers/`**: Contains client classes to communicate with external services, such as Supabase Storage (for files) and the Gemini API (for vector embeddings).
+- **`Migrations/`**: Stores the EF Core migration history files.
+
+## Architectural Rule
+The Business Logic Layer (BLL) communicates with the DAL **exclusively through Interfaces**. It never references the database context directly.
 
 ## Running Migrations
-When entities in the `Core` project are modified, a new migration should be created.
-Run this from the solution root:
+From the solution root directory:
+
 ```bash
-dotnet ef migrations add <MigrationName> --project DAL\DAL.csproj --startup-project PL\PL.csproj
-dotnet ef database update --project DAL\DAL.csproj --startup-project PL\PL.csproj
+# Add a new migration after modifying entities
+dotnet ef migrations add <MigrationName> --project DAL/DAL.csproj --startup-project PL/PL.csproj
+
+# Apply pending migrations to the database
+dotnet ef database update --project DAL/DAL.csproj --startup-project PL/PL.csproj
 ```

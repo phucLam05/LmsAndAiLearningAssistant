@@ -87,6 +87,7 @@ namespace DAL.Data
                 
                 entity.Property(e => e.FileName).HasColumnName("file_name").IsRequired().HasMaxLength(255);
                 entity.Property(e => e.FileUrl).HasColumnName("file_url").IsRequired().HasMaxLength(500);
+                entity.Property(e => e.FileSize).HasColumnName("file_size").HasDefaultValue(0L);
                 
                 entity.Property(e => e.Status).HasColumnName("status").HasConversion<short>().HasDefaultValue(DocumentStatus.Pending);
                 
@@ -122,6 +123,8 @@ namespace DAL.Data
                 
                 entity.Property(e => e.ChunkIndex).HasColumnName("chunk_index").IsRequired();
                 entity.Property(e => e.Content).HasColumnName("content").HasColumnType("text").IsRequired();
+                entity.Property(e => e.TokenCount).HasColumnName("token_count").IsRequired().HasDefaultValue(0);
+                entity.Property(e => e.PageNumber).HasColumnName("page_number");
                 
                 entity.Property(e => e.Embedding).HasColumnName("embedding").HasColumnType("vector(3072)");
                 

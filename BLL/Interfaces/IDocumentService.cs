@@ -26,5 +26,7 @@ namespace BLL.Interfaces
         Task<Result> DeleteAsync(Guid documentId, Guid userId);
 
         Task<Result> RetryProcessingAsync(Guid documentId, Guid userId);
+
+        Task<IReadOnlyList<DocumentDto>> GetAllDocumentsAsync();
     }
 }

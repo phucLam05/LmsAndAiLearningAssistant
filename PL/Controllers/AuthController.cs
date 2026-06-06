@@ -1,15 +1,11 @@
 using BLL.Interfaces;
 using Core.DTOs.Auth;
 using Core.Entities;
-using DAL.Data;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Mvc;
 using PL.Models.Auth;
-using System;
-using System.Collections.Generic;
 using System.Security.Claims;
-using System.Threading.Tasks;
 
 namespace PL.Controllers
 {
@@ -19,12 +15,10 @@ namespace PL.Controllers
     public class AuthController : Controller
     {
         private readonly IAuthService _authService;
-        private readonly ApplicationDbContext _dbContext;
 
-        public AuthController(IAuthService authService, ApplicationDbContext dbContext)
+        public AuthController(IAuthService authService)
         {
             _authService = authService;
-            _dbContext = dbContext;
         }
 
         [HttpGet]
@@ -47,7 +41,7 @@ namespace PL.Controllers
             {
                 var role = User.FindFirstValue(ClaimTypes.Role);
                 if (role == "Admin") return RedirectToAction("Index", "Admin");
-                if (role == "Lecturer") return RedirectToAction("Portal", "Lecturer");
+                if (role == "Lecturer") return RedirectToAction("MySubjects", "Subject");
                 if (role == "Student") return RedirectToAction("Browse", "Subject");
                 return RedirectToAction("Index", "Subject");
             }
@@ -119,7 +113,7 @@ namespace PL.Controllers
             }
 
             if (user.Role.ToString() == "Admin") return RedirectToAction("Index", "Admin");
-            if (user.Role.ToString() == "Lecturer") return RedirectToAction("Portal", "Lecturer");
+            if (user.Role.ToString() == "Lecturer") return RedirectToAction("MySubjects", "Subject");
             if (user.Role.ToString() == "Student") return RedirectToAction("Browse", "Subject");
             return RedirectToAction("Index", "Subject");
         }

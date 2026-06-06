@@ -1,4 +1,4 @@
-using Core.Configuration;
+using Core.Configurations;
 using DAL.Interfaces;
 using Microsoft.Extensions.Configuration;
 using System.Net.Http.Headers;

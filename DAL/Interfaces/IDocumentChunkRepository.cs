@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using Core.Entities;
+using Pgvector;
 
 namespace DAL.Interfaces
 {
@@ -34,5 +36,21 @@ namespace DAL.Interfaces
         /// Checks if a document already has chunks.
         /// </summary>
         Task<bool> HasChunksAsync(Guid documentId);
+
+        /// <summary>
+        /// Performs a cosine similarity search for chunks within a subject, optionally filtered by document IDs.
+        /// Returns the top <paramref name="limit"/> most similar chunks along with their source document file name.
+        /// </summary>
+        Task<IReadOnlyList<(string Content, string FileName)>> SearchSimilarChunksAsync(
+            Guid subjectId,
+            Vector queryEmbedding,
+            int limit,
+            List<Guid>? documentIds = null,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Returns the total number of document chunks across all documents.
+        /// </summary>
+        Task<int> CountAllAsync();
     }
 }

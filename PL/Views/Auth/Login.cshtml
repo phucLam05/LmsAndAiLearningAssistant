@@ -10,13 +10,7 @@
         <p class="text-body-md text-outline mt-1">Nhập thông tin tài khoản của bạn để tiếp tục.</p>
     </div>
 
-    @if (TempData["SuccessMessage"] != null)
-    {
-        <div class="bg-tertiary-fixed/10 border border-tertiary-fixed/30 text-tertiary p-3 rounded-xl mb-4 text-body-md flex items-start gap-2">
-            <span class="material-symbols-outlined text-[20px] text-tertiary" style="font-variation-settings: 'FILL' 1;">check_circle</span>
-            <span>@TempData["SuccessMessage"]</span>
-        </div>
-    }
+
 
     <form asp-action="Login" method="post" class="space-y-4">
         <input type="hidden" name="returnUrl" value="@ViewData["ReturnUrl"]" />

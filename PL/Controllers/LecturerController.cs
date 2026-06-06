@@ -1,15 +1,8 @@
-using Microsoft.AspNetCore.Mvc;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 using BLL.Interfaces;
 using Core.DTOs.Documents;
-using Core.Entities;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
-using DAL.Interfaces;
 
 namespace PL.Controllers
 {
@@ -18,13 +11,11 @@ namespace PL.Controllers
     {
         private readonly ISubjectService _subjectService;
         private readonly IDocumentService _documentService;
-        private readonly ISupabaseStorageProvider _storageProvider;
 
-        public LecturerController(ISubjectService subjectService, IDocumentService documentService, ISupabaseStorageProvider storageProvider)
+        public LecturerController(ISubjectService subjectService, IDocumentService documentService)
         {
             _subjectService = subjectService;
             _documentService = documentService;
-            _storageProvider = storageProvider;
         }
 
         public class MockSubject
@@ -82,7 +73,7 @@ namespace PL.Controllers
                 Id = d.Id,
                 SubjectId = d.SubjectId?.ToString() ?? string.Empty,
                 FileName = d.FileName,
-                FileSizeStr = "N/A", // File size not stored currently
+                FileSizeStr = FormatFileSize(d.FileSize),
                 Status = d.Status.ToString(),
                 StoredBy = d.UploaderName ?? "System",
                 CreatedAt = d.CreatedAt
@@ -138,7 +129,7 @@ namespace PL.Controllers
                 Id = docDto.Id,
                 SubjectId = docDto.SubjectId?.ToString() ?? string.Empty,
                 FileName = docDto.FileName,
-                FileSizeStr = "N/A",
+                FileSizeStr = FormatFileSize(docDto.FileSize),
                 Status = docDto.Status.ToString(),
                 StoredBy = docDto.UploaderName ?? "Lecturer",
                 CreatedAt = docDto.CreatedAt
@@ -162,6 +153,21 @@ namespace PL.Controllers
         {
             var value = User.FindFirstValue(ClaimTypes.NameIdentifier);
             return Guid.TryParse(value, out var userId) ? userId : null;
+        }
+
+        private static string FormatFileSize(long bytes)
+        {
+            if (bytes <= 0) return "0 Bytes";
+            string[] suffixes = { "Bytes", "KB", "MB", "GB" };
+            int counter = 0;
+            double number = bytes;
+            while (Math.Round(number / 1024) >= 1)
+            {
+                number = number / 1024;
+                counter++;
+                if (counter >= suffixes.Length - 1) break;
+            }
+            return $"{number:F1} {suffixes[counter]}";
         }
     }
 }

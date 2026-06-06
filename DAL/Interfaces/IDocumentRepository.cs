@@ -57,5 +57,10 @@ namespace DAL.Interfaces
         /// Clears the Entity Framework change tracker.
         /// </summary>
         void ClearTracker();
+
+        /// <summary>
+        /// Retrieves all documents across all subjects, including related Subject and Uploader data.
+        /// </summary>
+        Task<IReadOnlyList<Document>> GetAllWithDetailsAsync();
     }
 }

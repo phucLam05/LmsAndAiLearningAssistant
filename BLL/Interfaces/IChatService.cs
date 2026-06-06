@@ -9,6 +9,6 @@ namespace BLL.Interfaces
     /// </summary>
     public interface IChatService
     {
-        Task<string> ChatWithSubjectAsync(Guid subjectId, string query, CancellationToken cancellationToken = default);
+        Task<string> ChatWithSubjectAsync(Guid subjectId, string query, string? model = null, List<Guid>? documentIds = null, CancellationToken cancellationToken = default);
     }
 }

@@ -18,6 +18,8 @@ namespace Core.DTOs.Documents
 
         public string FileUrl { get; set; } = string.Empty;
 
+        public long FileSize { get; set; }
+
         public DocumentStatus Status { get; set; }
 
         public DateTime CreatedAt { get; set; }

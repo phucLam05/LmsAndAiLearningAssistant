@@ -1,123 +1,130 @@
 @model List<PL.Controllers.LecturerController.MockLecturerDoc>
 @{
-    ViewData["Title"] = "Lecturer Portal";
+    ViewData["Title"] = "Không gian Giảng viên";
     var subjects = ViewBag.Subjects as List<PL.Controllers.LecturerController.MockSubject> ?? new();
     var selectedSubjectId = ViewBag.SelectedSubjectId as string;
     var selectedSubject = ViewBag.SelectedSubject as PL.Controllers.LecturerController.MockSubject;
 }
 
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <div>
-        <div class="document-eyebrow">Lecturer Administration</div>
-        <h1 class="document-title mb-0">Lecturer Workspace</h1>
-    </div>
+<!-- Page Header -->
+<div class="mb-6 select-none animate-fade-in">
+    <span class="bg-primary/10 text-primary border border-primary/20 px-2.5 py-0.5 rounded-lg text-xs font-mono font-bold tracking-tight">
+        Lecturer Workspace
+    </span>
+    <h1 class="font-headline-lg text-headline-lg md:font-display-lg md:text-display-lg font-bold text-on-surface mt-2 tracking-tight">Không gian Giảng viên</h1>
+    <p class="font-body-md text-xs text-on-surface-variant mt-1">Quản lý tài liệu học tập, giáo trình môn học và cấu hình cơ sở tri thức AI.</p>
 </div>
 
-<div class="notebooklm-shell">
-    <!-- Left Sidebar: Subjects Division -->
-    <aside class="notebooklm-sidebar">
+<div class="grid grid-cols-1 lg:grid-cols-4 gap-6 select-none animate-fade-in">
+    <!-- Left Sidebar: Subjects list -->
+    <aside class="lg:col-span-1 bg-surface-container-low border border-outline-variant/30 rounded-2xl p-5 flex flex-col space-y-4 shadow-sm self-start">
         <div>
-            <div class="notebooklm-sidebar-title">
-                <span>Assigned Subjects</span>
-                <span class="badge bg-secondary rounded-pill">@subjects.Count</span>
-            </div>
-            <p class="text-muted small mb-3">Select a subject to view resources and manage learning materials.</p>
+            <h3 class="font-label-md text-label-md text-on-surface font-bold uppercase tracking-wider text-[11px] mb-2">Môn học được phân công</h3>
+            <p class="text-xs text-on-surface-variant mb-4 leading-relaxed">Chọn một môn học để xem tài nguyên và cập nhật tài liệu.</p>
             
-            <div class="d-flex flex-column gap-1">
+            <div class="flex flex-col gap-1.5">
                 @foreach (var subject in subjects)
                 {
                     <a asp-action="Portal" asp-route-selectedSubjectId="@subject.Id" 
-                       class="subject-item @(subject.Id == selectedSubjectId ? "active" : "")">
-                        <div class="d-flex align-items-center gap-2">
-                            <i class="bi bi-folder-fill text-warning"></i>
-                            <span class="text-truncate" style="max-width: 170px;" title="@subject.Name">@subject.Code - @subject.Name</span>
+                       class="flex items-center justify-between px-3 py-2.5 rounded-xl text-xs transition-all border group @(subject.Id == selectedSubjectId ? "bg-secondary-container border-primary/20 text-on-secondary-container font-bold" : "border-transparent text-on-surface-variant hover:bg-surface-container-highest hover:text-on-surface")">
+                        <div class="flex items-center gap-2 min-w-0">
+                            <span class="material-symbols-outlined text-[16px] @(subject.Id == selectedSubjectId ? "text-primary filled" : "text-outline group-hover:text-on-surface")">folder</span>
+                            <span class="truncate pr-1" title="@subject.Name">@subject.Code - @subject.Name</span>
                         </div>
-                        <span class="subject-badge">@subject.DocumentCount</span>
+                        <span class="px-2 py-0.5 rounded-md text-[10px] font-bold @(subject.Id == selectedSubjectId ? "bg-primary-container text-on-primary-container" : "bg-surface-container-highest border border-outline-variant/40 text-outline")">
+                            @subject.DocumentCount
+                        </span>
                     </a>
                 }
             </div>
         </div>
 
-        <div class="border-top pt-3 mt-auto">
-            <div class="notebooklm-sidebar-title">
-                <span>Syllabus Verification</span>
-            </div>
-            <p class="text-muted" style="font-size:0.75rem;">
-                Uploaded files must be relevant to the course content. AI will validate documents for chunk accuracy.
+        <div class="border-t border-outline-variant/30 pt-4 mt-auto">
+            <h4 class="font-label-md text-label-md text-on-surface-variant font-bold uppercase tracking-wider text-[10px] mb-1.5">Kiểm định nội dung</h4>
+            <p class="text-[11px] text-outline leading-relaxed">
+                Tất cả tài liệu được tải lên sẽ tự động chạy qua mô hình AI để chia nhỏ (Chunking) và tạo vector nhúng (Embeddings). Giảng viên cần kiểm tra độ chính xác sau khi hệ thống xử lý xong.
             </p>
         </div>
     </aside>
 
     <!-- Center/Right Panel: Subject Workspace & File Upload -->
-    <section class="notebooklm-workspace">
+    <section class="lg:col-span-3 space-y-6">
         @if (selectedSubject != null)
         {
-            <div class="border-bottom pb-3">
-                <div class="d-flex align-items-center gap-2 mb-1">
-                    <span class="badge bg-primary">@selectedSubject.Code</span>
-                    <h3 class="fw-bold mb-0 text-dark">@selectedSubject.Name</h3>
+            <div class="bg-surface-container-low border border-outline-variant/30 rounded-2xl p-5 shadow-sm">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4 select-none">
+                    <div class="flex items-center gap-2.5 min-w-0">
+                        <span class="bg-primary/10 text-primary border border-primary/20 px-2.5 py-0.5 rounded-lg text-xs font-mono font-bold tracking-tight">
+                            @selectedSubject.Code
+                        </span>
+                        <h3 class="font-headline-sm text-headline-sm font-bold text-on-surface truncate">@selectedSubject.Name</h3>
+                    </div>
+                    <a asp-controller="Subject" asp-action="Chat" asp-route-subjectId="@selectedSubject.Id" class="inline-flex items-center gap-1.5 px-4 py-2 bg-primary text-on-primary hover:bg-primary-fixed hover:text-on-primary-fixed rounded-xl text-xs font-bold transition-all shadow-sm shrink-0">
+                        <span class="material-symbols-outlined text-[16px] filled">smart_toy</span>
+                        Hỏi Trợ lý AI
+                    </a>
                 </div>
-                <p class="text-muted small mb-0">Use this workspace to upload lectures, slides, and syllabus content for RAG embedding.</p>
-            </div>
+                <p class="text-xs text-on-surface-variant leading-relaxed mb-6">Tải lên bài giảng, slide thuyết trình hoặc tài liệu tham khảo để làm phong phú thêm cơ sở dữ liệu tri thức của Trợ lý AI.</p>
 
-            <!-- Drag & Drop Upload Zone -->
-            <div>
-                <h5 class="fw-bold text-dark mb-2">Upload Source Document</h5>
-                <div class="notebooklm-upload-zone" id="docDropzone">
-                    <i class="bi bi-cloud-arrow-up notebooklm-upload-icon"></i>
-                    <h6 class="fw-bold mb-1">Drag and drop file here, or click to browse</h6>
-                    <p class="text-muted mb-0" style="font-size:0.8rem;">PDF, DOCX, PPTX, XLSX, TXT - Maximum size 50MB</p>
-                    <input type="file" id="docFileInput" accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt" class="visually-hidden" />
-                </div>
+                <!-- Drag & Drop Upload Zone -->
+                <div class="space-y-3">
+                    <h4 class="font-label-md text-label-md text-on-surface-variant font-bold uppercase tracking-wider text-[11px]">Tải lên tài liệu học liệu</h4>
+                    <div class="bg-surface-container-lowest border-2 border-dashed border-outline-variant/50 hover:border-primary hover:bg-surface-container-low rounded-2xl p-8 flex flex-col items-center justify-center text-center cursor-pointer transition-all duration-200 group" id="docDropzone">
+                        <span class="material-symbols-outlined text-[42px] text-outline group-hover:text-primary transition-colors mb-3">cloud_upload</span>
+                        <h5 class="font-body-lg text-xs font-bold text-on-surface mb-1">Kéo thả tài liệu vào đây, hoặc click để duyệt tập tin</h5>
+                        <p class="text-[10px] text-outline">Hỗ trợ PDF, DOCX, PPTX, XLSX, TXT - Dung lượng tối đa 50MB</p>
+                        <input type="file" id="docFileInput" accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt" class="hidden" />
+                    </div>
 
-                <!-- Live Upload Progress -->
-                <div id="uploadProgressCard" class="mt-3 p-3 border rounded-3 bg-light" style="display:none;">
-                    <div class="d-flex align-items-center justify-content-between mb-1.5">
-                        <div class="d-flex align-items-center gap-2">
-                            <i class="bi bi-file-earmark-arrow-up text-primary fs-5" id="uploadFileIcon"></i>
-                            <div>
-                                <strong id="uploadFileName" class="small text-dark d-block">lecture_file.pdf</strong>
-                                <span id="uploadFileSize" class="text-muted" style="font-size:0.7rem;">4.2 MB</span>
+                    <!-- Live Upload Progress -->
+                    <div id="uploadProgressCard" class="bg-surface-container-high border border-outline-variant/40 rounded-2xl p-4 shadow-sm" style="display:none;">
+                        <div class="flex items-center justify-between mb-3">
+                            <div class="flex items-center gap-3">
+                                <span class="material-symbols-outlined text-[28px] text-primary" id="uploadFileIcon">description</span>
+                                <div>
+                                    <strong id="uploadFileName" class="text-xs text-on-surface block truncate max-w-[240px]">lecture_file.pdf</strong>
+                                    <span id="uploadFileSize" class="text-[10px] text-outline mt-0.5 block">4.2 MB</span>
+                                </div>
                             </div>
+                            <span class="text-xs font-mono font-bold text-primary" id="uploadPercent">0%</span>
                         </div>
-                        <span class="small font-monospace text-primary fw-semibold" id="uploadPercent">0%</span>
-                    </div>
-                    <div class="upload-progress-container mb-1">
-                        <div class="upload-progress-bar" id="uploadProgressBar"></div>
-                    </div>
-                    <div class="d-flex justify-content-between align-items-center mt-1">
-                        <span class="small text-muted" id="uploadStatusText" style="font-size:0.72rem;">Uploading to Supabase Storage bucket...</span>
-                        <span class="pulse-indicator" id="uploadPulse" style="display:none;"></span>
+                        <div class="w-full h-1.5 bg-surface-container-lowest rounded-full overflow-hidden mb-2">
+                            <div class="h-full bg-primary transition-all duration-200" id="uploadProgressBar" style="width: 0%"></div>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-[10px] text-on-surface-variant" id="uploadStatusText">Đang chuẩn bị tải tài liệu lên Supabase...</span>
+                            <span class="w-2 h-2 rounded-full bg-primary animate-ping" id="uploadPulse" style="display:none;"></span>
+                        </div>
                     </div>
                 </div>
             </div>
 
             <!-- Document Processing Tracker Table -->
-            <div class="mt-4">
-                <div class="d-flex justify-content-between align-items-center mb-2">
-                    <h5 class="fw-bold text-dark mb-0">Document Tracker</h5>
-                    <span class="small text-muted">Showing @Model.Count document@(Model.Count == 1 ? "" : "s")</span>
+            <div class="bg-surface-container-low border border-outline-variant/30 rounded-2xl p-5 shadow-sm">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="font-headline-sm text-sm font-bold text-on-surface">Danh sách tài liệu môn học</h3>
+                    <span class="text-[11px] text-outline font-semibold">Tổng số: @Model.Count tài liệu</span>
                 </div>
 
-                <div class="table-responsive">
-                    <table class="notebooklm-table" id="trackerTable">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse text-xs" id="trackerTable">
                         <thead>
-                            <tr>
-                                <th>Resource Name</th>
-                                <th>Size</th>
-                                <th>Uploader</th>
-                                <th>Processing Status</th>
-                                <th>Created Date</th>
-                                <th class="text-end">Actions</th>
+                            <tr class="border-b border-outline-variant/30 text-outline uppercase text-[10px] tracking-wider">
+                                <th class="pb-3 font-bold">Tên học liệu</th>
+                                <th class="pb-3 font-bold">Dung lượng</th>
+                                <th class="pb-3 font-bold">Người đăng</th>
+                                <th class="pb-3 font-bold">Trạng thái xử lý</th>
+                                <th class="pb-3 font-bold">Ngày tải lên</th>
+                                <th class="pb-3 font-bold text-right">Thao tác</th>
                             </tr>
                         </thead>
-                        <tbody id="trackerTableBody">
+                        <tbody id="trackerTableBody" class="divide-y divide-outline-variant/10">
                             @if (!Model.Any())
                             {
                                 <tr id="emptyTrackerRow">
-                                    <td colspan="6" class="text-center py-5 text-muted">
-                                        <i class="bi bi-file-earmark-text fs-1 d-block mb-2 text-secondary"></i>
-                                        No documents uploaded for this subject yet.
+                                    <td colspan="6" class="text-center py-12 text-outline">
+                                        <span class="material-symbols-outlined text-[36px] text-outline/60 mb-2">folder_open</span>
+                                        <p class="text-xs">Môn học này chưa được tải tài liệu giảng dạy nào.</p>
                                     </td>
                                 </tr>
                             }
@@ -126,72 +133,110 @@
                                 @foreach (var doc in Model)
                                 {
                                     var fileExtension = doc.FileName.Split('.').Last().ToLower();
-                                    var iconClass = fileExtension switch
+                                    var iconName = fileExtension switch
                                     {
-                                        "pdf" => "bi-file-earmark-pdf text-danger",
-                                        "docx" or "doc" => "bi-file-earmark-word text-primary",
-                                        "pptx" or "ppt" => "bi-file-earmark-slides text-warning",
-                                        "xlsx" or "xls" => "bi-file-earmark-excel text-success",
-                                        _ => "bi-file-earmark-text text-secondary"
+                                        "pdf" => "picture_as_pdf",
+                                        "docx" or "doc" => "description",
+                                        "pptx" or "ppt" => "slideshow",
+                                        "xlsx" or "xls" => "table_chart",
+                                        _ => "text_snippet"
+                                    };
+                                    var iconColor = fileExtension switch
+                                    {
+                                        "pdf" => "text-red-400",
+                                        "docx" or "doc" => "text-blue-400",
+                                        "pptx" or "ppt" => "text-amber-400",
+                                        "xlsx" or "xls" => "text-emerald-400",
+                                        _ => "text-on-surface-variant"
                                     };
 
-                                    var statusBadgeClass = doc.Status switch
+                                    var statusClass = doc.Status switch
                                     {
-                                        "Pending" => "badge-pending",
-                                        "Processing" => "badge-processing",
-                                        "Failed" => "badge-danger",
-                                        _ => "badge-success"
+                                        "Pending" => "bg-surface-container-highest border-outline-variant/40 text-outline",
+                                        "Processing" => "bg-primary/10 border-primary/20 text-primary",
+                                        "Failed" => "bg-error-container/20 border-error/20 text-error",
+                                        _ => "bg-tertiary-container/20 border-tertiary/20 text-tertiary"
                                     };
 
-                                    <tr data-doc-id="@doc.Id">
-                                        <td>
-                                            <div class="d-flex align-items-center gap-2">
-                                                <i class="bi @iconClass fs-5"></i>
-                                                <span class="fw-semibold text-dark">@doc.FileName</span>
+                                    <tr data-doc-id="@doc.Id" class="hover:bg-surface-container/20 transition-all">
+                                        <td class="py-3.5 pr-2">
+                                            <div class="flex items-center gap-2.5 min-w-0">
+                                                <span class="material-symbols-outlined @iconColor text-[20px] select-none">@iconName</span>
+                                                <span class="font-bold text-on-surface truncate max-w-[200px]" title="@doc.FileName">@doc.FileName</span>
                                             </div>
                                         </td>
-                                        <td>@doc.FileSizeStr</td>
-                                        <td>@doc.StoredBy</td>
-                                        <td class="status-cell">
-                                            <span class="app-badge @statusBadgeClass">
+                                        <td class="py-3.5 text-on-surface-variant">@doc.FileSizeStr</td>
+                                        <td class="py-3.5 text-on-surface-variant">@doc.StoredBy</td>
+                                        <td class="py-3.5 status-cell">
+                                            <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border text-[10px] font-bold @statusClass select-none">
                                                 @if (doc.Status == "Processing")
                                                 {
-                                                    <span class="spinner-border spinner-border-sm me-1" role="status" style="width:0.75rem; height:0.75rem;"></span>
+                                                    <span class="w-3 h-3 border-2 border-t-transparent border-primary rounded-full animate-spin"></span>
                                                 }
                                                 else if (doc.Status == "Pending")
                                                 {
-                                                    <i class="bi bi-clock-history me-1"></i>
+                                                    <span class="material-symbols-outlined text-[12px]">schedule</span>
                                                 }
                                                 else if (doc.Status == "Success")
                                                 {
-                                                    <i class="bi bi-check2-circle me-1"></i>
+                                                    <span class="material-symbols-outlined text-[12px] filled">check_circle</span>
                                                 }
                                                 else
                                                 {
-                                                    <i class="bi bi-x-circle me-1"></i>
+                                                    <span class="material-symbols-outlined text-[12px]">cancel</span>
                                                 }
                                                 @doc.Status
                                             </span>
                                         </td>
-                                        <td>@doc.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
-                                        <td class="text-end">
-                                            <div class="d-flex justify-content-end gap-2 align-items-center">
-                                                <a class="btn btn-sm btn-outline-secondary px-2.5 py-1.5" asp-controller="Document" asp-action="ViewOriginal" asp-route-id="@doc.Id" target="_blank" title="View original file from Supabase">
-                                                    <i class="bi bi-file-earmark-arrow-down"></i> Original
+                                        <td class="py-3.5 text-on-surface-variant">@doc.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
+                                        <td class="py-3.5 text-right">
+                                            <div class="flex justify-end gap-1.5 items-center">
+                                                <!-- Tải xuống tệp gốc -->
+                                                <a class="p-1.5 bg-surface border border-outline-variant hover:bg-surface-container-high rounded-xl text-on-surface-variant hover:text-on-surface transition-colors flex items-center justify-center" 
+                                                   asp-controller="Document" asp-action="ViewOriginal" asp-route-id="@doc.Id" target="_blank" title="Tải xuống tệp gốc từ Supabase">
+                                                    <span class="material-symbols-outlined text-[16px] block">download</span>
                                                 </a>
                                                 
+                                                <!-- Xem chi tiết Chunks -->
                                                 @if (doc.Status == "Success")
                                                 {
-                                                    <a class="btn btn-sm btn-outline-primary px-2.5 py-1.5" asp-controller="Document" asp-action="Details" asp-route-id="@doc.Id" title="View text chunks and vector embeddings">
-                                                        <i class="bi bi-bezier2"></i> Chunks
+                                                    <a class="p-1.5 bg-surface border border-outline-variant hover:bg-surface-container-high rounded-xl text-primary transition-colors flex items-center justify-center" 
+                                                       asp-controller="Document" asp-action="Details" asp-route-id="@doc.Id" title="Xem danh sách chunks & vector embeddings">
+                                                        <span class="material-symbols-outlined text-[16px] block">table_chart</span>
                                                     </a>
                                                 }
                                                 else
                                                 {
-                                                    <button class="btn btn-sm btn-outline-primary px-2.5 py-1.5" disabled title="Chunks will be viewable when processing completes">
-                                                        <i class="bi bi-bezier2"></i> Chunks
+                                                    <button class="p-1.5 bg-surface border border-outline-variant/30 text-outline/40 rounded-xl cursor-not-allowed select-none flex items-center justify-center" 
+                                                            disabled title="Xem chunks sau khi AI trích xuất hoàn tất">
+                                                        <span class="material-symbols-outlined text-[16px] block">table_chart</span>
                                                     </button>
                                                 }
+
+                                                <!-- Thử lại AI Indexing nếu bị lỗi -->
+                                                @if (doc.Status == "Failed")
+                                                {
+                                                    <form asp-controller="Document" asp-action="RetryProcessing" method="post" class="inline">
+                                                        @Html.AntiForgeryToken()
+                                                        <input type="hidden" name="id" value="@doc.Id" />
+                                                        <input type="hidden" name="subjectId" value="@selectedSubjectId" />
+                                                        <input type="hidden" name="redirectUrl" value="/Lecturer/Portal?selectedSubjectId=@selectedSubjectId" />
+                                                        <button type="submit" class="p-1.5 bg-surface border border-outline-variant hover:bg-surface-container-high rounded-xl text-primary transition-colors flex items-center justify-center cursor-pointer border-0" title="Thử lại AI indexing">
+                                                            <span class="material-symbols-outlined text-[16px] block">refresh</span>
+                                                        </button>
+                                                    </form>
+                                                }
+
+                                                <!-- Xóa tài liệu -->
+                                                <form asp-controller="Document" asp-action="Delete" method="post" class="inline" data-confirm="Bạn có chắc chắn muốn xóa tài liệu này?">
+                                                    @Html.AntiForgeryToken()
+                                                    <input type="hidden" name="id" value="@doc.Id" />
+                                                    <input type="hidden" name="subjectId" value="@selectedSubjectId" />
+                                                    <input type="hidden" name="redirectUrl" value="/Lecturer/Portal?selectedSubjectId=@selectedSubjectId" />
+                                                    <button type="submit" class="p-1.5 bg-surface border border-outline-variant hover:bg-error-container/20 rounded-xl text-error transition-colors flex items-center justify-center cursor-pointer border-0" title="Xóa tài liệu">
+                                                        <span class="material-symbols-outlined text-[16px] block">delete</span>
+                                                    </button>
+                                                </form>
                                             </div>
                                         </td>
                                     </tr>
@@ -204,10 +249,12 @@
         }
         else
         {
-            <div class="text-center py-5 text-muted">
-                <i class="bi bi-journal-x fs-1 d-block mb-3 text-secondary"></i>
-                <h4 class="fw-bold">No assigned subject selected</h4>
-                <p>Please select a subject from the left sidebar to view resources.</p>
+            <div class="bg-surface-container-low border border-outline-variant/30 rounded-2xl p-12 text-center select-none flex flex-col items-center justify-center shadow-sm">
+                <div class="w-16 h-16 rounded-full bg-surface-container-high flex items-center justify-center text-outline border border-outline-variant/50 mb-4">
+                    <span class="material-symbols-outlined text-[36px] text-outline/65">chrome_reader_mode</span>
+                </div>
+                <h4 class="font-headline-sm text-headline-sm font-bold text-on-surface mb-2">Chưa chọn môn học</h4>
+                <p class="text-xs text-on-surface-variant max-w-sm leading-relaxed">Hãy lựa chọn một môn học được phân công giảng dạy ở cột bên trái để tải lên tài liệu học liệu và quản lý RAG pipelines.</p>
             </div>
         }
     </section>
@@ -237,12 +284,14 @@
         dropzone?.addEventListener('click', () => fileInput.click());
         dropzone?.addEventListener('dragover', (e) => {
             e.preventDefault();
-            dropzone.classList.add('dragover');
+            dropzone.classList.add('bg-surface-container-low', 'border-primary');
         });
-        dropzone?.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+        dropzone?.addEventListener('dragleave', () => {
+            dropzone.classList.remove('bg-surface-container-low', 'border-primary');
+        });
         dropzone?.addEventListener('drop', (e) => {
             e.preventDefault();
-            dropzone.classList.remove('dragover');
+            dropzone.classList.remove('bg-surface-container-low', 'border-primary');
             const files = e.dataTransfer.files;
             if (files.length) uploadLecturerFile(files[0]);
         });
@@ -254,7 +303,7 @@
 
         function uploadLecturerFile(file) {
             if (file.size > 50 * 1024 * 1024) {
-                alert("File size exceeds 50MB limit.");
+                showNotification("Kích thước tệp tin vượt quá hạn mức 50MB.", "warning");
                 return;
             }
 
@@ -264,18 +313,21 @@
             
             // Icon swap based on extension
             const ext = file.name.split('.').pop().toLowerCase();
-            let iconClass = 'bi-file-earmark-arrow-up';
-            if (ext === 'pdf') iconClass = 'bi-file-earmark-pdf text-danger';
-            else if (ext === 'doc' || ext === 'docx') iconClass = 'bi-file-earmark-word text-primary';
-            else if (ext === 'ppt' || ext === 'pptx') iconClass = 'bi-file-earmark-slides text-warning';
-            else if (ext === 'xls' || ext === 'xlsx') iconClass = 'bi-file-earmark-excel text-success';
+            let iconName = 'description';
+            let iconColor = 'text-on-surface-variant';
             
-            uploadFileIcon.className = `bi ${iconClass} fs-4`;
+            if (ext === 'pdf') { iconName = 'picture_as_pdf'; iconColor = 'text-red-400'; }
+            else if (ext === 'doc' || ext === 'docx') { iconName = 'description'; iconColor = 'text-blue-400'; }
+            else if (ext === 'ppt' || ext === 'pptx') { iconName = 'slideshow'; iconColor = 'text-amber-400'; }
+            else if (ext === 'xls' || ext === 'xlsx') { iconName = 'table_chart'; iconColor = 'text-emerald-400'; }
+            
+            uploadFileIcon.className = `material-symbols-outlined text-[28px] ${iconColor}`;
+            uploadFileIcon.textContent = iconName;
             
             // Reset Progress state
             progressBar.style.width = '0%';
             progressPercent.textContent = '0%';
-            progressStatusText.textContent = 'Uploading file to server & Supabase Storage...';
+            progressStatusText.textContent = 'Đang đẩy học liệu lên Supabase Storage...';
             progressPulse.style.display = 'none';
             progressCard.style.display = 'block';
 
@@ -295,7 +347,7 @@
                     progressBar.style.width = `${percentComplete}%`;
                     progressPercent.textContent = `${percentComplete}%`;
                     if (percentComplete >= 100) {
-                        progressStatusText.textContent = 'Processing and embedding source...';
+                        progressStatusText.textContent = 'Lưu metadata & Đang gửi tín hiệu xử lý trích xuất phân đoạn AI...';
                     }
                 }
             };
@@ -308,17 +360,17 @@
                         addDocRowToTracker(data.document);
                         simulateBackgroundJobs(data.document.id);
                     } else {
-                        alert("Upload error: " + data.message);
+                        showNotification("Lỗi tải lên: " + data.message, "error");
                         progressCard.style.display = 'none';
                     }
                 } else {
-                    alert("Upload failed with status code " + xhr.status);
+                    showNotification("Kết nối máy chủ thất bại, Status Code: " + xhr.status, "error");
                     progressCard.style.display = 'none';
                 }
             };
 
             xhr.onerror = function() {
-                alert("Network connection error during upload.");
+                showNotification("Lỗi đường truyền mạng trong quá trình upload.", "error");
                 progressCard.style.display = 'none';
             };
 
@@ -331,40 +383,43 @@
 
             const tbody = document.getElementById('trackerTableBody');
             const tr = document.createElement('tr');
+            tr.className = 'hover:bg-surface-container/20 transition-all';
             tr.setAttribute('data-doc-id', doc.id);
             
             const ext = doc.fileName.split('.').pop().toLowerCase();
-            let iconClass = 'bi-file-earmark-text text-secondary';
-            if (ext === 'pdf') iconClass = 'bi-file-earmark-pdf text-danger';
-            else if (ext === 'doc' || ext === 'docx') iconClass = 'bi-file-earmark-word text-primary';
-            else if (ext === 'ppt' || ext === 'pptx') iconClass = 'bi-file-earmark-slides text-warning';
-            else if (ext === 'xls' || ext === 'xlsx') iconClass = 'bi-file-earmark-excel text-success';
+            let iconName = 'description';
+            let iconColor = 'text-on-surface-variant';
+            
+            if (ext === 'pdf') { iconName = 'picture_as_pdf'; iconColor = 'text-red-400'; }
+            else if (ext === 'doc' || ext === 'docx') { iconName = 'description'; iconColor = 'text-blue-400'; }
+            else if (ext === 'ppt' || ext === 'pptx') { iconName = 'slideshow'; iconColor = 'text-amber-400'; }
+            else if (ext === 'xls' || ext === 'xlsx') { iconName = 'table_chart'; iconColor = 'text-emerald-400'; }
 
             // Parse creation date
             const dateStr = new Date(doc.createdAt).toISOString().replace('T', ' ').slice(0, 16);
 
             tr.innerHTML = `
-                <td>
-                    <div class="d-flex align-items-center gap-2">
-                        <i class="bi ${iconClass} fs-5"></i>
-                        <span class="fw-semibold text-dark">${doc.fileName}</span>
+                <td class="py-3.5 pr-2">
+                    <div class="flex items-center gap-2.5 min-w-0">
+                        <span class="material-symbols-outlined ${iconColor} text-[20px] select-none">${iconName}</span>
+                        <span class="font-bold text-on-surface truncate max-w-[200px]" title="${doc.fileName}">${doc.fileName}</span>
                     </div>
                 </td>
-                <td>${doc.fileSizeStr}</td>
-                <td>${doc.storedBy}</td>
-                <td class="status-cell">
-                    <span class="app-badge badge-pending">
-                        <i class="bi bi-clock-history me-1"></i> Pending
+                <td class="py-3.5 text-on-surface-variant">${doc.fileSizeStr}</td>
+                <td class="py-3.5 text-on-surface-variant">${doc.storedBy}</td>
+                <td class="py-3.5 status-cell">
+                    <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border text-[10px] font-bold bg-surface-container-highest border-outline-variant/40 text-outline select-none">
+                        <span class="material-symbols-outlined text-[12px]">schedule</span> Pending
                     </span>
                 </td>
-                <td>${dateStr}</td>
-                <td class="text-end">
-                    <div class="d-flex justify-content-end gap-2 align-items-center">
-                        <a class="btn btn-sm btn-outline-secondary px-2.5 py-1.5" href="/Document/ViewOriginal/${doc.id}" target="_blank" title="View original file from Supabase">
-                            <i class="bi bi-file-earmark-arrow-down"></i> Original
+                <td class="py-3.5 text-on-surface-variant">${dateStr}</td>
+                <td class="py-3.5 text-right">
+                    <div class="flex justify-end gap-1.5 items-center">
+                        <a class="inline-flex items-center gap-1 px-3 py-1.5 border border-outline-variant/40 hover:bg-surface-container-high rounded-xl text-on-surface-variant hover:text-on-surface text-[10px] font-bold transition-all select-none" href="/Document/ViewOriginal/${doc.id}" target="_blank" title="Tải xuống tệp gốc từ Supabase">
+                            <span class="material-symbols-outlined text-[14px]">download</span> Original
                         </a>
-                        <button class="btn btn-sm btn-outline-primary px-2.5 py-1.5 btn-chunks-inspect" disabled title="Chunks will be viewable when processing completes" data-id="${doc.id}">
-                            <i class="bi bi-bezier2"></i> Chunks
+                        <button class="inline-flex items-center gap-1 px-3 py-1.5 border border-outline-variant/20 text-outline/40 rounded-xl text-[10px] font-bold select-none cursor-not-allowed" disabled title="Xem chunks sau khi AI trích xuất hoàn tất" data-id="${doc.id}">
+                            <span class="material-symbols-outlined text-[14px]">table_chart</span> Chunks
                         </button>
                     </div>
                 </td>
@@ -383,40 +438,40 @@
             setTimeout(() => {
                 updateDocStatusOnServer(docId, "Processing");
                 statusCell.innerHTML = `
-                    <span class="app-badge badge-processing">
-                        <span class="spinner-border spinner-border-sm me-1" role="status" style="width:0.75rem; height:0.75rem;"></span> Processing
+                    <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border text-[10px] font-bold bg-primary/10 border-primary/20 text-primary select-none">
+                        <span class="w-3 h-3 border-2 border-t-transparent border-primary rounded-full animate-spin"></span> Processing
                     </span>
                 `;
 
                 // 2. Transition: Processing -> Success (after 6 seconds)
                 setTimeout(() => {
-                    const fileName = tr.querySelector('span.fw-semibold').textContent;
+                    const fileName = tr.querySelector('span.font-bold').textContent;
                     const finalStatus = fileName.toLowerCase().includes('failed') || fileName.toLowerCase().includes('error') ? "Failed" : "Success";
                     
                     updateDocStatusOnServer(docId, finalStatus);
 
                     if (finalStatus === "Success") {
                         statusCell.innerHTML = `
-                            <span class="app-badge badge-success">
-                                <i class="bi bi-check2-circle me-1"></i> Success
+                            <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border text-[10px] font-bold bg-tertiary-container/20 border-tertiary/20 text-tertiary select-none">
+                                <span class="material-symbols-outlined text-[12px] filled">check_circle</span> Success
                             </span>
                         `;
                         
-                        const actionsDiv = tr.querySelector('.text-end div');
+                        const actionsDiv = tr.querySelector('.text-right div');
                         if (actionsDiv) {
                             actionsDiv.innerHTML = `
-                                <a class="btn btn-sm btn-outline-secondary px-2.5 py-1.5" href="/Document/ViewOriginal/${docId}" target="_blank" title="View original file from Supabase">
-                                    <i class="bi bi-file-earmark-arrow-down"></i> Original
+                                <a class="inline-flex items-center gap-1 px-3 py-1.5 border border-outline-variant/40 hover:bg-surface-container-high rounded-xl text-on-surface-variant hover:text-on-surface text-[10px] font-bold transition-all select-none" href="/Document/ViewOriginal/${docId}" target="_blank" title="Tải xuống tệp gốc từ Supabase">
+                                    <span class="material-symbols-outlined text-[14px]">download</span> Original
                                 </a>
-                                <a class="btn btn-sm btn-outline-primary px-2.5 py-1.5 animate-pulse" href="/Document/Details/${docId}" title="View text chunks and vector embeddings">
-                                    <i class="bi bi-bezier2"></i> Chunks
+                                <a class="inline-flex items-center gap-1 px-3 py-1.5 bg-primary/10 border border-primary/20 text-primary hover:bg-primary hover:text-on-primary rounded-xl text-[10px] font-bold transition-all select-none animate-pulse" href="/Document/Details/${docId}" title="Xem danh sách chunks & vector embeddings">
+                                    <span class="material-symbols-outlined text-[14px]">table_chart</span> Chunks
                                 </a>
                             `;
                         }
                     } else {
                         statusCell.innerHTML = `
-                            <span class="app-badge badge-danger">
-                                <i class="bi bi-x-circle me-1"></i> Failed
+                            <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border text-[10px] font-bold bg-error-container/20 border-error/20 text-error select-none">
+                                <span class="material-symbols-outlined text-[12px]">cancel</span> Failed
                             </span>
                         `;
                     }
@@ -436,11 +491,12 @@
             })
             .then(res => res.json())
             .then(data => {
-                if(!data.success) console.error("Could not update status on database.");
+                if(!data.success) console.error("Không thể lưu trạng thái mới vào Cơ sở dữ liệu.");
             })
             .catch(err => {
-                console.error("Local network sync issue.");
+                console.error("Lỗi đồng bộ hóa trạng thái tài liệu.");
             });
         }
     </script>
 }
+

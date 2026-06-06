@@ -1,29 +1,27 @@
 # Presentation Layer (PL)
 
-The `PL` project is an ASP.NET Core 10.0 MVC application. It serves as the main entry point of the LmsAndAiLearningAssistant solution.
+The `PL` project is an **ASP.NET Core 10.0 MVC** web application. It is the main entry point of the system, handling HTTP requests, rendering user interfaces (Views), and managing authentication.
 
-## Responsibilities
-- **Controllers**: Handle incoming HTTP requests, interact with the Business Logic Layer (BLL), and return responses or views.
-- **Views**: Razor views (`.cshtml`) that provide the user interface.
-- **Models**: View Models specifically designed for data transfer between Controllers and Views.
-- **Configuration**: Contains `appsettings.json` for database connection strings and security keys.
-- **Dependency Injection**: Wires up services from the BLL and repositories from the DAL in `Program.cs`.
+## Folder Structure
 
-### Controllers
-- **AuthController**: Handles user authentication, registration, login/logout using cookie-based authentication.
-- **DocumentController**: Manages file uploads, listing user documents, and triggering background jobs via Hangfire. Now leverages the `Result` pattern from the BLL to gracefully handle errors without throwing HTTP 500 exceptions.
+- **`Controllers/`**: Receives user requests and routes them to the appropriate business services. Controllers only depend on **BLL Interfaces** and never interact with the database directly.
+- **`Views/`**: Contains the UI templates using the Razor syntax (`.cshtml`), organized by controller.
+- **`Models/`**: Contains ViewModels used to safely pass data between Controllers and Views.
+- **`wwwroot/`**: Stores static assets such as CSS, JavaScript, fonts, and images.
+- **`Properties/`**: Contains development server configurations (e.g., `launchSettings.json`).
+- **(root files)**: Includes `Program.cs` for configuring Dependency Injection, the Hangfire Dashboard, Cookie Authentication, and the middleware pipeline.
 
-### Dependencies
-- **Hangfire**: Used for background job processing (document chunking and embedding). Resumption logic ensures that if a background job fails, retrying from the UI will smartly pick up from the point of failure.
+## Role-based Routing
+Upon successful login, the application redirects users based on their roles:
+- **Admin**: Redirected to the analytics Dashboard.
+- **Lecturer**: Redirected to the subject management page.
+- **Student**: Redirected to the list of enrolled subjects.
 
-## Key Files
-- `Program.cs`: Application startup, DI container registration, Options binding (`UploadOptions`), middleware pipeline configuration, and Hangfire setup for background jobs.
-- `appsettings.json`: Stores configuration variables such as `ConnectionStrings:DefaultConnection`, `Security:EncryptionKey`, and `Upload` block (for MaxFileSize and AllowedMimeTypes).
-
-## Background Jobs (Hangfire)
-- The Presentation Layer integrates **Hangfire** backed by PostgreSQL to process long-running tasks asynchronously (like document chunking). The Hangfire dashboard is mapped to `/hangfire`.
-
-## Getting Started
-To run this project:
-1. Ensure the PostgreSQL database is configured correctly in `appsettings.json`.
-2. Run the project using Visual Studio, Rider, or `dotnet run` in this directory.
+## Running the Application
+```bash
+# Ensure appsettings.json is properly configured.
+# Run this command from the solution root directory:
+dotnet run --project PL/PL.csproj
+```
+- Default development URL: `https://localhost:5001`.
+- Hangfire Dashboard (Requires Admin account): `https://localhost:5001/hangfire`.

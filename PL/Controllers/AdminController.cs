@@ -2,13 +2,7 @@ using BLL.Interfaces;
 using Core.DTOs.Admin;
 using Core.Entities;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Threading.Tasks;
 
 namespace PL.Controllers
 {
@@ -21,12 +15,18 @@ namespace PL.Controllers
         private readonly IAdminService _adminService;
         private readonly IUserService _userService;
         private readonly IAuthService _authService;
+        private readonly IDocumentService _documentService;
 
-        public AdminController(IAdminService adminService, IUserService userService, IAuthService authService)
+        public AdminController(
+            IAdminService adminService, 
+            IUserService userService, 
+            IAuthService authService,
+            IDocumentService documentService)
         {
             _adminService = adminService;
             _userService = userService;
             _authService = authService;
+            _documentService = documentService;
         }
 
         public class MockUser
@@ -45,6 +45,13 @@ namespace PL.Controllers
         {
             var stats = await _adminService.GetDashboardStatsAsync();
             return View(stats);
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> Documents()
+        {
+            var documents = await _documentService.GetAllDocumentsAsync();
+            return View(documents);
         }
 
         [HttpGet]

@@ -1,116 +1,106 @@
 # LmsAndAiLearningAssistant
 
-Welcome to the **LmsAndAiLearningAssistant** project! This repository contains a full-stack solution utilizing ASP.NET Core and Entity Framework Core, integrated with AI capabilities (Gemini LLM) and PostgreSQL `pgvector`.
+## 1. General System Description
+LmsAndAiLearningAssistant is a Learning Management System (LMS) integrated with an AI Learning Assistant, built on **ASP.NET Core 10.0 MVC**. 
+The system allows lecturers to upload course documents, and students can interact with an AI chatbot (based on the RAG - Retrieval-Augmented Generation model) to ask questions. The AI's responses are strictly based on the documents provided by the lecturers, ensuring accuracy and relevance to the curriculum.
 
-## Solution Architecture
-This solution is organized as a multi-tier architecture to separate concerns and ensure maintainability:
-- **PL (Presentation Layer)**: ASP.NET Core MVC project hosting controllers and views.
-- **BLL (Business Logic Layer)**: Class library for services (Authentication, Business Logic, Encryption). 
-  - *Result Pattern*: Services return `Result` or `Result<T>` instead of throwing exceptions for expected business logic errors.
-  - *Strategy Pattern*: Document parsing is implemented using the Strategy pattern (`BLL/Strategies/DocumentParsing`) to dynamically support different file types.
-- **DAL (Data Access Layer)**: Class library for repositories and database context (`Entity Framework Core`). Repositories are split by domain entity (e.g., `DocumentRepository`, `DocumentChunkRepository`).
-- **Core**: Shared models/contracts, Data Transfer Objects, and Entities.
+**Key Features:**
+- **Role-based Access:** Admin, Lecturer, and Student roles.
+- **Document Management:** Secure document upload and storage using Supabase Storage.
+- **AI Assistant (RAG):** Students can select specific documents within a subject and ask questions. The AI uses `pgvector` for similarity search and the Gemini API to generate answers based on those documents.
+- **Background Processing:** Utilizes Hangfire to asynchronously process document text extraction (chunking) and vector embedding generation.
 
-## Project Structure & Documentation
-Each project contains its own `README.md` file detailing its specific responsibility and structure:
-- [PL README](PL/README.md) - Learn about the frontend, controllers, and startup configurations.
-- [BLL README](BLL/README.md) - Learn about the business logic and services.
-- [DAL README](DAL/README.md) - Learn about database context, repositories, and entity mappings.
-- [Core README](Core/README.md) - Learn about shared entities and DTOs.
+## 2. System Architecture
+The solution is built using a strict **3-Tier Architecture** to separate concerns, making the codebase maintainable and scalable.
 
-## Security & Keys
-- **Encryption Key**: The system uses AES-256 for encrypting sensitive data like emails. The encryption key must be exactly 32 bytes and is stored in `PL/appsettings.json` under `Security:EncryptionKey`.
-- **Password Hashing**: Passwords are mathematically hashed using `BCrypt.Net-Next`.
+![System Architecture Diagram](architecture.svg)
 
-## Environment Setup
-### Prerequisites
-- .NET 10.0 SDK
-- PostgreSQL (running locally or accessible remotely)
+### Solution Layers:
+- **PL (Presentation Layer):** The ASP.NET Core MVC application containing controllers, views, and startup configurations. It communicates with the business logic via interfaces.
+- **BLL (Business Logic Layer):** Contains all business services, AI integration logic, and Hangfire background jobs. It receives requests from the PL and coordinates data access through the DAL.
+- **DAL (Data Access Layer):** Responsible for communicating with the database (Entity Framework Core), Supabase, and the Gemini API.
+- **Core:** Contains shared elements like Entities, DTOs, and Enums. It has zero dependencies on any other layer and is referenced by all of them.
 
-### Configuration
-1. Open `PL/appsettings.json`.
-2. Configure your local database credentials inside `ConnectionStrings:DefaultConnection`. Example:
-   ```json
-   "ConnectionStrings": {
-     "DefaultConnection": "Host=localhost;Port=5432;Database=yourdatabase;Username=yourusername;Password=yourpassword"
-   }
-   ```
+## 3. Setup and Run Instructions
 
-## Database Setup & Migration
-The application uses PostgreSQL with the `pgvector` extension for storing and querying AI embeddings.
+### 3.1. Prerequisites
+- **.NET 10.0 SDK**
+- **PostgreSQL** with the `pgvector` extension installed.
+- A **Supabase** project (for file storage).
+- **Gemini API Key** (for the AI Chatbot and Embeddings).
 
-To apply migrations and update your database schema:
-1. Open a terminal in the root directory.
-2. Run the following commands:
-   ```bash
-   dotnet ef database update --project DAL\DAL.csproj --startup-project PL\PL.csproj
-   ```
-
-*Note: Ensure your PostgreSQL user has the necessary privileges to install the `vector` extension, as it is required by the `DocumentChunk` table.*
-## Document Upload With Supabase Storage
-Uploaded learning documents are stored in Supabase Storage, while only metadata is stored in the application database.
-
-### Supabase Bucket
-1. Create a Supabase Storage bucket named `documents`.
-2. Keep the bucket private. Do not make it public.
-3. Configure the bucket upload limit to 50MB.
-4. Allow these common file families in the bucket policy when Supabase asks for MIME restrictions:
-   ```text
-   application/pdf
-   application/msword
-   application/vnd.openxmlformats-officedocument.wordprocessingml.document
-   application/vnd.ms-powerpoint
-   application/vnd.openxmlformats-officedocument.presentationml.presentation
-   application/vnd.ms-excel
-   application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
-   text/plain
-   text/csv
-   ```
-
-### Supabase Configuration
-Do not commit real keys. Configure these values in `PL/appsettings.json`, `PL/appsettings.Development.json`, or environment variables:
+### 3.2. Configuration
+1. Open the `PL/appsettings.json` (or `appsettings.Development.json`) file.
+2. Fill in the required connection strings and API keys:
 
 ```json
-"Supabase": {
-  "Url": "https://YOUR_PROJECT_REF.supabase.co",
-  "ServiceRoleKey": "YOUR_SUPABASE_SERVICE_ROLE_KEY",
-  "Bucket": "documents"
-},
-"Upload": {
-  "MaxFileSize": 52428800,
-  "AllowedMimeTypes": {
-    ".pdf": [ "application/pdf" ],
-    ".docx": [ "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ]
-  }
+{
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning"
+    }
+  },
+  "ConnectionStrings": {
+    "DefaultConnection": "Host=localhost;Port=5432;Database=your_db;Username=postgres;Password=your_password"
+  },
+  "Security": {
+    "EncryptionKey": "your_32_byte_aes_encryption_key_here"
+  },
+  "Supabase": {
+    "Url": "https://YOUR_PROJECT_REF.supabase.co/rest/v1/",
+    "ServiceRoleKey": "YOUR_SUPABASE_SERVICE_ROLE_KEY",
+    "Bucket": "Document"
+  },
+  "Upload": {
+    "MaxFileSize": 52428800,
+    "AllowedMimeTypes": {
+      ".pdf": [ "application/pdf" ],
+      ".doc": [ "application/msword" ],
+      ".docx": [ "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ],
+      ".ppt": [ "application/vnd.ms-powerpoint" ],
+      ".pptx": [ "application/vnd.openxmlformats-officedocument.presentationml.presentation" ],
+      ".txt": [ "text/plain" ],
+      ".csv": [ "text/csv", "application/csv", "application/vnd.ms-excel" ],
+      ".md": [ "text/markdown", "text/plain" ],
+      ".rtf": [ "application/rtf", "text/rtf" ],
+      ".json": [ "application/json", "text/json" ],
+      ".xml": [ "application/xml", "text/xml" ]
+    }
+  },
+  "GeminiSettings": {
+    "ApiKey": "YOUR_GEMINI_API_KEY",
+    "Model": "models/gemini-embedding-001",
+    "BaseUrl": "https://generativelanguage.googleapis.com/v1beta/"
+  },
+  "SmtpSettings": {
+    "Host": "smtp.gmail.com",
+    "Port": 587,
+    "Username": "your_email@gmail.com",
+    "Password": "your_app_password",
+    "EnableSsl": true,
+    "FromAddress": "no-reply@yourdomain.com"
+  },
+  "AllowedHosts": "*"
 }
 ```
 
-The service role key is used only by backend services. It must never be exposed in views, JavaScript, or client-side code.
+### 3.3. Database Migrations
+Use Entity Framework Core to create the database and tables (Ensure your PostgreSQL user has the privilege to install the `vector` extension):
 
-### Upload Flow
-1. Log in to the MVC application.
-2. Open `/Document`.
-3. Choose a supported source file on `/Document/Upload`.
-4. Submit the form.
-5. The original file is uploaded to the private Supabase `documents` bucket using a GUID-based storage filename.
-6. Metadata is saved to the `Documents` table with initial status `Uploaded` (0).
-7. A Hangfire background job is enqueued from the Business Logic Layer (`DocumentService`) to parse and chunk the document (`ChunkingService`).
-8. After chunking, a continuation job (`EmbeddingService`) creates vector embeddings using the Gemini API.
-9. The document status transitions sequentially: `Uploaded` -> `Chunking` -> `Chunked` -> `Embedding` -> `Indexed` -> `Failed`.
+```bash
+# Run this from the solution root directory:
+dotnet ef database update --project DAL/DAL.csproj --startup-project PL/PL.csproj
+```
 
-**Cancellation Logic:** When a user deletes a document, the enqueued background jobs (Chunking and Embedding) are immediately canceled using Hangfire's `IBackgroundJobClient.Delete(jobId)` to save API usage and system resources. This prevents zombie loops from processing deleted documents.
+### 3.4. Supabase Storage Setup
+1. Create a bucket named `Document` and set its privacy to Private.
+2. Set an upload size limit (e.g., 50MB) and configure the policy to allow file types like `.pdf`, `.doc`, `.docx`, `.ppt`, `.pptx`, `.txt`, `.csv`, `.md`, `.rtf`, `.json`, `.xml`.
 
-**Resumption Logic:** If a document fails during chunking or embedding, the user can hit "Retry" in the UI. The request is validated by the BLL to ensure the user owns the document, and the pipeline intelligently checks the database (`HasChunksAsync`) to resume work exactly from where it failed (e.g., skipping Chunking if chunks already exist), avoiding redundant processing and API costs.
-
-*(Note: Background job enqueuing, cancellation, and ownership validation are strictly handled in the BLL to maintain a clean three-tier architecture.)*
-
-If the Supabase upload succeeds but database save fails, the backend attempts to delete the uploaded object to avoid orphan files.
-
-## AI Integration & Embeddings
-This project utilizes the Gemini API to process documents and generate **Embeddings** for semantic search.
-
-### What are Embeddings?
-**Embedding is the process of transforming text (characters) into arrays of numbers (vectors).** - Instead of comparing each letter individually, AI and computers will use these vectors to understand the "semantic meaning" of the text.
-
-- In this project, when a new document is created, the system will call the Gemini API to hash and encode the text into vectors.
-- We then store these vectors in a PostgreSQL database via the `pgvector` extension to support intelligent search features later.
+### 3.5. Run the Application
+```bash
+# From the solution root directory:
+dotnet run --project PL/PL.csproj
+```
+- Access the application at: `https://localhost:5001` (or the port specified in launchSettings).
+- Hangfire Dashboard (Requires Admin account): `https://localhost:5001/hangfire`

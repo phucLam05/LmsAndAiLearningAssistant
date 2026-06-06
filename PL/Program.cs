@@ -1,4 +1,5 @@
 using BLL;
+using Core.Configurations;
 using DAL;
 using Hangfire;
 using Hangfire.PostgreSql;
@@ -13,7 +14,7 @@ namespace PL
             var builder = WebApplication.CreateBuilder(args);
 
             // Add services to the container.
-            builder.Services.Configure<Core.Configuration.UploadOptions>(builder.Configuration.GetSection("Upload"));
+            builder.Services.Configure<UploadOptions>(builder.Configuration.GetSection("Upload"));
             builder.Services.AddControllersWithViews();
             builder.Services.AddHttpContextAccessor();
 
