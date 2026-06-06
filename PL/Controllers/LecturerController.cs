@@ -1,15 +1,8 @@
-using Microsoft.AspNetCore.Mvc;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 using BLL.Interfaces;
 using Core.DTOs.Documents;
-using Core.Entities;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
-using DAL.Interfaces;
 
 namespace PL.Controllers
 {
@@ -18,13 +11,11 @@ namespace PL.Controllers
     {
         private readonly ISubjectService _subjectService;
         private readonly IDocumentService _documentService;
-        private readonly ISupabaseStorageProvider _storageProvider;
 
-        public LecturerController(ISubjectService subjectService, IDocumentService documentService, ISupabaseStorageProvider storageProvider)
+        public LecturerController(ISubjectService subjectService, IDocumentService documentService)
         {
             _subjectService = subjectService;
             _documentService = documentService;
-            _storageProvider = storageProvider;
         }
 
         public class MockSubject

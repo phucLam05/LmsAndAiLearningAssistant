@@ -1,14 +1,10 @@
 using BLL.Interfaces;
 using Core.DTOs.Subject;
-using Core.DTOs.Common;
 using Core.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
-using System;
-using System.Linq;
 using System.Security.Claims;
-using System.Threading.Tasks;
 
 namespace PL.Controllers
 {

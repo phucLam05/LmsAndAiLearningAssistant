@@ -1,15 +1,11 @@
 using BLL.Interfaces;
 using Core.DTOs.Auth;
 using Core.Entities;
-using DAL.Data;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Mvc;
 using PL.Models.Auth;
-using System;
-using System.Collections.Generic;
 using System.Security.Claims;
-using System.Threading.Tasks;
 
 namespace PL.Controllers
 {
@@ -19,12 +15,10 @@ namespace PL.Controllers
     public class AuthController : Controller
     {
         private readonly IAuthService _authService;
-        private readonly ApplicationDbContext _dbContext;
 
-        public AuthController(IAuthService authService, ApplicationDbContext dbContext)
+        public AuthController(IAuthService authService)
         {
             _authService = authService;
-            _dbContext = dbContext;
         }
 
         [HttpGet]

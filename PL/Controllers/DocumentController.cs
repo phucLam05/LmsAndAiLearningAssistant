@@ -3,9 +3,7 @@ using Core.DTOs.Documents;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using PL.Models.Documents;
-using System;
 using System.Security.Claims;
-using System.Threading.Tasks;
 
 namespace PL.Controllers
 {
