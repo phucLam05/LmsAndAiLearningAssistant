@@ -1,4 +1,4 @@
-namespace Core.Configuration
+namespace Core.Configurations
 {
     /// <summary>
     /// Holds Supabase Storage configuration loaded from appsettings or environment variables.

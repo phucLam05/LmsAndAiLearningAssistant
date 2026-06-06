@@ -1,201 +1,106 @@
 # LmsAndAiLearningAssistant
 
-A **Learning Management System** with an integrated AI Learning Assistant built on ASP.NET Core 10.0. Lecturers can upload course documents and students can interact with an AI chatbot (RAG-based) that answers questions strictly based on those documents.
+## 1. General System Description
+LmsAndAiLearningAssistant is a Learning Management System (LMS) integrated with an AI Learning Assistant, built on **ASP.NET Core 10.0 MVC**. 
+The system allows lecturers to upload course documents, and students can interact with an AI chatbot (based on the RAG - Retrieval-Augmented Generation model) to ask questions. The AI's responses are strictly based on the documents provided by the lecturers, ensuring accuracy and relevance to the curriculum.
 
----
+**Key Features:**
+- **Role-based Access:** Admin, Lecturer, and Student roles.
+- **Document Management:** Secure document upload and storage using Supabase Storage.
+- **AI Assistant (RAG):** Students can select specific documents within a subject and ask questions. The AI uses `pgvector` for similarity search and the Gemini API to generate answers based on those documents.
+- **Background Processing:** Utilizes Hangfire to asynchronously process document text extraction (chunking) and vector embedding generation.
 
-## Solution Architecture
+## 2. System Architecture
+The solution is built using a strict **3-Tier Architecture** to separate concerns, making the codebase maintainable and scalable.
 
-This solution follows a strict **3-Tier Architecture** to separate concerns and ensure maintainability:
+![System Architecture Diagram](architecture.svg)
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│  PL — Presentation Layer (ASP.NET Core MVC)                    │
-│  Controllers · Views · ViewModels · Hangfire Dashboard         │
-└───────────────────────────┬─────────────────────────────────────┘
-                            │ depends on (via Interfaces only)
-┌───────────────────────────▼─────────────────────────────────────┐
-│  BLL — Business Logic Layer (Class Library)                    │
-│  Services · Interfaces · Strategies · Result Pattern           │
-└───────────────────────────┬─────────────────────────────────────┘
-                            │ depends on (via Interfaces only)
-┌───────────────────────────▼─────────────────────────────────────┐
-│  DAL — Data Access Layer (Class Library)                       │
-│  Repositories · Providers · ApplicationDbContext · Migrations  │
-└───────────────────────────┬─────────────────────────────────────┘
-                            │ depends on
-┌───────────────────────────▼─────────────────────────────────────┐
-│  Core — Shared Contracts (Class Library)                       │
-│  Entities · DTOs · Enums · Configuration Options               │
-└─────────────────────────────────────────────────────────────────┘
-```
+### Solution Layers:
+- **PL (Presentation Layer):** The ASP.NET Core MVC application containing controllers, views, and startup configurations. It communicates with the business logic via interfaces.
+- **BLL (Business Logic Layer):** Contains all business services, AI integration logic, and Hangfire background jobs. It receives requests from the PL and coordinates data access through the DAL.
+- **DAL (Data Access Layer):** Responsible for communicating with the database (Entity Framework Core), Supabase, and the Gemini API.
+- **Core:** Contains shared elements like Entities, DTOs, and Enums. It has zero dependencies on any other layer and is referenced by all of them.
 
-### Layer rules
-| Layer | May depend on | Must NOT depend on |
-|-------|---------------|--------------------|
-| PL | BLL Interfaces, Core | DAL, ApplicationDbContext |
-| BLL | DAL Interfaces, Core | ApplicationDbContext directly, PL |
-| DAL | Core | BLL, PL |
-| Core | *(nothing)* | BLL, DAL, PL |
+## 3. Setup and Run Instructions
 
----
+### 3.1. Prerequisites
+- **.NET 10.0 SDK**
+- **PostgreSQL** with the `pgvector` extension installed.
+- A **Supabase** project (for file storage).
+- **Gemini API Key** (for the AI Chatbot and Embeddings).
 
-## Project Structure & Documentation
-
-Each project contains its own `README.md` file with details:
-- [PL README](PL/README.md) — Controllers, Views, Hangfire, startup configuration
-- [BLL README](BLL/README.md) — Services, Interfaces, business rules
-- [DAL README](DAL/README.md) — Repositories, Providers, EF Core context
-- [Core README](Core/README.md) — Entities, DTOs, enums, configuration options
-
----
-
-## Key Features
-
-| Feature | Description |
-|---------|-------------|
-| Role-based Access | Admin, Lecturer, Student roles with cookie authentication |
-| Document Upload | Supabase Storage backend, private bucket, GUID filenames |
-| RAG AI Chatbot | Select specific documents → AI answers based only on those |
-| pgvector Search | Cosine similarity search via PostgreSQL `pgvector` extension |
-| Background Jobs | Hangfire processes document chunking + embedding asynchronously |
-| Result Pattern | Services return `Result<T>` — no unhandled exceptions in BLL |
-| Strategy Pattern | Pluggable document parsers: PDF, DOCX, PPTX, XLSX, TXT |
-
----
-
-## Security & Keys
-
-- **Email Encryption**: AES-256. The encryption key (exactly 32 bytes) is stored in `appsettings.json` under `Security:EncryptionKey`. Never commit real keys.
-- **Password Hashing**: `BCrypt.Net-Next`.
-- **Supabase Key**: Service Role Key is used only by backend. Never expose in views, JavaScript, or client-side code.
-
----
-
-## Environment Setup
-
-### Prerequisites
-- .NET 10.0 SDK
-- PostgreSQL with `pgvector` extension available
-- A [Supabase](https://supabase.com/) project (for file storage)
-
-### Configuration
-Open `PL/appsettings.json` and fill in the following sections:
+### 3.2. Configuration
+1. Open the `PL/appsettings.json` (or `appsettings.Development.json`) file.
+2. Fill in the required connection strings and API keys:
 
 ```json
 {
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning"
+    }
+  },
   "ConnectionStrings": {
-    "DefaultConnection": "Host=localhost;Port=5432;Database=lms_db;Username=postgres;Password=yourpassword"
+    "DefaultConnection": "Host=localhost;Port=5432;Database=your_db;Username=postgres;Password=your_password"
   },
   "Security": {
-    "EncryptionKey": "your-32-byte-aes-key-here!!!!!"
+    "EncryptionKey": "your_32_byte_aes_encryption_key_here"
   },
   "Supabase": {
-    "Url": "https://YOUR_PROJECT_REF.supabase.co",
+    "Url": "https://YOUR_PROJECT_REF.supabase.co/rest/v1/",
     "ServiceRoleKey": "YOUR_SUPABASE_SERVICE_ROLE_KEY",
-    "Bucket": "documents"
-  },
-  "GeminiSettings": {
-    "ApiKey": "YOUR_GEMINI_API_KEY",
-    "BaseUrl": "https://generativelanguage.googleapis.com/v1beta/",
-    "EmbeddingModel": "text-embedding-004"
+    "Bucket": "Document"
   },
   "Upload": {
     "MaxFileSize": 52428800,
     "AllowedMimeTypes": {
-      ".pdf":  ["application/pdf"],
-      ".docx": ["application/vnd.openxmlformats-officedocument.wordprocessingml.document"],
-      ".pptx": ["application/vnd.openxmlformats-officedocument.presentationml.presentation"],
-      ".xlsx": ["application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"],
-      ".txt":  ["text/plain"]
+      ".pdf": [ "application/pdf" ],
+      ".doc": [ "application/msword" ],
+      ".docx": [ "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ],
+      ".ppt": [ "application/vnd.ms-powerpoint" ],
+      ".pptx": [ "application/vnd.openxmlformats-officedocument.presentationml.presentation" ],
+      ".txt": [ "text/plain" ],
+      ".csv": [ "text/csv", "application/csv", "application/vnd.ms-excel" ],
+      ".md": [ "text/markdown", "text/plain" ],
+      ".rtf": [ "application/rtf", "text/rtf" ],
+      ".json": [ "application/json", "text/json" ],
+      ".xml": [ "application/xml", "text/xml" ]
     }
-  }
+  },
+  "GeminiSettings": {
+    "ApiKey": "YOUR_GEMINI_API_KEY",
+    "Model": "models/gemini-embedding-001",
+    "BaseUrl": "https://generativelanguage.googleapis.com/v1beta/"
+  },
+  "SmtpSettings": {
+    "Host": "smtp.gmail.com",
+    "Port": 587,
+    "Username": "your_email@gmail.com",
+    "Password": "your_app_password",
+    "EnableSsl": true,
+    "FromAddress": "no-reply@yourdomain.com"
+  },
+  "AllowedHosts": "*"
 }
 ```
 
----
-
-## Database Setup & Migrations
-
-The application uses PostgreSQL with the `pgvector` extension for storing AI vector embeddings.
+### 3.3. Database Migrations
+Use Entity Framework Core to create the database and tables (Ensure your PostgreSQL user has the privilege to install the `vector` extension):
 
 ```bash
-# From the solution root directory:
-
-# Create a new migration (when you modify Core entities)
-dotnet ef migrations add <MigrationName> --project DAL/DAL.csproj --startup-project PL/PL.csproj
-
-# Apply migrations to your database
+# Run this from the solution root directory:
 dotnet ef database update --project DAL/DAL.csproj --startup-project PL/PL.csproj
 ```
 
-> **Note:** Ensure your PostgreSQL user has privileges to install the `vector` extension, which is required by the `DocumentChunks` table.
+### 3.4. Supabase Storage Setup
+1. Create a bucket named `Document` and set its privacy to Private.
+2. Set an upload size limit (e.g., 50MB) and configure the policy to allow file types like `.pdf`, `.doc`, `.docx`, `.ppt`, `.pptx`, `.txt`, `.csv`, `.md`, `.rtf`, `.json`, `.xml`.
 
----
-
-## Supabase Storage Setup
-
-1. Create a Supabase Storage bucket named `documents`.
-2. Keep the bucket **private** (do not make it public).
-3. Set the upload size limit to **50 MB**.
-4. Allow the following MIME types in bucket policy:
-   ```
-   application/pdf
-   application/msword
-   application/vnd.openxmlformats-officedocument.wordprocessingml.document
-   application/vnd.ms-powerpoint
-   application/vnd.openxmlformats-officedocument.presentationml.presentation
-   application/vnd.ms-excel
-   application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
-   text/plain
-   ```
-
----
-
-## Document Processing Pipeline
-
-When a document is uploaded, it goes through an automated background pipeline:
-
-```
-Upload → [Pending] → ChunkingService → [Processing] → EmbeddingService → [Success]
-                                                                        ↘ [Failed]
-```
-
-| Step | Status | Description |
-|------|--------|-------------|
-| Upload | `Pending` | File saved to Supabase; metadata written to DB; Hangfire job enqueued |
-| Chunking | `Processing` | File downloaded from Supabase, parsed by file-type strategy, split into text chunks |
-| Embedding | `Processing` | Each chunk is sent to Gemini Embedding API; vectors stored in `pgvector` |
-| Done | `Success` | Document fully indexed and available for AI chat |
-| Error | `Failed` | Any step can fail; user can retry from the UI |
-
-**Resumption Logic:** Retry is smart — if chunks already exist, only the embedding step is re-run, avoiding redundant API calls.
-
-**Cleanup Logic:** If Supabase upload succeeds but DB save fails, the uploaded file is automatically deleted to prevent orphan objects.
-
----
-
-## AI Chatbot (RAG)
-
-The chatbot uses **Retrieval-Augmented Generation (RAG)**:
-
-1. Student selects which documents to include in the AI context (similar to NotebookLM).
-2. The student's question is converted to a vector embedding via Gemini API.
-3. The system performs a **cosine similarity search** (pgvector) against the selected document chunks.
-4. The top 5 most relevant chunks are included in the prompt sent to Gemini.
-5. Gemini generates an answer grounded strictly in those course materials.
-
-> If no documents are selected, all indexed documents in the subject are searched. If none match, the AI politely responds that no course materials were found.
-
----
-
-## Running the Application
-
+### 3.5. Run the Application
 ```bash
-# From the solution root:
+# From the solution root directory:
 dotnet run --project PL/PL.csproj
 ```
-
-The app starts at `https://localhost:5001` (or the port configured in `PL/Properties/launchSettings.json`).
-
-The Hangfire dashboard is available at `/hangfire` (Admin role required).
+- Access the application at: `https://localhost:5001` (or the port specified in launchSettings).
+- Hangfire Dashboard (Requires Admin account): `https://localhost:5001/hangfire`

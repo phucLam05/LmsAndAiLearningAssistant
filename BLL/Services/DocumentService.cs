@@ -1,5 +1,4 @@
 using BLL.Interfaces;
-using Core.Configuration;
 using Core.DTOs.Common;
 using Core.DTOs.Documents;
 using Core.Entities;
@@ -14,6 +13,7 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Core.Configurations;
 
 namespace BLL.Services
 {

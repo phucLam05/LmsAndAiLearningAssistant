@@ -1,7 +1,4 @@
-using System;
-using System.Collections.Generic;
-
-namespace Core.Configuration
+namespace Core.Configurations
 {
     /// <summary>
     /// Configuration options for document uploads.
