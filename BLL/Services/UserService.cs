@@ -74,7 +74,7 @@ namespace BLL.Services
                 EmailEncrypt = EncryptEmail(normalizedEmail),
                 PasswordHash = passwordHash,
                 Role = dto.Role,
-                Status = UserStatus.Inactive, // Inactive (0) triggers first-time login flow
+                Status = dto.MustChangePassword ? UserStatus.Inactive : UserStatus.Active,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow
             };

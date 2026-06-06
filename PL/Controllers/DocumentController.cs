@@ -175,6 +175,17 @@ namespace PL.Controllers
             return View(document);
         }
 
+        [HttpGet]
+        public async Task<IActionResult> GetStatus(Guid id)
+        {
+            var doc = await _documentService.GetDocumentByIdAsync(id);
+            if (doc == null)
+            {
+                return NotFound();
+            }
+            return Json(new { id = doc.Id, status = doc.Status.ToString() });
+        }
+
         private Guid? GetCurrentUserId()
         {
             var value = User.FindFirstValue(ClaimTypes.NameIdentifier);

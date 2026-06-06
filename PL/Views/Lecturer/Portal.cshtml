@@ -103,7 +103,7 @@
             <div class="bg-surface-container-low border border-outline-variant/30 rounded-2xl p-5 shadow-sm">
                 <div class="flex justify-between items-center mb-4">
                     <h3 class="font-headline-sm text-sm font-bold text-on-surface">Danh sách tài liệu môn học</h3>
-                    <span class="text-[11px] text-outline font-semibold">Tổng số: @Model.Count tài liệu</span>
+                    <span id="docCountBadge" class="text-[11px] text-outline font-semibold">Tổng số: @Model.Count tài liệu</span>
                 </div>
 
                 <div class="overflow-x-auto">
@@ -158,7 +158,7 @@
                                         _ => "bg-tertiary-container/20 border-tertiary/20 text-tertiary"
                                     };
 
-                                    <tr data-doc-id="@doc.Id" class="hover:bg-surface-container/20 transition-all">
+                                    <tr data-doc-id="@doc.Id" data-status="@doc.Status" class="hover:bg-surface-container/20 transition-all">
                                         <td class="py-3.5 pr-2">
                                             <div class="flex items-center gap-2.5 min-w-0">
                                                 <span class="material-symbols-outlined @iconColor text-[20px] select-none">@iconName</span>
@@ -228,7 +228,7 @@
                                                 }
 
                                                 <!-- Xóa tài liệu -->
-                                                <form asp-controller="Document" asp-action="Delete" method="post" class="inline" data-confirm="Bạn có chắc chắn muốn xóa tài liệu này?">
+                                                <form asp-controller="Document" asp-action="Delete" method="post" class="inline" data-delete-confirm="Bạn có chắc chắn muốn xóa tài liệu này?">
                                                     @Html.AntiForgeryToken()
                                                     <input type="hidden" name="id" value="@doc.Id" />
                                                     <input type="hidden" name="subjectId" value="@selectedSubjectId" />
@@ -260,6 +260,17 @@
     </section>
 </div>
 
+<!-- Delete Loading Overlay -->
+<div id="deleteLoadingOverlay" class="fixed inset-0 z-[9999] bg-background/80 backdrop-blur-sm flex flex-col items-center justify-center hidden">
+    <div class="bg-surface-container-high border border-outline-variant/40 rounded-2xl p-8 flex flex-col items-center gap-4 shadow-2xl">
+        <div class="w-14 h-14 rounded-full border-4 border-outline-variant border-t-error animate-spin"></div>
+        <div class="text-center">
+            <p class="font-bold text-on-surface text-sm">Đang xóa tài liệu...</p>
+            <p class="text-xs text-on-surface-variant mt-1">Vui lòng không đóng trang này.</p>
+        </div>
+    </div>
+</div>
+
 <!-- Anti-forgery Token form for JavaScript posts -->
 <form id="antiForgeryForm">
     @Html.AntiForgeryToken()
@@ -270,9 +281,9 @@
         const subjectId = "@selectedSubjectId";
         const dropzone = document.getElementById('docDropzone');
         const fileInput = document.getElementById('docFileInput');
-        
+
         const progressCard = document.getElementById('uploadProgressCard');
-        const progressBar = document.getElementById('uploadProgressBar');
+        const progressBar = document.querySelector('#uploadProgressCard .progress-bar') || document.getElementById('uploadProgressBar');
         const progressPercent = document.getElementById('uploadPercent');
         const progressFileName = document.getElementById('uploadFileName');
         const progressFileSize = document.getElementById('uploadFileSize');
@@ -293,42 +304,47 @@
             e.preventDefault();
             dropzone.classList.remove('bg-surface-container-low', 'border-primary');
             const files = e.dataTransfer.files;
-            if (files.length) uploadLecturerFile(files[0]);
+            if (files.length) {
+                uploadLecturerFile(files[0]);
+            }
         });
 
         fileInput?.addEventListener('change', (e) => {
             const files = e.target.files;
-            if (files.length) uploadLecturerFile(files[0]);
+            if (files.length) {
+                uploadLecturerFile(files[0]);
+            }
         });
 
         function uploadLecturerFile(file) {
             if (file.size > 50 * 1024 * 1024) {
-                showNotification("Kích thước tệp tin vượt quá hạn mức 50MB.", "warning");
+                showNotification(`Tệp "${file.name}" vượt quá hạn mức 50MB.`, "warning");
                 return;
             }
 
             // Set file metadata in progress card
             progressFileName.textContent = file.name;
             progressFileSize.textContent = `${(file.size / 1024 / 1024).toFixed(2)} MB`;
-            
+
             // Icon swap based on extension
             const ext = file.name.split('.').pop().toLowerCase();
             let iconName = 'description';
             let iconColor = 'text-on-surface-variant';
-            
+
             if (ext === 'pdf') { iconName = 'picture_as_pdf'; iconColor = 'text-red-400'; }
             else if (ext === 'doc' || ext === 'docx') { iconName = 'description'; iconColor = 'text-blue-400'; }
             else if (ext === 'ppt' || ext === 'pptx') { iconName = 'slideshow'; iconColor = 'text-amber-400'; }
             else if (ext === 'xls' || ext === 'xlsx') { iconName = 'table_chart'; iconColor = 'text-emerald-400'; }
-            
+
             uploadFileIcon.className = `material-symbols-outlined text-[28px] ${iconColor}`;
             uploadFileIcon.textContent = iconName;
-            
+
             // Reset Progress state
             progressBar.style.width = '0%';
             progressPercent.textContent = '0%';
-            progressStatusText.textContent = 'Đang đẩy học liệu lên Supabase Storage...';
-            progressPulse.style.display = 'none';
+            progressStatusText.textContent = 'Đang chuẩn bị tải tài liệu lên Supabase...';
+            progressStatusText.className = "text-[10px] text-on-surface-variant";
+            if (progressPulse) progressPulse.style.display = 'none';
             progressCard.style.display = 'block';
 
             const formData = new FormData();
@@ -346,25 +362,31 @@
                     const percentComplete = Math.round((e.loaded / e.total) * 100);
                     progressBar.style.width = `${percentComplete}%`;
                     progressPercent.textContent = `${percentComplete}%`;
-                    if (percentComplete >= 100) {
-                        progressStatusText.textContent = 'Lưu metadata & Đang gửi tín hiệu xử lý trích xuất phân đoạn AI...';
+                    if (percentComplete === 100) {
+                        progressStatusText.textContent = 'Đang xử lý...';
                     }
                 }
             };
 
             xhr.onload = function() {
-                if (xhr.status === 200) {
-                    const data = JSON.parse(xhr.responseText);
-                    if (data.success) {
-                        progressCard.style.display = 'none';
-                        addDocRowToTracker(data.document);
-                        simulateBackgroundJobs(data.document.id);
+                try {
+                    if (xhr.status === 200) {
+                        const data = JSON.parse(xhr.responseText);
+                        if (data.success) {
+                            progressCard.style.display = 'none';
+                            addDocRowToTracker(data.document);
+                            startStatusPolling(data.document.id);
+                        } else {
+                            showNotification("Lỗi tải lên: " + data.message, "error");
+                            progressCard.style.display = 'none';
+                        }
                     } else {
-                        showNotification("Lỗi tải lên: " + data.message, "error");
+                        showNotification("Kết nối máy chủ thất bại, Status Code: " + xhr.status, "error");
                         progressCard.style.display = 'none';
                     }
-                } else {
-                    showNotification("Kết nối máy chủ thất bại, Status Code: " + xhr.status, "error");
+                } catch (err) {
+                    console.error("Error in onload file upload:", err);
+                    showNotification("Lỗi xử lý kết quả", "error");
                     progressCard.style.display = 'none';
                 }
             };
@@ -378,15 +400,22 @@
         }
 
         function addDocRowToTracker(doc) {
+            if (!doc) return;
             // Remove empty tracker row if exists
             document.getElementById('emptyTrackerRow')?.remove();
 
             const tbody = document.getElementById('trackerTableBody');
+            if (!tbody) return;
+
             const tr = document.createElement('tr');
             tr.className = 'hover:bg-surface-container/20 transition-all';
             tr.setAttribute('data-doc-id', doc.id);
+            tr.setAttribute('data-status', 'Pending');
             
-            const ext = doc.fileName.split('.').pop().toLowerCase();
+            const token = document.querySelector('#antiForgeryForm input[name="__RequestVerificationToken"]')?.value || '';
+            
+            const fileName = doc.fileName || '';
+            const ext = fileName.split('.').pop().toLowerCase();
             let iconName = 'description';
             let iconColor = 'text-on-surface-variant';
             
@@ -395,8 +424,22 @@
             else if (ext === 'ppt' || ext === 'pptx') { iconName = 'slideshow'; iconColor = 'text-amber-400'; }
             else if (ext === 'xls' || ext === 'xlsx') { iconName = 'table_chart'; iconColor = 'text-emerald-400'; }
 
-            // Parse creation date
-            const dateStr = new Date(doc.createdAt).toISOString().replace('T', ' ').slice(0, 16);
+            // Parse creation date safely
+            let dateStr = "";
+            try {
+                if (doc.createdAt) {
+                    const dateObj = new Date(doc.createdAt);
+                    if (!isNaN(dateObj.getTime())) {
+                        const pad = (num) => String(num).padStart(2, '0');
+                        dateStr = `${dateObj.getFullYear()}-${pad(dateObj.getMonth() + 1)}-${pad(dateObj.getDate())} ${pad(dateObj.getHours())}:${pad(dateObj.getMinutes())}`;
+                    } else {
+                        dateStr = doc.createdAt.replace('T', ' ').slice(0, 16);
+                    }
+                }
+            } catch (e) {
+                console.error("Error parsing date:", e);
+                dateStr = (doc.createdAt || "").replace('T', ' ').slice(0, 16);
+            }
 
             tr.innerHTML = `
                 <td class="py-3.5 pr-2">
@@ -415,88 +458,180 @@
                 <td class="py-3.5 text-on-surface-variant">${dateStr}</td>
                 <td class="py-3.5 text-right">
                     <div class="flex justify-end gap-1.5 items-center">
-                        <a class="inline-flex items-center gap-1 px-3 py-1.5 border border-outline-variant/40 hover:bg-surface-container-high rounded-xl text-on-surface-variant hover:text-on-surface text-[10px] font-bold transition-all select-none" href="/Document/ViewOriginal/${doc.id}" target="_blank" title="Tải xuống tệp gốc từ Supabase">
-                            <span class="material-symbols-outlined text-[14px]">download</span> Original
+                        <a class="p-1.5 bg-surface border border-outline-variant hover:bg-surface-container-high rounded-xl text-on-surface-variant hover:text-on-surface transition-colors flex items-center justify-center" href="/Document/ViewOriginal/${doc.id}" target="_blank" title="Tải xuống tệp gốc từ Supabase">
+                            <span class="material-symbols-outlined text-[16px] block">download</span>
                         </a>
-                        <button class="inline-flex items-center gap-1 px-3 py-1.5 border border-outline-variant/20 text-outline/40 rounded-xl text-[10px] font-bold select-none cursor-not-allowed" disabled title="Xem chunks sau khi AI trích xuất hoàn tất" data-id="${doc.id}">
-                            <span class="material-symbols-outlined text-[14px]">table_chart</span> Chunks
+                        <button class="p-1.5 bg-surface border border-outline-variant/30 text-outline/40 rounded-xl cursor-not-allowed select-none flex items-center justify-center" disabled title="Xem chunks sau khi AI trích xuất hoàn tất" data-id="${doc.id}">
+                            <span class="material-symbols-outlined text-[16px] block">table_chart</span>
                         </button>
+                        <form action="/Document/Delete" method="post" class="inline" data-delete-confirm="Bạn có chắc chắn muốn xóa tài liệu này?">
+                            <input type="hidden" name="__RequestVerificationToken" value="${token}" />
+                            <input type="hidden" name="id" value="${doc.id}" />
+                            <input type="hidden" name="subjectId" value="${subjectId}" />
+                            <input type="hidden" name="redirectUrl" value="/Lecturer/Portal?selectedSubjectId=${subjectId}" />
+                            <button type="submit" class="p-1.5 bg-surface border border-outline-variant hover:bg-error-container/20 rounded-xl text-error transition-colors flex items-center justify-center cursor-pointer border-0" title="Xóa tài liệu">
+                                <span class="material-symbols-outlined text-[16px] block">delete</span>
+                            </button>
+                        </form>
                     </div>
                 </td>
             `;
 
             tbody.insertBefore(tr, tbody.firstChild);
+
+            // Update counter badge
+            const badge = document.getElementById('docCountBadge');
+            if (badge) {
+                const cur = parseInt(badge.textContent.replace(/[^\d]/g, '')) || 0;
+                badge.textContent = `Tổng số: ${cur + 1} tài liệu`;
+            }
         }
 
-        function simulateBackgroundJobs(docId) {
-            const tr = document.querySelector(`tr[data-doc-id="${docId}"]`);
-            if (!tr) return;
+        const activePolls = new Set();
 
-            const statusCell = tr.querySelector('.status-cell');
+        function startStatusPolling(docId) {
+            if (activePolls.has(docId)) return;
+            activePolls.add(docId);
 
-            // 1. Transition: Pending -> Processing (after 3 seconds)
-            setTimeout(() => {
-                updateDocStatusOnServer(docId, "Processing");
-                statusCell.innerHTML = `
-                    <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border text-[10px] font-bold bg-primary/10 border-primary/20 text-primary select-none">
-                        <span class="w-3 h-3 border-2 border-t-transparent border-primary rounded-full animate-spin"></span> Processing
-                    </span>
-                `;
-
-                // 2. Transition: Processing -> Success (after 6 seconds)
-                setTimeout(() => {
-                    const fileName = tr.querySelector('span.font-bold').textContent;
-                    const finalStatus = fileName.toLowerCase().includes('failed') || fileName.toLowerCase().includes('error') ? "Failed" : "Success";
-                    
-                    updateDocStatusOnServer(docId, finalStatus);
-
-                    if (finalStatus === "Success") {
-                        statusCell.innerHTML = `
-                            <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border text-[10px] font-bold bg-tertiary-container/20 border-tertiary/20 text-tertiary select-none">
-                                <span class="material-symbols-outlined text-[12px] filled">check_circle</span> Success
-                            </span>
-                        `;
-                        
-                        const actionsDiv = tr.querySelector('.text-right div');
-                        if (actionsDiv) {
-                            actionsDiv.innerHTML = `
-                                <a class="inline-flex items-center gap-1 px-3 py-1.5 border border-outline-variant/40 hover:bg-surface-container-high rounded-xl text-on-surface-variant hover:text-on-surface text-[10px] font-bold transition-all select-none" href="/Document/ViewOriginal/${docId}" target="_blank" title="Tải xuống tệp gốc từ Supabase">
-                                    <span class="material-symbols-outlined text-[14px]">download</span> Original
-                                </a>
-                                <a class="inline-flex items-center gap-1 px-3 py-1.5 bg-primary/10 border border-primary/20 text-primary hover:bg-primary hover:text-on-primary rounded-xl text-[10px] font-bold transition-all select-none animate-pulse" href="/Document/Details/${docId}" title="Xem danh sách chunks & vector embeddings">
-                                    <span class="material-symbols-outlined text-[14px]">table_chart</span> Chunks
-                                </a>
-                            `;
+            const pollInterval = setInterval(() => {
+                fetch(`/Document/GetStatus/${docId}`)
+                    .then(res => {
+                        if (!res.ok) throw new Error("Document status error");
+                        return res.json();
+                    })
+                    .then(data => {
+                        const tr = document.querySelector(`tr[data-doc-id="${docId}"]`);
+                        if (!tr) {
+                            clearInterval(pollInterval);
+                            activePolls.delete(docId);
+                            return;
                         }
-                    } else {
-                        statusCell.innerHTML = `
-                            <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border text-[10px] font-bold bg-error-container/20 border-error/20 text-error select-none">
-                                <span class="material-symbols-outlined text-[12px]">cancel</span> Failed
-                            </span>
-                        `;
-                    }
-                }, 5000);
 
+                        const currentStatus = tr.getAttribute('data-status');
+                        if (currentStatus !== data.status) {
+                            tr.setAttribute('data-status', data.status);
+                            updateRowStatusUI(tr, docId, data.status);
+                        }
+
+                        if (data.status === "Success" || data.status === "Failed") {
+                            clearInterval(pollInterval);
+                            activePolls.delete(docId);
+                        }
+                    })
+                    .catch(err => {
+                        console.error("Error polling document status:", err);
+                        clearInterval(pollInterval);
+                        activePolls.delete(docId);
+                    });
             }, 3000);
         }
 
-        function updateDocStatusOnServer(docId, status) {
-            const formData = new FormData();
-            formData.append('docId', docId);
-            formData.append('status', status);
+        function updateRowStatusUI(tr, docId, status) {
+            const statusCell = tr.querySelector('.status-cell');
+            if (!statusCell) return;
 
-            fetch('/Lecturer/UpdateDocumentStatus', {
-                method: 'POST',
-                body: formData
-            })
-            .then(res => res.json())
-            .then(data => {
-                if(!data.success) console.error("Không thể lưu trạng thái mới vào Cơ sở dữ liệu.");
-            })
-            .catch(err => {
-                console.error("Lỗi đồng bộ hóa trạng thái tài liệu.");
-            });
+            let statusClass = "bg-surface-container-highest border-outline-variant/40 text-outline";
+            let iconHtml = '<span class="material-symbols-outlined text-[12px]">schedule</span>';
+
+            if (status === "Processing") {
+                statusClass = "bg-primary/10 border-primary/20 text-primary";
+                iconHtml = '<span class="w-3 h-3 border-2 border-t-transparent border-primary rounded-full animate-spin"></span>';
+            } else if (status === "Success") {
+                statusClass = "bg-tertiary-container/20 border-tertiary/20 text-tertiary";
+                iconHtml = '<span class="material-symbols-outlined text-[12px] filled">check_circle</span>';
+            } else if (status === "Failed") {
+                statusClass = "bg-error-container/20 border-error/20 text-error";
+                iconHtml = '<span class="material-symbols-outlined text-[12px]">cancel</span>';
+            }
+
+            statusCell.innerHTML = `
+                <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border text-[10px] font-bold ${statusClass} select-none">
+                    ${iconHtml} ${status}
+                </span>
+            `;
+
+            const actionsCell = tr.querySelector('td:last-child div');
+            if (actionsCell) {
+                let chunksButton = "";
+                let retryButton = "";
+
+                if (status === "Success") {
+                    chunksButton = `
+                        <a class="p-1.5 bg-surface border border-outline-variant hover:bg-surface-container-high rounded-xl text-primary transition-colors flex items-center justify-center" 
+                           href="/Document/Details/${docId}" title="Xem danh sách chunks & vector embeddings">
+                            <span class="material-symbols-outlined text-[16px] block">table_chart</span>
+                        </a>
+                    `;
+                } else {
+                    chunksButton = `
+                        <button class="p-1.5 bg-surface border border-outline-variant/30 text-outline/40 rounded-xl cursor-not-allowed select-none flex items-center justify-center" 
+                                disabled title="Xem chunks sau khi AI trích xuất hoàn tất">
+                            <span class="material-symbols-outlined text-[16px] block">table_chart</span>
+                        </button>
+                    `;
+                }
+
+                if (status === "Failed") {
+                    const token = document.querySelector('#antiForgeryForm input[name="__RequestVerificationToken"]')?.value || '';
+                    retryButton = `
+                        <form action="/Document/RetryProcessing" method="post" class="inline">
+                            <input type="hidden" name="__RequestVerificationToken" value="${token}" />
+                            <input type="hidden" name="id" value="${docId}" />
+                            <input type="hidden" name="subjectId" value="${subjectId}" />
+                            <input type="hidden" name="redirectUrl" value="/Lecturer/Portal?selectedSubjectId=${subjectId}" />
+                            <button type="submit" class="p-1.5 bg-surface border border-outline-variant hover:bg-surface-container-high rounded-xl text-primary transition-colors flex items-center justify-center cursor-pointer border-0" title="Thử lại AI indexing">
+                                <span class="material-symbols-outlined text-[16px] block">refresh</span>
+                            </button>
+                        </form>
+                    `;
+                }
+
+                const downloadButton = `
+                    <a class="p-1.5 bg-surface border border-outline-variant hover:bg-surface-container-high rounded-xl text-on-surface-variant hover:text-on-surface transition-colors flex items-center justify-center" 
+                       href="/Document/ViewOriginal/${docId}" target="_blank" title="Tải xuống tệp gốc từ Supabase">
+                        <span class="material-symbols-outlined text-[16px] block">download</span>
+                    </a>
+                `;
+
+                const token = document.querySelector('#antiForgeryForm input[name="__RequestVerificationToken"]')?.value || '';
+                const deleteButton = `
+                    <form action="/Document/Delete" method="post" class="inline" data-delete-confirm="Bạn có chắc chắn muốn xóa tài liệu này?">
+                        <input type="hidden" name="__RequestVerificationToken" value="${token}" />
+                        <input type="hidden" name="id" value="${docId}" />
+                        <input type="hidden" name="subjectId" value="${subjectId}" />
+                        <input type="hidden" name="redirectUrl" value="/Lecturer/Portal?selectedSubjectId=${subjectId}" />
+                        <button type="submit" class="p-1.5 bg-surface border border-outline-variant hover:bg-error-container/20 rounded-xl text-error transition-colors flex items-center justify-center cursor-pointer border-0" title="Xóa tài liệu">
+                            <span class="material-symbols-outlined text-[16px] block">delete</span>
+                        </button>
+                    </form>
+                `;
+
+                actionsCell.innerHTML = downloadButton + chunksButton + retryButton + deleteButton;
+            }
         }
+
+        document.addEventListener("DOMContentLoaded", () => {
+            document.querySelectorAll("tr[data-doc-id]").forEach(tr => {
+                const status = tr.getAttribute("data-status");
+                if (status === "Pending" || status === "Processing") {
+                    startStatusPolling(tr.getAttribute("data-doc-id"));
+                }
+            });
+        });
+
+        // Intercept delete forms to show loading overlay
+        document.addEventListener("DOMContentLoaded", () => {
+            document.addEventListener("submit", (e) => {
+                const form = e.target.closest("form[data-delete-confirm]");
+                if (!form) return;
+                e.preventDefault();
+                const msg = form.getAttribute("data-delete-confirm") || "Bạn có chắc chắn muốn xóa tài liệu này?";
+                showConfirmModal(msg, () => {
+                    document.getElementById("deleteLoadingOverlay").classList.remove("hidden");
+                    form.submit();
+                });
+            });
+        });
     </script>
 }
 

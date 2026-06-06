@@ -249,16 +249,7 @@ else
                                         </form>
                                     }
 
-                                    <!-- Delete Document -->
-                                    <form asp-controller="Document" asp-action="Delete" method="post" class="inline" data-confirm="Bạn có chắc chắn muốn xóa tài liệu này? Hành động này sẽ xóa file vật lý và tất cả các chunks dữ liệu AI đi kèm.">
-                                        @Html.AntiForgeryToken()
-                                        <input type="hidden" name="id" value="@doc.Id" />
-                                        <input type="hidden" name="subjectId" value="@doc.SubjectId" />
-                                        <input type="hidden" name="redirectUrl" value="/Admin/Documents" />
-                                        <button type="submit" class="p-1.5 bg-surface border border-outline-variant hover:bg-error-container/20 rounded text-error transition-colors cursor-pointer" title="Xóa tài liệu">
-                                            <span class="material-symbols-outlined text-[16px]">delete</span>
-                                        </button>
-                                    </form>
+
                                 </div>
                             </td>
                         </tr>

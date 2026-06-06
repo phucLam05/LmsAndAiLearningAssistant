@@ -19,5 +19,7 @@ namespace Core.DTOs.Admin
         [Required]
         [StringLength(50)]
         public string UserCode { get; set; } = string.Empty;
+
+        public bool MustChangePassword { get; set; } = true;
     }
 }
