@@ -1,0 +1,38 @@
+﻿using Microsoft.EntityFrameworkCore.Migrations;
+
+#nullable disable
+
+namespace DAL.Migrations
+{
+    /// <inheritdoc />
+    public partial class UpdateUserStatusDefaultValue : Migration
+    {
+        /// <inheritdoc />
+        protected override void Up(MigrationBuilder migrationBuilder)
+        {
+            migrationBuilder.AlterColumn<short>(
+                name: "status",
+                table: "users",
+                type: "smallint",
+                nullable: false,
+                defaultValue: (short)0,
+                oldClrType: typeof(short),
+                oldType: "smallint",
+                oldDefaultValue: (short)1);
+        }
+
+        /// <inheritdoc />
+        protected override void Down(MigrationBuilder migrationBuilder)
+        {
+            migrationBuilder.AlterColumn<short>(
+                name: "status",
+                table: "users",
+                type: "smallint",
+                nullable: false,
+                defaultValue: (short)1,
+                oldClrType: typeof(short),
+                oldType: "smallint",
+                oldDefaultValue: (short)0);
+        }
+    }
+}

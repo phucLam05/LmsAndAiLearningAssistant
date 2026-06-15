@@ -126,7 +126,8 @@ namespace PL.Controllers
                 Email = email,
                 FullName = fullName,
                 Role = userRole,
-                UserCode = studentCode
+                UserCode = studentCode,
+                MustChangePassword = mustChangePassword
             };
 
             var result = await _userService.CreateUserAsync(createDto);

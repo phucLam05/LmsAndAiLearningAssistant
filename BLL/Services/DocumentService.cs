@@ -166,7 +166,12 @@ namespace BLL.Services
                     return Result<DocumentDto>.Failure("Người dùng không tồn tại.");
                 }
 
-                if (uploaderUser.Role != UserRole.Admin && subject.LecturerId != uploadDto.UploadedBy)
+                if (uploaderUser.Role == UserRole.Admin)
+                {
+                    return Result<DocumentDto>.Failure("Admin không được phép upload tài liệu.");
+                }
+
+                if (subject.LecturerId != uploadDto.UploadedBy)
                 {
                     return Result<DocumentDto>.Failure("Bạn không có quyền upload tài liệu cho môn học này.");
                 }
@@ -226,8 +231,14 @@ namespace BLL.Services
                     return Result.Failure("User not found.");
                 }
 
-                // Admins can delete any document; Lecturers can only delete their own
-                if (user.Role != UserRole.Admin && document.UploadedBy != userId)
+                // Block Admin deletions entirely
+                if (user.Role == UserRole.Admin)
+                {
+                    return Result.Failure("Admin không được phép xóa tài liệu.");
+                }
+
+                // Lecturers can only delete their own
+                if (document.UploadedBy != userId)
                 {
                     return Result.Failure("Access denied.");
                 }

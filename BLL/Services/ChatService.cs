@@ -1,5 +1,6 @@
 using BLL.Interfaces;
 using Core.Entities;
+using Core.DTOs.Subject;
 using DAL.Interfaces;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
@@ -53,11 +54,11 @@ namespace BLL.Services
         };
         private const string DefaultModel = "gemini-2.5-flash";
 
-        public async Task<string> ChatWithSubjectAsync(Guid subjectId, string query, string? model = null, List<Guid>? documentIds = null, CancellationToken cancellationToken = default)
+        public async Task<ChatResponseDto> ChatWithSubjectAsync(Guid subjectId, string query, string? model = null, List<Guid>? documentIds = null, CancellationToken cancellationToken = default)
         {
             if (string.IsNullOrWhiteSpace(query))
             {
-                return "Please enter a question.";
+                return new ChatResponseDto { Answer = "Please enter a question." };
             }
 
             try
@@ -77,21 +78,40 @@ namespace BLL.Services
                 if (!matchedChunks.Any())
                 {
                     bool hasDocumentFilter = documentIds != null && documentIds.Count > 0;
-                    return hasDocumentFilter
+                    var fallbackMsg = hasDocumentFilter
                         ? "Xin lỗi, các tài liệu bạn đã chọn chưa được xử lý hoặc không có nội dung phù hợp. Vui lòng chọn thêm tài liệu hoặc đặt câu hỏi khác."
                         : "Sorry, I could not find any documents or materials uploaded for this subject to answer your question. Please ask your lecturer to upload course materials.";
+                    return new ChatResponseDto { Answer = fallbackMsg };
                 }
 
-                // Construct prompt
+                // Construct prompt with numbered sources
                 var contextBuilder = new StringBuilder();
+                var chatSources = new List<ChatSourceDto>();
+                int index = 1;
                 foreach (var chunk in matchedChunks)
                 {
-                    contextBuilder.AppendLine($"[Source Document: {chunk.FileName}]");
-                    contextBuilder.AppendLine(chunk.Content);
+                    var fileName = chunk.Document != null ? chunk.Document.FileName : "Unknown Document";
+                    contextBuilder.AppendLine($"[Source {index}]");
+                    contextBuilder.AppendLine($"Document: {fileName}");
+                    if (chunk.PageNumber.HasValue)
+                    {
+                        contextBuilder.AppendLine($"Page: {chunk.PageNumber.Value}");
+                    }
+                    contextBuilder.AppendLine($"Content: {chunk.Content}");
                     contextBuilder.AppendLine("---");
+
+                    chatSources.Add(new ChatSourceDto
+                    {
+                        Index = index,
+                        DocumentId = chunk.DocumentId ?? Guid.Empty,
+                        FileName = fileName,
+                        Content = chunk.Content,
+                        PageNumber = chunk.PageNumber
+                    });
+                    index++;
                 }
 
-                var systemPrompt = "You are a helpful University AI Learning Assistant. Answer the student's question based strictly on the provided course documents. If the documents do not contain enough information to answer, politely state that the answer is not in the course materials and ask the student to contact their lecturer for more details. Keep your response format clear, concise, and using markdown for formatting (such as bullet points or bold text) when helpful.";
+                var systemPrompt = "You are a helpful University AI Learning Assistant. Answer the student's question based strictly on the provided course documents. For every claim or statement you make that is derived from the course materials, you MUST cite the corresponding source by appending its number in square brackets at the end of the sentence, e.g., '[1]', '[2]'. If multiple sources apply, cite all of them, e.g., '[1][2]'. Do not include a bibliography or references section at the end of your response, only use inline citations. If the documents do not contain enough information to answer, politely state that the answer is not in the course materials and ask the student to contact their lecturer for more details. Keep your response format clear, concise, and using markdown for formatting (such as bullet points or bold text) when helpful.";
                 
                 var prompt = $"System context:\n{systemPrompt}\n\nCourse materials context:\n{contextBuilder}\n\nStudent's Question: {query}\n\nAnswer:";
 
@@ -102,12 +122,20 @@ namespace BLL.Services
 
                 _logger.LogInformation("Sending request to Gemini API using model: {Model}", resolvedModel);
                 var answer = await GenerateTextAsync(prompt, resolvedModel, cancellationToken);
-                return answer;
+                
+                return new ChatResponseDto 
+                { 
+                    Answer = answer, 
+                    Sources = chatSources 
+                };
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error occurred during RAG chat with SubjectId: {SubjectId}", subjectId);
-                return $"An error occurred while communicating with the AI Assistant: {ex.Message}";
+                return new ChatResponseDto 
+                { 
+                    Answer = $"An error occurred while communicating with the AI Assistant: {ex.Message}" 
+                };
             }
         }
 

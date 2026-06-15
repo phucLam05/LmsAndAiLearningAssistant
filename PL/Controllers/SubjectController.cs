@@ -259,8 +259,8 @@ namespace PL.Controllers
                     .ToList();
             }
 
-            var answer = await _chatService.ChatWithSubjectAsync(subjectId, message, model, selectedDocIds);
-            return Json(new { success = true, reply = answer });
+            var result = await _chatService.ChatWithSubjectAsync(subjectId, message, model, selectedDocIds);
+            return Json(new { success = true, reply = result.Answer, sources = result.Sources });
         }
     }
 }
